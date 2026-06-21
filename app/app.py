@@ -137,9 +137,9 @@ def delete_recording(filename):
 @app.route("/import-epg", methods=["POST"])
 def import_epg():
 
-    epg.import_xmltv("/home/wire/guide.xml")
+   epg.update_guide()
 
-    return redirect("/")
+   return redirect("/")
 
 @app.route("/api/guide")
 def api_guide():
