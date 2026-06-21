@@ -1,0 +1,106 @@
+<!doctype html>
+<html>
+<head>
+    <title>AndresDVR</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            background: #111;
+            color: #eee;
+            font-family: Arial, sans-serif;
+            margin: 30px;
+        }
+        a { color: #4da3ff; }
+        .card {
+            background: #1d1d1d;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 18px;
+        }
+        button {
+            padding: 10px 16px;
+            margin: 4px;
+            border-radius: 8px;
+            border: 0;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .record { background: #d93025; color: white; }
+        .stop { background: #fbbc04; color: black; }
+        .delete { background: #555; color: white; }
+        .status { font-size: 22px; font-weight: bold; }
+        .recording { color: #ff5555; }
+        .idle { color: #55ff88; }
+    </style>
+</head>
+<body>
+
+<h1>📺 AndresDVR v0.1</h1>
+
+<div class="card">
+    <div class="status">
+        Status:
+        {% if status == "RECORDING" %}
+            <span class="recording">● RECORDING</span>
+        {% else %}
+            <span class="idle">● IDLE</span>
+        {% endif %}
+    </div>
+    <h2>Channels</h2>
+
+{% for ch in channels %}
+<div class="card">
+    <h3>{{ ch["guide_number"] }} {{ ch["guide_name"] }}</h3>
+    <p>{{ ch["url"] }}</p>
+    
+    <form action="/record-channel/{{ ch["guide_number"] }}" method="post" style="display:inline;">
+    <button class="record" type="submit">Record</button>
+</form>
+</div>
+{% else %}
+
+
+<p>No channels yet. Click Scan Channels.</p>
+{% endfor %} 
+    <br>
+    <form action="/scan-channels" method="post" style="display:inline;">
+    <button type="submit">Scan Channels</button>
+    </form>
+   
+
+    <form action="/start" method="post" style="display:inline;">
+        <button class="record" type="submit">Start Recording 17.1</button>
+    </form>
+
+    <form action="/stop" method="post" style="display:inline;">
+        <button class="stop" type="submit">Stop Recording</button>
+    </form>
+
+    <a href="/health">Health</a>
+</div>
+
+<h2>Recordings</h2>
+
+{% for r in recordings %}
+<div class="card">
+    <h3>{{ r["title"] }}</h3>
+    <p>
+        Channel: {{ r["channel"] }}<br>
+        Status: {{ r["status"] }}<br>
+        Start: {{ r["start_time"] }}<br>
+        Size: {{ "%.1f"|format((r["size_bytes"] or 0) / 1024 / 1024) }} MB
+    </p>
+
+    <a href="/play/{{ r["filename"] }}">Play/Download</a>
+
+    <form action="/delete/{{ r["filename"] }}" method="post" style="display:inline;">
+        <button class="delete" type="submit">Delete</button>
+    </form>
+</div>
+{% else %}
+<p>No recordings yet.</p>
+{% endfor %}
+
+</body>
+</html>

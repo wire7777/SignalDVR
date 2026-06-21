@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+recordings/
+logs/
+database/
+*.db
+current_recording.txt
+recording.pid
+.env
+.vscode/
