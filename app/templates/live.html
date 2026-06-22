@@ -1,371 +1,283 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
 
 <head>
     <title>AndresDVR Live TV</title>
-
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
     <style>
         body {
-            margin: 0;
             background: #111;
-            color: white;
-            font-family: Arial, Helvetica, sans-serif;
-        }
-
-        header {
-            background: #1b1b1b;
-            padding: 15px 25px;
-            border-bottom: 1px solid #333;
-        }
-
-        h1 {
-            margin: 0;
-            color: #55b6ff;
+            color: #eee;
+            font-family: Arial;
+            margin: 25px;
         }
 
         a {
-            color: #55b6ff;
+            color: #4da3ff;
             text-decoration: none;
         }
 
-        #status {
-            color: #ffd966;
-            margin-top: 8px;
-            font-weight: bold;
-        }
-
         .player {
-            position: relative;
             width: 100%;
+            max-width: 1100px;
             background: black;
-        }
-
-        video {
-            width: 100%;
-            max-height: 70vh;
-            background: black;
-        }
-
-        #overlay {
-            position: absolute;
-            left: 25px;
-            top: 25px;
-
-            background: rgba(0, 0, 0, .70);
-
-            padding: 18px;
-
             border-radius: 10px;
-
-            display: none;
-        }
-
-        #overlay h2 {
-            margin: 0;
-            font-size: 28px;
-        }
-
-        #overlay p {
-            margin-top: 8px;
-            color: #ccc;
-        }
-
-        .controls {
-
-            padding: 20px;
-
-            background: #181818;
-
-        }
-
-        .channels {
-
-            display: grid;
-
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-
-            gap: 10px;
         }
 
         button {
-
-            width: 100%;
-
-            padding: 12px;
-
-            font-size: 15px;
-
-            border-radius: 8px;
-
-            border: none;
-
-            cursor: pointer;
-
-            background: #1976d2;
-
+            background: #2196f3;
             color: white;
+            border: 0;
+            padding: 10px 18px;
+            margin: 4px;
+            border-radius: 8px;
+            cursor: pointer;
         }
 
         button:hover {
-
-            background: #3399ff;
+            background: #1976d2;
         }
 
         .stop {
-
             background: #aa2222;
-
-            margin-top: 20px;
         }
 
-        .stop:hover {
-
-            background: #cc3333;
+        .status {
+            background: #202020;
+            border: 1px solid #333;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
         }
 
-        .watching {
+        .channel-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
 
-            font-size: 18px;
+        .channel {
+            background: #222;
+            border-radius: 8px;
+            padding: 8px;
+        }
 
-            color: #55ff88;
+        .running {
+            color: #5cff5c;
+            font-weight: bold;
+        }
 
-            margin-bottom: 15px;
+        .stopped {
+            color: #ff6666;
+            font-weight: bold;
+        }
+
+        #playerStatus {
+            color: #ffd966;
+            margin-top: 10px;
         }
     </style>
-
 </head>
 
 <body>
 
-    <header>
+    <h1>📺 HLS Live TV Test</h1>
 
-        <h1>📺 AndresDVR Live TV</h1>
+    <p>
+        <a href="/">Home</a>
+        <a href="/timeshift">Live TV DVR</a> |
+        <a href="/guide">Guide</a> |
+        <a href="/recordings">Recordings</a>
+    </p>
 
-        <div>
+    <h2>Current Channel</h2>
 
-            <a href="/">Home</a> |
+    <p id="currentChannel">
+        {% if current %}
+        {{ current }}
+        {% else %}
+        No channel selected
+        {% endif %}
+    </p>
 
-            <a href="/guide">Guide</a> |
+    <video id="video" class="player" controls autoplay playsinline></video>
 
-            <a href="/grid">Grid</a> |
+    <div id="playerStatus">Click a channel to start Live TV.</div>
 
-            <a href="/recordings">Recordings</a>
+    <br>
 
-        </div>
+    <button onclick="reloadPlayer()">↻ Reload Player</button>
+    <button class="stop" onclick="stopLive()">■ Stop Live TV</button>
 
-        <div id="status">
-            Ready
-        </div>
+    <div class="status">
+        <h3>Live TV Status</h3>
 
-    </header>
+        <p>
+            Running:
+            {% if live_status["running"] %}
+            <span class="running">YES</span>
+            {% else %}
+            <span class="stopped">NO</span>
+            {% endif %}
+        </p>
 
-    <div class="player">
-
-        <video id="video" controls autoplay playsinline>
-        </video>
-
-        <div id="overlay">
-
-            <h2 id="overlayTitle">
-
-                Loading...
-
-            </h2>
-
-            <p id="overlayText">
-
-                Please wait...
-
-            </p>
-
-        </div>
-
+        <p>Channel: {{ live_status["channel"] }}</p>
+        <p>Playlist Ready: {{ live_status["playlist_exists"] }}</p>
+        <p>FFmpeg Log: {{ live_status["log"] }}</p>
     </div>
 
-    <div class="controls">
+    <h2>Channels</h2>
 
-        {% if current %}
-        <div class="watching">
+    <div class="channel-list">
+        {% for ch in channels %}
+        <div class="channel">
+            <b>{{ ch["guide_number"] }}</b>
+            {{ ch["guide_name"] }}
 
-            Now Watching
+            <br><br>
+            <script>
+                function waitForPlaylistThenLoad(attempt = 0) {
+                    fetch("/livebuffer/live.m3u8?ts=" + Date.now(), {
+                        cache: "no-store"
+                    })
+                        .then(r => {
+                            if (!r.ok) {
+                                throw new Error("playlist not ready");
+                            }
 
-            <strong>{{ current }}</strong>
-
-        </div>
-        {% endif %}
-
-        <div class="channels">
-
-            {% for ch in channels %}
-
+                            setPlayerStatus("Stream ready. Loading player...");
+                            loadPlayer();
+                        })
+                        .catch(() => {
+                            if (attempt < 30) {
+                                setPlayerStatus("Waiting for stream... " + (attempt + 1));
+                                setTimeout(() => {
+                                    waitForPlaylistThenLoad(attempt + 1);
+                                }, 500);
+                            } else {
+                                setPlayerStatus("Stream took too long. Click Reload Player.");
+                            }
+                        });
+                }
+            </script>
             <button
-                onclick="changeChannel('{{ ch['guide_number'] }}','{{ ch['guide_number'] }} {{ ch['guide_name'] }}')">
-
-                {{ ch["guide_number"] }}
-
-                {{ ch["guide_name"] }}
-
+                onclick="startChannel('{{ ch['guide_number'] }}', '{{ ch['guide_number'] }} {{ ch['guide_name'] }}')">
+                Watch
             </button>
-
-            {% endfor %}
-
         </div>
-
-        <button class="stop" onclick="stopLive()">
-
-            ■ Stop Live TV
-
-        </button>
-        <button onclick="loadPlayer()">
-            ↻ Reload Player
-        </button>
-
+        {% endfor %}
     </div>
 
     <script>
-
-        const video = document.getElementById("video");
-
-        const status = document.getElementById("status");
-
-        const overlay = document.getElementById("overlay");
-
-        const playlist = "/livebuffer/live.m3u8";
-
         let hls = null;
 
-        function showOverlay(title) {
+        function setPlayerStatus(text) {
+            document.getElementById("playerStatus").innerHTML = text;
+        }
 
-            document.getElementById("overlayTitle").innerText = title;
+        function destroyPlayer() {
+            const video = document.getElementById("video");
 
-            document.getElementById("overlayText").innerText = "Loading Live TV...";
+            if (hls) {
+                hls.destroy();
+                hls = null;
+            }
 
-            overlay.style.display = "block";
-
-            setTimeout(() => {
-
-                overlay.style.display = "none";
-
-            }, 3000);
-
+            video.pause();
+            video.removeAttribute("src");
+            video.load();
         }
 
         function loadPlayer() {
+            const video = document.getElementById("video");
+            const src = "/livebuffer/live.m3u8?ts=" + new Date().getTime();
 
-            fetch(playlist + "?" + Date.now(), {
+            setPlayerStatus("Loading player...");
 
-                cache: "no-store"
+            if (hls) {
+                hls.destroy();
+                hls = null;
+            }
 
-            })
+            video.muted = false;
+            video.volume = 1.0;
 
-                .then(r => {
-
-                    if (!r.ok) {
-
-                        throw new Error();
-
-                    }
-
-                    if (hls) {
-
-                        hls.destroy();
-
-                    }
-
-                    hls = new Hls({
-
-                        liveSyncDuration: 4,
-
-                        liveMaxLatencyDuration: 12,
-
-                        lowLatencyMode: true,
-
-                        enableWorker: true
-
-                    });
-
-                    hls.loadSource(playlist + "?" + Date.now());
-
-                    hls.attachMedia(video);
-
-                    hls.on(Hls.Events.MANIFEST_PARSED, function () {
-
-                        status.innerText = "LIVE";
-
-                        video.play();
-
-                    });
-
-                    hls.on(Hls.Events.ERROR, function () {
-
-                        status.innerText = "Reconnecting...";
-
-                        setTimeout(loadPlayer, 1000);
-
-                    });
-
-                })
-
-                .catch(() => {
-
-                    status.innerText = "Waiting for stream...";
-
-                    setTimeout(loadPlayer, 1000);
+            if (Hls.isSupported()) {
+                hls = new Hls({
+                    enableWorker: true,
+                    lowLatencyMode: false,
+                    liveSyncDuration: 10,
+                    liveMaxLatencyDuration: 60,
+                    backBufferLength: 3600,
+                    maxBufferLength: 3600,
+                    maxMaxBufferLength: 3600
 
                 });
 
-        }
+                hls.loadSource(src);
+                hls.attachMedia(video);
 
-        function changeChannel(channel, name) {
+                hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                    video.muted = false;
+                    video.volume = 1.0;
 
-            showOverlay(name);
-
-            status.innerText = "Changing channel...";
-
-            fetch("/api/live/start/" + channel, {
-
-                method: "POST"
-
-            })
-
-                .then(r => r.json())
-
-                .then(() => {
-
-                    setTimeout(loadPlayer, 1500);
-
+                    video.play().then(() => {
+                        setPlayerStatus("Playing");
+                    }).catch(() => {
+                        setPlayerStatus("Ready. Click Play if audio does not start.");
+                    });
                 });
 
+                hls.on(Hls.Events.ERROR, function () {
+                    setPlayerStatus("Waiting for stream...");
+                });
+            } else {
+                video.src = src;
+                video.muted = false;
+                video.volume = 1.0;
+
+                video.play().then(() => {
+                    setPlayerStatus("Playing");
+                }).catch(() => {
+                    setPlayerStatus("Ready. Click Play if audio does not start.");
+                });
+            }
         }
 
-        function stopLive() {
+        function reloadPlayer() {
+            loadPlayer();
+        }
 
-            fetch("/live/stop", {
+        async function startChannel(channel, label) {
+            setPlayerStatus("Changing to " + label + "...");
 
+            destroyPlayer();
+
+            const response = await fetch("/api/live/start/" + channel, {
                 method: "POST"
-
-            }).then(() => {
-
-                if (hls) {
-
-                    hls.destroy();
-
-                }
-
-                video.removeAttribute("src");
-
-                video.load();
-
-                status.innerText = "Stopped";
-
             });
 
+            const data = await response.json();
+
+            document.getElementById("currentChannel").innerHTML =
+                data.channel || label || channel;
+
+            setPlayerStatus("Waiting for new channel buffer...");
+
+            waitForPlaylistThenLoad();
         }
 
-        loadPlayer();
+        async function stopLive() {
+            await fetch("/live/stop", {
+                method: "POST"
+            });
 
+            destroyPlayer();
+
+            setPlayerStatus("Waiting for new channel buffer...");
+            waitForPlaylistThenLoad();
+        }
     </script>
 
 </body>

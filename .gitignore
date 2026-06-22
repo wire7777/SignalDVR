@@ -1,10 +1,47 @@
+# Python
 __pycache__/
 *.pyc
-recordings/
-logs/
-database/
-*.db
-current_recording.txt
-recording.pid
+*.pyo
+
+# Virtual env
+venv/
 .env
+
+# Logs
+logs/*
+!logs/.gitkeep
+
+# Live TV buffer
+livebuffer/*
+!livebuffer/.gitkeep
+
+# Thumbnails
+thumbnails/*
+!thumbnails/.gitkeep
+
+# Guide cache
+guide/*
+!guide/.gitkeep
+
+# Database backups
+backup/*
+!backup/.gitkeep
+
+# Recordings
+recordings/*
+!recordings/.gitkeep
+
+# SQLite database
+*.db
+*.sqlite
+*.sqlite3
+
+# Linux
+*.swp
+*~
+
+# VS Code
 .vscode/
+
+# macOS
+.DS_Store

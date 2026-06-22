@@ -14,6 +14,7 @@
 
         a {
             color: #4da3ff;
+            margin-right: 12px;
         }
 
         .card {
@@ -60,12 +61,17 @@
         .idle {
             color: #55ff88;
         }
+
+        .nav {
+            margin: 15px 0;
+            line-height: 2;
+        }
     </style>
 </head>
 
 <body>
 
-    <h1>📺 AndresDVR v0.1</h1>
+    <h1>📺 AndresDVR</h1>
 
     <div class="card">
         <div class="status">
@@ -76,51 +82,60 @@
             <span class="idle">● IDLE</span>
             {% endif %}
         </div>
-        <h2>Channels</h2>
 
-        {% for ch in channels %}
-        <div class="card">
-            <h3>{{ ch["guide_number"] }} {{ ch["guide_name"] }}</h3>
-
-            <p>
-                <b>NOW:</b> {{ ch["now_title"] or "No guide data" }}<br>
-                <b>NEXT:</b> {{ ch["next_title"] or "No guide data" }}
-            </p>
-
-            <form action="/record-channel/{{ ch[" guide_number"] }}" method="post" style="display:inline;">
-                <button class="record" type="submit">Record</button>
-            </form>
+        <div class="nav">
+            <a href="/timeshift">⏯ Live TV DVR</a>
+            <a href="/live">📺 HLS Live Test</a>
+            <a href="/guide">Guide</a>
+            <a href="/grid">Grid</a>
+            <a href="/scheduled">Scheduled</a>
+            <a href="/series">Series</a>
+            <a href="/recordings">Recordings Library</a>
+            <a href="/search">Search</a>
+            <a href="/conflicts">Conflicts</a>
+            <a href="/health">Health</a>
         </div>
-        {% else %}
 
-
-        <p>No channels yet. Click Scan Channels.</p>
-        {% endfor %}
-        <br>
         <form action="/scan-channels" method="post" style="display:inline;">
             <button type="submit">Scan Channels</button>
         </form>
 
-        <form action="/import-epg" method="post">
-            <button>Import Guide</button>
-        </form>
-
-        <form action="/start" method="post" style="display:inline;">
-            <button class="record" type="submit">Start Recording 17.1</button>
+        <form action="/import-epg" method="post" style="display:inline;">
+            <button type="submit">Import Guide</button>
         </form>
 
         <form action="/stop" method="post" style="display:inline;">
             <button class="stop" type="submit">Stop Recording</button>
         </form>
-
-        <a href="/health">Health</a>
     </div>
 
-    <h2>Recordings</h2>
+    <h2>Channels</h2>
+
+    {% for ch in channels %}
+    <div class="card">
+        <h3>{{ ch["guide_number"] }} {{ ch["guide_name"] }}</h3>
+
+        <p>
+            <b>NOW:</b> {{ ch["now_title"] or "No guide data" }}<br>
+            <b>NEXT:</b> {{ ch["next_title"] or "No guide data" }}
+        </p>
+
+        <form action="/record-channel/{{ ch['guide_number'] }}" method="post" style="display:inline;">
+            <button class="record" type="submit">Record Channel</button>
+        </form>
+
+        <a href="/guide-view/{{ ch['guide_number'] }}">View Schedule</a>
+    </div>
+    {% else %}
+    <p>No channels yet. Click Scan Channels.</p>
+    {% endfor %}
+
+    <h2>Recent Recordings</h2>
 
     {% for r in recordings %}
     <div class="card">
         <h3>{{ r["title"] }}</h3>
+
         <p>
             Channel: {{ r["channel"] }}<br>
             Status: {{ r["status"] }}<br>
@@ -128,10 +143,10 @@
             Size: {{ "%.1f"|format((r["size_bytes"] or 0) / 1024 / 1024) }} MB
         </p>
 
-        <a href="/play/{{ r[" filename"] }}">Play/Download</a>
+        <a href="/play/{{ r['filename'] }}">Play/Download</a>
 
         <form action="/delete/{{ r['filename'] }}" method="post" style="display:inline;">
-            <button type="submit">Delete</button>
+            <button class="delete" type="submit">Delete</button>
         </form>
     </div>
     {% else %}

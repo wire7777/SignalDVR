@@ -108,7 +108,7 @@ def start_stream(channel_number):
         "-f", "hls",
         "-hls_time", "2",
         "-hls_list_size", "1800",
-        "-hls_flags", "delete_segments+append_list",
+        "-hls_flags", "append_list+program_date_time",
 
         str(playlist),
     ]

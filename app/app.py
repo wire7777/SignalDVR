@@ -8,6 +8,7 @@ from app import hdhr
 from app import epg
 from app import search
 from app import thumbnails
+from app import timeshift
 
 import subprocess
 import shutil
@@ -202,13 +203,82 @@ def recordings_page():
 def thumbs(filename):
     return send_from_directory(config.THUMBNAILS, filename, as_attachment=False)
 
+@app.route("/api/timeshift/status")
+def api_timeshift_status():
+    return jsonify(timeshift.status())
+
+@app.route("/api/timeshift/replay/<int:seconds>", methods=["POST"])
+def api_timeshift_replay(seconds):
+    timeshift.seek_relative(-seconds)
+    return jsonify(timeshift.status())
+
+
+@app.route("/api/timeshift/skip/<int:seconds>", methods=["POST"])
+def api_timeshift_skip(seconds):
+    timeshift.seek_relative(seconds)
+    return jsonify(timeshift.status())
+
+@app.route("/timeshift")
+def timeshift_page():
+    channels = database.list_channels()
+    return render_template(
+        "timeshift.html",
+        channels=channels,
+        status=timeshift.status(),
+    )
+
+
+@app.route("/api/timeshift/start/<channel>", methods=["POST"])
+def api_timeshift_start(channel):
+    ok = timeshift.start(channel)
+    return jsonify({"ok": ok, "status": timeshift.status()})
+
+
+@app.route("/api/timeshift/stop", methods=["POST"])
+def api_timeshift_stop():
+    timeshift.stop()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/timeshift/pause", methods=["POST"])
+def api_timeshift_pause():
+    timeshift.pause()
+    return jsonify(timeshift.status())
+
+
+@app.route("/api/timeshift/resume", methods=["POST"])
+def api_timeshift_resume():
+    timeshift.resume()
+    return jsonify(timeshift.status())
+
+
+@app.route("/api/timeshift/seek/<int:seconds>", methods=["POST"])
+def api_timeshift_seek(seconds):
+    timeshift.seek_relative(seconds)
+    return jsonify(timeshift.status())
+
+
+@app.route("/api/timeshift/live", methods=["POST"])
+def api_timeshift_live():
+    timeshift.jump_to_live()
+    return jsonify(timeshift.status())
+
+@app.route("/timeshiftbuffer/<path:filename>")
+def timeshiftbuffer(filename):
+    return send_from_directory(config.LIVEBUFFER, filename, as_attachment=False)
 
 @app.route("/live")
 def live_page():
     channels = database.list_channels()
     current = stream_manager.current_channel()
-    return render_template("live.html", channels=channels, current=current)
+    live_status = stream_manager.status()
 
+    return render_template(
+        "live.html",
+        channels=channels,
+        current=current,
+        live_status=live_status,
+    )
 
 @app.route("/api/live/start/<channel>", methods=["POST"])
 def api_live_start(channel):
