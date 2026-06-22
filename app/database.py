@@ -425,5 +425,15 @@ def delete_scheduled_recording(schedule_id):
         )
         db.commit()
 
+def expire_old_scheduled_recordings(now):
+    with connect() as db:
+        db.execute("""
+            UPDATE scheduled_recordings
+            SET status='Expired'
+            WHERE status='Scheduled'
+              AND substr(stop, 1, 14) < ?
+        """, (now,))
+        db.commit()
+
 
 
