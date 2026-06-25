@@ -1,94 +1,166 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
 
 <head>
     <title>SignalDVR Recordings</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <style>
         body {
+            margin: 0;
             background: #111;
             color: #eee;
-            font-family: Arial;
-            margin: 30px;
+            font-family: Arial, Helvetica, sans-serif;
         }
 
-        a {
+        .header {
+            background: #1b1b1b;
+            border-bottom: 2px solid #333;
+            padding: 20px 30px;
+        }
+
+        h1 {
+            margin: 0;
+        }
+
+        .nav {
+            background: #191919;
+            padding: 15px 30px;
+            border-bottom: 1px solid #333;
+        }
+
+        .nav a {
             color: #4da3ff;
+            text-decoration: none;
+            margin-right: 18px;
+            font-weight: bold;
         }
 
-        .library {
+        .content {
+            padding: 25px;
+        }
+
+        .recording {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            grid-template-columns: 220px 1fr;
             gap: 18px;
-        }
-
-        .card {
             background: #1d1d1d;
             border: 1px solid #333;
-            border-radius: 14px;
-            padding: 18px;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
         }
 
         .thumb {
-            background: #333;
-            width: 100%;
-            height: 150px;
-            object-fit: cover;
+            width: 220px;
+            height: 124px;
+            background: #000;
             border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 42px;
+            object-fit: cover;
+        }
+
+        .title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 8px;
         }
 
         .meta {
-            color: #bbb;
+            color: #ccc;
+            line-height: 1.5;
         }
 
-        button {
-            background: #aa2222;
-            color: white;
+        button,
+        .button {
+            display: inline-block;
             border: 0;
-            padding: 8px 12px;
-            border-radius: 6px;
+            border-radius: 8px;
+            padding: 9px 14px;
             cursor: pointer;
+            margin: 10px 6px 0 0;
+            font-weight: bold;
+            text-decoration: none;
+            color: white;
+        }
+
+        .play {
+            background: #2196f3;
+        }
+
+        .download {
+            background: #2e7d32;
+        }
+
+        .delete {
+            background: #555;
+        }
+
+        @media (max-width:700px) {
+            .recording {
+                grid-template-columns: 1fr;
+            }
+
+            .thumb {
+                width: 100%;
+                height: auto;
+            }
         }
     </style>
 </head>
 
 <body>
 
-    <h1>🎬 SignalDVR Recordings</h1>
-    <p><a href="/">Home</a> | <a href="/guide">Guide</a> | <a href="/grid">Grid</a> | <a href="/search">Search</a></p>
+    <div class="header">
+        <h1>🎬 SignalDVR Recordings</h1>
+    </div>
 
-    <div class="library">
+    <div class="nav">
+        <a href="/">Home</a>
+        <a href="/timeshift">Live TV DVR</a>
+        <a href="/guide">Guide</a>
+        <a href="/grid">Grid</a>
+        <a href="/scheduled">Scheduled</a>
+        <a href="/series">Series</a>
+        <a href="/tuners">Tuners</a>
+        <a href="/health">Health</a>
+    </div>
+
+    <div class="content">
+
         {% for r in recordings %}
-        <div class="card">
-            {% if r["thumbnail"] %}
-            <img class="thumb" src="/thumbs/{{ r['thumbnail'] }}">
-            {% else %}
-            <div class="thumb">📺</div>
-            {% endif %}
+        <div class="recording">
+            <div>
+                {% if r["thumbnail"] %}
+                <img class="thumb" src="/thumbs/{{ r['thumbnail'] }}">
+                {% else %}
+                <div class="thumb"></div>
+                {% endif %}
+            </div>
 
-            <h2>{{ r["title"] }}</h2>
+            <div>
+                <div class="title">{{ r["title"] }}</div>
 
-            <p class="meta">
-                Channel: {{ r["channel"] }}<br>
-                Status: {{ r["status"] }}<br>
-                Started: {{ r["start_time"] }}<br>
-                Size: {{ "%.1f"|format((r["size_bytes"] or 0) / 1024 / 1024) }} MB
-            </p>
+                <div class="meta">
+                    <b>Channel:</b> {{ r["channel"] }}<br>
+                    <b>Status:</b> {{ r["status"] }}<br>
+                    <b>Start:</b> {{ r["start_time"] }}<br>
+                    <b>End:</b> {{ r["end_time"] or "-" }}<br>
+                    <b>Size:</b> {{ "%.1f"|format((r["size_bytes"] or 0) / 1024 / 1024) }} MB<br>
+                    <b>File:</b> {{ r["filename"] }}
+                </div>
 
-            <p>
-                <a href="/recording/play/{{ r['filename'] }}">Play</a>
-            </p>
+                <a class="button play" href="/recording/play/{{ r['filename'] }}">▶ Play</a>
+                <a class="button download" href="/play/{{ r['filename'] }}">⬇ Download</a>
 
-            <form action="/delete/{{ r['filename'] }}" method="post">
-                <button type="submit">Delete</button>
-            </form>
+                <form action="/delete/{{ r['filename'] }}" method="post" style="display:inline;">
+                    <button class="delete" type="submit">🗑 Delete</button>
+                </form>
+            </div>
         </div>
         {% else %}
         <p>No recordings yet.</p>
         {% endfor %}
+
     </div>
 
 </body>

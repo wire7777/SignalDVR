@@ -71,13 +71,21 @@
         }
 
         button {
-            background: #2196f3;
             color: white;
             border: 0;
             padding: 9px 14px;
             border-radius: 7px;
             cursor: pointer;
             margin-top: 10px;
+            margin-right: 6px;
+        }
+
+        .record-btn {
+            background: #2196f3;
+        }
+
+        .series-btn {
+            background: #7b1fa2;
         }
     </style>
 </head>
@@ -90,7 +98,8 @@
         <a href="/">Home</a> |
         <a href="/guide">Now / Next</a> |
         <a href="/grid">Grid</a> |
-        <a href="/timeshift">Live TV DVR</a>
+        <a href="/timeshift">Live TV DVR</a> |
+        <a href="/series">Series</a>
     </p>
 
     {% for p in programs %}
@@ -123,13 +132,19 @@
         <div class="desc">Category: {{ p["category"] }}</div>
         {% endif %}
 
-        <form action="/schedule-program" method="post">
+        <form action="/schedule-program" method="post" style="display:inline;">
             <input type="hidden" name="channel" value="{{ channel }}">
             <input type="hidden" name="title" value="{{ p['title'] }}">
             <input type="hidden" name="subtitle" value="{{ p['subtitle'] }}">
             <input type="hidden" name="start" value="{{ p['start'] }}">
             <input type="hidden" name="stop" value="{{ p['stop'] }}">
-            <button type="submit">Record This</button>
+            <button class="record-btn" type="submit">Record This</button>
+        </form>
+
+        <form action="/series/add" method="post" style="display:inline;">
+            <input type="hidden" name="title" value="{{ p['title'] }}">
+            <input type="hidden" name="channel" value="{{ channel }}">
+            <button class="series-btn" type="submit">Record Series</button>
         </form>
     </div>
     {% else %}

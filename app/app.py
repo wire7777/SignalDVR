@@ -1,16 +1,17 @@
 from flask import Flask, send_from_directory, redirect, render_template, jsonify, request
-from app import scheduler_service
+
 from app import config
-from app.recorder import Recorder
-from app import stream_manager
 from app import database
-from app import hdhr
 from app import epg
+from app import hdhr
 from app import search
+from app import stream_manager
 from app import thumbnails
 from app import timeshift
 from app import tuner_manager
+from app import scheduler_service
 from app import guide_service
+from app.recorder import Recorder
 
 import subprocess
 import shutil
@@ -38,26 +39,6 @@ def category_color(category):
     return colors.get(category or "", "#263238")
 
 
-
-@app.template_filter("status_badge")
-def status_badge(status):
-    status = status or ""
-
-    if status == "Recording":
-        return "🔴 Recording"
-    if status == "Recorded":
-        return "✅ Recorded"
-    if status == "Scheduled":
-        return "🕒 Scheduled"
-    if status == "Expired":
-        return "⌛ Expired"
-    if status.startswith("Failed"):
-        return "❌ " + status
-
-    return status
-
-
-
 @app.template_filter("tvtime")
 def tvtime(value):
     if not value:
@@ -65,14 +46,13 @@ def tvtime(value):
 
     try:
         from datetime import datetime
-
         raw = str(value)[:14]
         dt = datetime.strptime(raw, "%Y%m%d%H%M%S")
-
         return dt.strftime("%I:%M %p").lstrip("0")
     except Exception:
         return str(value)
-    
+
+
 @app.template_filter("progress_percent")
 def progress_percent(start, stop):
     try:
@@ -84,7 +64,6 @@ def progress_percent(start, stop):
 
         if now <= s:
             return 0
-
         if now >= e:
             return 100
 
@@ -110,6 +89,22 @@ def is_live_now(start, stop):
         return False
 
 
+@app.template_filter("status_badge")
+def status_badge(status):
+    status = status or ""
+
+    if status == "Recording":
+        return "🔴 Recording"
+    if status == "Recorded":
+        return "✅ Recorded"
+    if status == "Scheduled":
+        return "🕒 Scheduled"
+    if status == "Expired":
+        return "⌛ Expired"
+    if status.startswith("Failed"):
+        return "❌ " + status
+
+    return status
 
 
 for folder in [
@@ -152,13 +147,31 @@ def play(filename):
     return send_from_directory(config.RECORDINGS, filename, as_attachment=False)
 
 
+@app.route("/recording/play/<path:filename>")
+def recording_player(filename):
+    return render_template("player.html", filename=filename)
+
+
 @app.route("/delete/<path:filename>", methods=["GET", "POST"])
 def delete_recording(filename):
     path = config.RECORDINGS / filename
+
+    print("Delete requested:", filename, flush=True)
+    print("Delete path:", path, flush=True)
+    print("Exists:", path.exists(), flush=True)
+
     if path.exists():
         path.unlink()
+
+    stem = path.stem
+    for thumb in config.THUMBNAILS.glob(stem + ".*"):
+        try:
+            thumb.unlink()
+        except Exception as e:
+            print("Thumbnail delete error:", e, flush=True)
+
     database.delete_recording(filename)
-    return redirect("/")
+    return redirect("/recordings")
 
 
 @app.route("/scan-channels", methods=["POST"])
@@ -170,6 +183,7 @@ def scan_channels():
 @app.route("/import-epg", methods=["POST"])
 def import_epg():
     epg.update_guide()
+    database.apply_series_rules()
     return redirect("/")
 
 
@@ -192,13 +206,13 @@ def guide_channel_json(channel):
 
 @app.route("/grid")
 def grid_page():
-    grid = database.get_guide_grid()
+    grid = database.get_guide_grid(limit_channels=100, limit_programs=12)
     return render_template("grid.html", grid=grid)
 
 
 @app.route("/scheduled")
 def scheduled_page():
-    scheduled = database.list_scheduled_recordings()
+    scheduled = database.list_upcoming_scheduled_recordings()
     return render_template("scheduled.html", scheduled=scheduled)
 
 
@@ -232,8 +246,10 @@ def add_series():
         title=request.form.get("title", ""),
         channel=request.form.get("channel", ""),
         only_new=0,
-        priority=50,
+        priority=100,
     )
+
+    database.apply_series_rules()
     return redirect("/series")
 
 
@@ -261,6 +277,18 @@ def conflicts_page():
     return render_template("conflicts.html", conflicts=conflicts)
 
 
+@app.route("/history")
+def history_page():
+    history = database.list_recording_history()
+    return render_template("history.html", history=history)
+
+
+@app.route("/history/clear", methods=["POST"])
+def clear_history():
+    database.clear_old_recording_history()
+    return redirect("/history")
+
+
 @app.route("/search")
 def search_page():
     q = request.args.get("q", "").strip()
@@ -275,50 +303,13 @@ def recordings_page():
         item = dict(r)
         item["thumbnail"] = thumbnails.make_thumbnail(item["filename"])
         recordings.append(item)
+
     return render_template("recordings.html", recordings=recordings)
-
-
-@app.route("/recording/play/<path:filename>")
-def recording_player(filename):
-    return render_template("player.html", filename=filename)
 
 
 @app.route("/thumbs/<path:filename>")
 def thumbs(filename):
     return send_from_directory(config.THUMBNAILS, filename, as_attachment=False)
-
-@app.route("/api/timeshift/status")
-def api_timeshift_status():
-    return jsonify(timeshift.status())
-
-@app.route("/api/timeshift/replay/<int:seconds>", methods=["POST"])
-def api_timeshift_replay(seconds):
-    timeshift.seek_relative(-seconds)
-    return jsonify(timeshift.status())
-
-
-@app.route("/api/timeshift/skip/<int:seconds>", methods=["POST"])
-def api_timeshift_skip(seconds):
-    timeshift.seek_relative(seconds)
-    return jsonify(timeshift.status())
-
-
-@app.route("/api/timeshift/now")
-def api_timeshift_now():
-    import datetime
-
-    status = timeshift.status()
-    channel_label = status.get("channel", "")
-    channel = channel_label.split(" ")[0] if channel_label else ""
-
-    now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-    program = database.get_current_program(channel, now)
-
-    return jsonify({
-        "channel": channel_label,
-        "program": program,
-    })
-
 
 
 @app.route("/timeshift")
@@ -329,6 +320,11 @@ def timeshift_page():
         channels=channels,
         status=timeshift.status(),
     )
+
+
+@app.route("/api/timeshift/status")
+def api_timeshift_status():
+    return jsonify(timeshift.status())
 
 
 @app.route("/api/timeshift/start/<channel>", methods=["POST"])
@@ -355,6 +351,18 @@ def api_timeshift_resume():
     return jsonify(timeshift.status())
 
 
+@app.route("/api/timeshift/replay/<int:seconds>", methods=["POST"])
+def api_timeshift_replay(seconds):
+    timeshift.seek_relative(-seconds)
+    return jsonify(timeshift.status())
+
+
+@app.route("/api/timeshift/skip/<int:seconds>", methods=["POST"])
+def api_timeshift_skip(seconds):
+    timeshift.seek_relative(seconds)
+    return jsonify(timeshift.status())
+
+
 @app.route("/api/timeshift/seek/<int:seconds>", methods=["POST"])
 def api_timeshift_seek(seconds):
     timeshift.seek_relative(seconds)
@@ -366,9 +374,28 @@ def api_timeshift_live():
     timeshift.jump_to_live()
     return jsonify(timeshift.status())
 
+
+@app.route("/api/timeshift/now")
+def api_timeshift_now():
+    import datetime
+
+    status = timeshift.status()
+    channel_label = status.get("channel", "")
+    channel = channel_label.split(" ")[0] if channel_label else ""
+
+    now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    program = database.get_current_program(channel, now)
+
+    return jsonify({
+        "channel": channel_label,
+        "program": program,
+    })
+
+
 @app.route("/timeshiftbuffer/<path:filename>")
 def timeshiftbuffer(filename):
     return send_from_directory(config.LIVEBUFFER, filename, as_attachment=False)
+
 
 @app.route("/live")
 def live_page():
@@ -382,6 +409,7 @@ def live_page():
         current=current,
         live_status=live_status,
     )
+
 
 @app.route("/api/live/start/<channel>", methods=["POST"])
 def api_live_start(channel):
@@ -425,41 +453,37 @@ def tuners_page():
     return render_template("tuners.html", tuners=tuner_manager.status())
 
 
-@app.route("/history")
-def history_page():
-    history = database.list_scheduled_recordings()
-    return render_template("history.html", history=history)
-
-
 @app.route("/health")
 def health():
     disk = shutil.disk_usage(config.RECORDINGS)
+    tuners = tuner_manager.status()
+    program_count = len(database.get_programs())
+    scheduled = database.list_upcoming_scheduled_recordings()
+
+    next_recording = None
+    for s in scheduled:
+        if s["status"] == "Scheduled":
+            next_recording = s
+            break
 
     try:
-        tuner = subprocess.check_output(
+        tuner_debug = subprocess.check_output(
             ["hdhomerun_config", config.HDHR_DEVICE, "get", "/tuner1/debug"],
             text=True,
         )
     except Exception as e:
-        tuner = f"HDHomeRun error: {e}"
+        tuner_debug = f"HDHomeRun error: {e}"
 
-    return f"""
-<h1>SignalDVR Health</h1>
-<p><a href="/">Back</a></p>
+    return render_template(
+        "health.html",
+        disk=disk,
+        tuners=tuners,
+        program_count=program_count,
+        next_recording=next_recording,
+        tuner_debug=tuner_debug,
+    )
 
-<h2>Recorder</h2>
-<pre>Status: {"RECORDING" if recorder.is_recording() else "IDLE"}</pre>
 
-<h2>Disk</h2>
-<pre>
-Total: {disk.total / 1024 / 1024 / 1024:.1f} GB
-Used:  {disk.used / 1024 / 1024 / 1024:.1f} GB
-Free:  {disk.free / 1024 / 1024 / 1024:.1f} GB
-</pre>
-
-<h2>HDHomeRun</h2>
-<pre>{tuner}</pre>
-"""
 scheduler_service.start_scheduler()
 guide_service.start_guide_updater()
 

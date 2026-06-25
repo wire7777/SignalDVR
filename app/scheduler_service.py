@@ -107,6 +107,7 @@ def scheduler_loop():
         try:
             now_key = _now_key()
             now = datetime.now()
+            database.recover_stale_recordings(now_key)
 
             _debug("Scheduler tick", now_key)
 

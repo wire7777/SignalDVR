@@ -3,6 +3,7 @@ import datetime
 from pathlib import Path
 
 
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 DB = BASE_DIR / "database" / "signaldvr.db"
 
@@ -307,6 +308,7 @@ def add_scheduled_recording(channel, title, subtitle, start, stop):
         db.commit()
 
 
+
 def list_scheduled_recordings():
     with connect() as db:
         rows = db.execute("""
@@ -377,6 +379,18 @@ def fail_scheduled_recording(schedule_id, reason):
         ))
         db.commit()
 
+def recover_stale_recordings(now):
+    with connect() as db:
+        db.execute("""
+            UPDATE scheduled_recordings
+            SET status='Recorded'
+            WHERE status='Recording'
+              AND substr(stop, 1, 14) < ?
+        """, (now,))
+        db.commit()
+
+
+
 # --------------------------------------------------
 # Series Recordings
 # --------------------------------------------------
@@ -389,6 +403,41 @@ def add_series_recording(title, channel="", only_new=0, priority=50):
             VALUES (?, ?, ?, ?, 1)
         """, (title, channel, only_new, priority))
         db.commit()
+
+
+
+def list_upcoming_scheduled_recordings():
+    with connect() as db:
+        rows = db.execute("""
+            SELECT *
+            FROM scheduled_recordings
+            WHERE status IN ('Scheduled','Recording')
+            ORDER BY start
+        """).fetchall()
+
+        return [dict(r) for r in rows]
+
+
+def list_recording_history():
+    with connect() as db:
+        rows = db.execute("""
+            SELECT *
+            FROM scheduled_recordings
+            WHERE status NOT IN ('Scheduled','Recording')
+            ORDER BY start DESC
+        """).fetchall()
+
+        return [dict(r) for r in rows]
+
+
+def clear_old_recording_history():
+    with connect() as db:
+        db.execute("""
+            DELETE FROM scheduled_recordings
+            WHERE status NOT IN ('Scheduled','Recording')
+        """)
+        db.commit()
+
 
 
 def list_series_recordings():
@@ -419,6 +468,8 @@ def delete_series_recording(series_id):
 
 
 def apply_series_rules():
+    now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+
     with connect() as db:
         rules = db.execute("""
             SELECT *
@@ -435,15 +486,17 @@ def apply_series_rules():
                     FROM programs
                     WHERE title=?
                       AND channel=?
+                      AND substr(stop, 1, 14) > ?
                     ORDER BY start
-                """, (rule["title"], rule["channel"])).fetchall()
+                """, (rule["title"], rule["channel"], now)).fetchall()
             else:
                 programs = db.execute("""
                     SELECT *
                     FROM programs
                     WHERE title=?
+                      AND substr(stop, 1, 14) > ?
                     ORDER BY start
-                """, (rule["title"],)).fetchall()
+                """, (rule["title"], now)).fetchall()
 
             for p in programs:
                 exists = db.execute("""
@@ -467,6 +520,7 @@ def apply_series_rules():
                         p["stop"],
                     ))
                     created += 1
+
 
         db.commit()
         return created

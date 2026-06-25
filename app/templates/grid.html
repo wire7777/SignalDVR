@@ -2,46 +2,70 @@
 <html>
 
 <head>
-    <title>SignalDVR Grid Guide</title>
+    <title>SignalDVR Timeline Guide</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <style>
         body {
+            margin: 0;
             background: #111;
             color: #eee;
-            font-family: Arial;
-            margin: 25px;
+            font-family: Arial, Helvetica, sans-serif;
         }
 
-        a {
+        .header {
+            background: #1b1b1b;
+            border-bottom: 2px solid #333;
+            padding: 20px 30px;
+        }
+
+        h1 {
+            margin: 0;
+        }
+
+        .nav {
+            background: #191919;
+            padding: 15px 30px;
+            border-bottom: 1px solid #333;
+        }
+
+        .nav a {
             color: #4da3ff;
             text-decoration: none;
+            margin-right: 18px;
+            font-weight: bold;
         }
 
-        .guide-wrap {
+        .content {
+            padding: 25px;
+        }
+
+        .timeline-wrap {
             overflow-x: auto;
             border: 1px solid #333;
             border-radius: 12px;
             background: #151515;
         }
 
-        .guide {
+        .timeline {
             display: grid;
-            grid-template-columns: 160px repeat(6, 260px);
-            min-width: 1720px;
+            grid-template-columns: 160px repeat(12, 180px);
+            min-width: 2320px;
         }
 
         .cell {
             border-right: 1px solid #333;
             border-bottom: 1px solid #333;
             padding: 10px;
-            min-height: 120px;
+            min-height: 95px;
             background: #181818;
         }
 
-        .header {
+        .header-cell {
             background: #222;
-            font-weight: bold;
             color: #aaa;
-            min-height: 45px;
+            font-weight: bold;
+            min-height: 40px;
         }
 
         .channel {
@@ -49,7 +73,12 @@
             font-weight: bold;
             position: sticky;
             left: 0;
-            z-index: 2;
+            z-index: 3;
+        }
+
+        .program {
+            overflow: hidden;
+            border-left: 4px solid rgba(255, 255, 255, .25);
         }
 
         .program.live {
@@ -64,15 +93,14 @@
         }
 
         .title {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: bold;
         }
 
         .desc {
             color: #ddd;
             font-size: 12px;
-            margin-top: 6px;
-            line-height: 1.35;
+            margin-top: 5px;
         }
 
         .progress-bg {
@@ -80,29 +108,38 @@
             background: rgba(0, 0, 0, .35);
             border-radius: 10px;
             overflow: hidden;
-            height: 8px;
+            height: 7px;
         }
 
         .progress-fill {
-            height: 8px;
+            height: 7px;
             background: #55ff88;
         }
 
         .live-text {
-            font-size: 12px;
+            font-size: 11px;
             color: #55ff88;
             margin-top: 4px;
             font-weight: bold;
         }
 
         button {
-            background: #2196f3;
             color: white;
             border: 0;
-            padding: 7px 10px;
+            padding: 6px 9px;
             border-radius: 6px;
             cursor: pointer;
             margin-top: 8px;
+            margin-right: 4px;
+            font-weight: bold;
+        }
+
+        .record-btn {
+            background: #2196f3;
+        }
+
+        .series-btn {
+            background: #7b1fa2;
         }
 
         .view-btn {
@@ -112,85 +149,89 @@
             padding: 6px 10px;
             border-radius: 6px;
             margin-top: 8px;
+            text-decoration: none;
         }
     </style>
 </head>
 
 <body>
 
-    <h1>📅 SignalDVR Grid Guide</h1>
+    <div class="header">
+        <h1>📺 SignalDVR Timeline Guide</h1>
+    </div>
 
-    <p>
-        <a href="/">Home</a> |
-        <a href="/timeshift">Live TV DVR</a> |
-        <a href="/guide">Now / Next</a> |
+    <div class="nav">
+        <a href="/">Home</a>
+        <a href="/guide">Guide</a>
+        <a href="/grid">Grid</a>
+        <a href="/scheduled">Scheduled</a>
+        <a href="/series">Series</a>
         <a href="/recordings">Recordings</a>
-    </p>
+        <a href="/tuners">Tuners</a>
+        <a href="/health">Health</a>
+    </div>
 
-    <div class="guide-wrap">
-        <div class="guide">
+    <div class="content">
+        <div class="timeline-wrap">
+            <div class="timeline">
 
-            <div class="cell header channel">Channel</div>
-            <div class="cell header">{{ grid[0]["programs"][0]["start"]|tvtime if grid and grid[0]["programs"]|length >
-                0 else "" }}</div>
-            <div class="cell header">{{ grid[0]["programs"][1]["start"]|tvtime if grid and grid[0]["programs"]|length >
-                1 else "" }}</div>
-            <div class="cell header">{{ grid[0]["programs"][2]["start"]|tvtime if grid and grid[0]["programs"]|length >
-                2 else "" }}</div>
-            <div class="cell header">{{ grid[0]["programs"][3]["start"]|tvtime if grid and grid[0]["programs"]|length >
-                3 else "" }}</div>
-            <div class="cell header">{{ grid[0]["programs"][4]["start"]|tvtime if grid and grid[0]["programs"]|length >
-                4 else "" }}</div>
-            <div class="cell header">{{ grid[0]["programs"][5]["start"]|tvtime if grid and grid[0]["programs"]|length >
-                5 else "" }}</div>
+                <div class="cell header-cell channel">Channel</div>
 
-            {% for ch in grid %}
-            <div class="cell channel">
-                {{ ch["guide_number"] }}<br>
-                {{ ch["guide_name"] }}<br><br>
-                <a class="view-btn" href="/guide-view/{{ ch['guide_number'] }}">View</a>
-            </div>
+                {% for i in range(12) %}
+                <div class="cell header-cell">
+                    {{ grid[0]["programs"][i]["start"]|tvtime if grid and grid[0]["programs"]|length > i else "" }}
+                </div>
+                {% endfor %}
 
-            {% for p in ch["programs"][:6] %}
-            <div class="cell program {% if p['start']|is_live_now(p['stop']) %}live{% endif %}"
-                style="background: {{ p['category']|category_color }};">
-                <div class="time">
-                    {{ p["start"]|tvtime }} - {{ p["stop"]|tvtime }}
+                {% for ch in grid %}
+                <div class="cell channel">
+                    {{ ch["guide_number"] }}<br>
+                    {{ ch["guide_name"] }}<br>
+                    <a class="view-btn" href="/guide-view/{{ ch['guide_number'] }}">View</a>
                 </div>
 
-                <div class="title">{{ p["title"] }}</div>
+                {% for p in ch["programs"][:12] %}
+                <div class="cell program {% if p['start']|is_live_now(p['stop']) %}live{% endif %}"
+                    style="background:{{ p['category']|category_color }};">
+                    <div class="time">{{ p["start"]|tvtime }} - {{ p["stop"]|tvtime }}</div>
+                    <div class="title">{{ p["title"] }}</div>
 
-                {% if p["subtitle"] %}
-                <div class="desc">{{ p["subtitle"] }}</div>
-                {% endif %}
+                    {% if p["subtitle"] %}
+                    <div class="desc">{{ p["subtitle"] }}</div>
+                    {% endif %}
 
-                {% if p["start"]|is_live_now(p["stop"]) %}
-                <div class="progress-bg">
-                    <div class="progress-fill" style="width:{{ p['start']|progress_percent(p['stop']) }}%;"></div>
+                    {% if p["start"]|is_live_now(p["stop"]) %}
+                    <div class="progress-bg">
+                        <div class="progress-fill" style="width:{{ p['start']|progress_percent(p['stop']) }}%;"></div>
+                    </div>
+                    <div class="live-text">● LIVE · {{ p["start"]|progress_percent(p["stop"]) }}%</div>
+                    {% endif %}
+
+                    <form action="/schedule-program" method="post" style="display:inline;">
+                        <input type="hidden" name="channel" value="{{ ch['guide_number'] }}">
+                        <input type="hidden" name="title" value="{{ p['title'] }}">
+                        <input type="hidden" name="subtitle" value="{{ p['subtitle'] }}">
+                        <input type="hidden" name="start" value="{{ p['start'] }}">
+                        <input type="hidden" name="stop" value="{{ p['stop'] }}">
+                        <button class="record-btn" type="submit">Record</button>
+                    </form>
+
+                    <form action="/series/add" method="post" style="display:inline;">
+                        <input type="hidden" name="title" value="{{ p['title'] }}">
+                        <input type="hidden" name="channel" value="{{ ch['guide_number'] }}">
+                        <button class="series-btn" type="submit">Series</button>
+                    </form>
                 </div>
-                <div class="live-text">
-                    ● LIVE NOW · {{ p["start"]|progress_percent(p["stop"]) }}% complete
+                {% endfor %}
+
+                {% for i in range(12 - (ch["programs"][:12]|length)) %}
+                <div class="cell program">
+                    <div class="desc">No guide data</div>
                 </div>
-                {% endif %}
+                {% endfor %}
+                {% endfor %}
 
-                <form action="/schedule-program" method="post">
-                    <input type="hidden" name="channel" value="{{ ch['guide_number'] }}">
-                    <input type="hidden" name="title" value="{{ p['title'] }}">
-                    <input type="hidden" name="subtitle" value="{{ p['subtitle'] }}">
-                    <input type="hidden" name="start" value="{{ p['start'] }}">
-                    <input type="hidden" name="stop" value="{{ p['stop'] }}">
-                    <button type="submit">Record</button>
-                </form>
             </div>
-            {% endfor %}
-
-            {% for i in range(6 - (ch["programs"][:6]|length)) %}
-            <div class="cell program">
-                <div class="desc">No guide data</div>
-            </div>
-            {% endfor %}
-            {% endfor %}
-
         </div>
     </div>
 

@@ -1,5 +1,6 @@
 import time
 import threading
+from app import database
 
 from app import epg
 
@@ -19,6 +20,7 @@ def guide_loop():
         try:
             print("Updating guide data...", flush=True)
             epg.update_guide()
+            database.apply_series_rules()
             print("Guide update complete", flush=True)
         except Exception as e:
             print("Guide update error:", e, flush=True)

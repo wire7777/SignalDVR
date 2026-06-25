@@ -1,0 +1,93 @@
+<!doctype html>
+<html>
+<head>
+    <title>SignalDVR Health</title>
+    <meta http-equiv="refresh" content="30">
+    <style>
+        body { background:#111; color:#eee; font-family:Arial; margin:25px; }
+        a { color:#4da3ff; text-decoration:none; }
+        .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; }
+        .card { background:#1d1d1d; border:1px solid #333; border-radius:12px; padding:16px; }
+        .good { border-left:5px solid #55ff88; }
+        .warn { border-left:5px solid #ffaa33; }
+        .bad { border-left:5px solid #ff5555; }
+        .big { font-size:28px; font-weight:bold; }
+        .muted { color:#aaa; }
+        pre { background:#0b0b0b; color:#ddd; padding:12px; border-radius:8px; overflow:auto; }
+        .bar { background:#333; border-radius:10px; height:12px; overflow:hidden; }
+        .fill { background:#55ff88; height:12px; }
+    </style>
+</head>
+<body>
+
+<h1>🩺 SignalDVR Health</h1>
+
+<p>
+    <a href="/">Home</a> |
+    <a href="/tuners">Tuners</a> |
+    <a href="/scheduled">Scheduled</a> |
+    <a href="/recordings">Recordings</a>
+</p>
+
+<div class="grid">
+    <div class="card good">
+        <h2>Service</h2>
+        <div class="big">🟢 Online</div>
+        <p class="muted">Auto-refreshes every 30 seconds.</p>
+    </div>
+
+    <div class="card good">
+        <h2>Guide</h2>
+        <div class="big">{{ program_count }}</div>
+        <p class="muted">Programs in database</p>
+    </div>
+
+    <div class="card good">
+        <h2>Disk</h2>
+        {% set used_pct = ((disk.used / disk.total) * 100)|round(1) %}
+        <div class="big">{{ used_pct }}%</div>
+        <div class="bar">
+            <div class="fill" style="width:{{ used_pct }}%;"></div>
+        </div>
+        <p>
+            Free: {{ "%.1f"|format(disk.free / 1024 / 1024 / 1024) }} GB<br>
+            Total: {{ "%.1f"|format(disk.total / 1024 / 1024 / 1024) }} GB
+        </p>
+    </div>
+
+    <div class="card {% if next_recording %}good{% else %}warn{% endif %}">
+        <h2>Next Recording</h2>
+        {% if next_recording %}
+            <div class="big">{{ next_recording["title"] }}</div>
+            <p>
+                Channel {{ next_recording["channel"] }}<br>
+                {{ next_recording["start"]|tvtime }} - {{ next_recording["stop"]|tvtime }}
+            </p>
+        {% else %}
+            <div class="big">None</div>
+            <p class="muted">No upcoming scheduled recordings.</p>
+        {% endif %}
+    </div>
+</div>
+
+<h2>📡 Tuners</h2>
+
+<div class="grid">
+{% for t in tuners %}
+    <div class="card {% if t['state'] == 'busy' %}bad{% else %}good{% endif %}">
+        <h2>Tuner {{ t["tuner_id"] }}</h2>
+        <p>
+            <b>State:</b> {{ t["state"]|upper }}<br>
+            <b>Channel:</b> {{ t["channel"] or "-" }}<br>
+            <b>Purpose:</b> {{ t["purpose"] or "-" }}<br>
+            <b>Title:</b> {{ t["title"] or "-" }}
+        </p>
+    </div>
+{% endfor %}
+</div>
+
+<h2>HDHomeRun Debug</h2>
+<pre>{{ tuner_debug }}</pre>
+
+</body>
+</html>
