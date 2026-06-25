@@ -266,6 +266,25 @@ def set_series_priority(series_id, priority):
     return redirect("/series")
 
 
+
+@app.route("/series/update/<int:series_id>", methods=["POST"])
+def update_series(series_id):
+    database.update_series_recording(
+        series_id=series_id,
+        title=request.form.get("title", ""),
+        channel=request.form.get("channel", ""),
+        only_new=1 if request.form.get("only_new") == "on" else 0,
+        enabled=1 if request.form.get("enabled") == "on" else 0,
+        priority=int(request.form.get("priority", 50)),
+        start_padding=int(request.form.get("start_padding", 2)),
+        end_padding=int(request.form.get("end_padding", 5)),
+        keep_last=int(request.form.get("keep_last", 0)),
+        any_channel=1 if request.form.get("any_channel") == "on" else 0,
+    )
+
+    database.apply_series_rules()
+    return redirect("/series")
+
 @app.route("/series/delete/<int:series_id>", methods=["POST"])
 def delete_series(series_id):
     database.delete_series_recording(series_id)

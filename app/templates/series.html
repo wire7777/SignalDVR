@@ -6,7 +6,7 @@
 <style>
     .series-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
         gap: 18px;
     }
 
@@ -15,12 +15,6 @@
         border: 1px solid #333;
         border-radius: 12px;
         padding: 20px;
-        transition: .2s;
-    }
-
-    .series-card:hover {
-        transform: translateY(-2px);
-        border-color: #4da3ff;
     }
 
     .series-title {
@@ -29,52 +23,46 @@
         margin-bottom: 16px;
     }
 
-    .label {
-        color: #888;
-        font-weight: bold;
-        display: inline-block;
-        width: 90px;
+    .form-row {
+        margin-bottom: 14px;
     }
 
-    .value {
+    .form-row label {
+        display: block;
+        color: #aaa;
+        font-weight: bold;
+        margin-bottom: 6px;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select {
+        width: 100%;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #333;
+        background: #111;
         color: #eee;
     }
 
-    .enabled {
-        color: #55ff88;
-        font-weight: bold;
-    }
-
-    .disabled {
-        color: #ff6666;
-        font-weight: bold;
+    .check-row {
+        margin: 10px 0;
+        color: #ddd;
     }
 
     .actions {
-        margin-top: 20px;
         display: flex;
         flex-wrap: wrap;
         gap: 10px;
+        margin-top: 18px;
     }
 
-    .high {
-        background: #d93025;
-        color: white;
-    }
-
-    .normal {
-        background: #2196f3;
-        color: white;
-    }
-
-    .low {
-        background: #666;
-        color: white;
+    .save {
+        background: #2e7d32;
     }
 
     .delete {
         background: #444;
-        color: white;
     }
 
     .empty {
@@ -89,35 +77,16 @@
 <h1>🔁 Series Recording Rules</h1>
 
 <div style="margin-bottom:25px;">
-
     <form action="/series/apply" method="post">
-
-        <button class="success" type="submit">
-
-            🔄 Apply Series Rules
-
-        </button>
-
+        <button class="success" type="submit">🔄 Apply Series Rules</button>
     </form>
-
 </div>
 
 {% if series|length == 0 %}
 
 <div class="card empty">
-
     <h2>No Series Rules</h2>
-
-    <p>
-
-        Go to the Guide and click
-
-        <strong>🔁 Record Series</strong>
-
-        to create your first recording rule.
-
-    </p>
-
+    <p>Go to the Guide and click <strong>Record Series</strong> to create your first recording rule.</p>
 </div>
 
 {% else %}
@@ -128,103 +97,68 @@
 
     <div class="series-card">
 
-        <div class="series-title">
+        <form action="/series/update/{{ s['id'] }}" method="post">
 
-            {{ s["title"] }}
+            <div class="series-title">{{ s["title"] }}</div>
 
-        </div>
+            <input type="hidden" name="title" value="{{ s['title'] }}">
 
-        <p>
+            <div class="form-row">
+                <label>Channel</label>
+                <input type="text" name="channel" value="{{ s['channel'] or '' }}" placeholder="Blank = any channel">
+            </div>
 
-            <span class="label">Channel</span>
+            <div class="form-row">
+                <label>Priority</label>
+                <input type="number" name="priority" value="{{ s['priority'] or 50 }}" min="1" max="999">
+            </div>
 
-            <span class="value">
+            <div class="check-row">
+                <label>
+                    <input type="checkbox" name="enabled" {% if s["enabled"] %}checked{% endif %}>
+                    Enabled
+                </label>
+            </div>
 
-                {{ s["channel"] or "Any Channel" }}
+            <div class="check-row">
+                <label>
+                    <input type="checkbox" name="only_new" {% if s["only_new"] %}checked{% endif %}>
+                    New episodes only
+                </label>
+            </div>
 
-            </span>
+            <div class="check-row">
+                <label>
+                    <input type="checkbox" name="any_channel" {% if s["any_channel"] %}checked{% endif %}>
+                    Record on any channel
+                </label>
+            </div>
 
-        </p>
+            <div class="form-row">
+                <label>Start early minutes</label>
+                <input type="number" name="start_padding" value="{{ s['start_padding'] or 0 }}" min="0" max="120">
+            </div>
 
-        <p>
+            <div class="form-row">
+                <label>End late minutes</label>
+                <input type="number" name="end_padding" value="{{ s['end_padding'] or 0 }}" min="0" max="180">
+            </div>
 
-            <span class="label">Priority</span>
+            <div class="form-row">
+                <label>Keep latest episodes</label>
+                <input type="number" name="keep_last" value="{{ s['keep_last'] or 0 }}" min="0" max="999">
+                <div class="muted">0 = keep all</div>
+            </div>
 
-            <span class="value">
+            <div class="actions">
+                <button class="save" type="submit">💾 Save Rule</button>
+            </div>
 
-                {{ s["priority"] }}
+        </form>
 
-            </span>
-
-        </p>
-
-        <p>
-
-            <span class="label">Status</span>
-
-            {% if s["enabled"] %}
-
-            <span class="enabled">
-
-                Enabled
-
-            </span>
-
-            {% else %}
-
-            <span class="disabled">
-
-                Disabled
-
-            </span>
-
-            {% endif %}
-
-        </p>
-
-        <div class="actions">
-
-            <form action="/series/priority/{{ s['id'] }}/100" method="post">
-
-                <button class="high">
-
-                    ⭐⭐⭐ High
-
-                </button>
-
-            </form>
-
-            <form action="/series/priority/{{ s['id'] }}/50" method="post">
-
-                <button class="normal">
-
-                    ⭐⭐ Normal
-
-                </button>
-
-            </form>
-
-            <form action="/series/priority/{{ s['id'] }}/10" method="post">
-
-                <button class="low">
-
-                    ⭐ Low
-
-                </button>
-
-            </form>
-
-            <form action="/series/delete/{{ s['id'] }}" method="post">
-
-                <button class="delete">
-
-                    🗑 Delete
-
-                </button>
-
-            </form>
-
-        </div>
+        <form action="/series/delete/{{ s['id'] }}" method="post" style="margin-top:8px;">
+            <button class="delete" type="submit">🗑 Delete Rule</button>
+        </form>
 
     </div>
 

@@ -3,7 +3,6 @@ import datetime
 from pathlib import Path
 
 
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 DB = BASE_DIR / "database" / "signaldvr.db"
 
@@ -23,6 +22,10 @@ def _ensure_column(db, table, column, definition):
     names = [c["name"] for c in cols]
     if column not in names:
         db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+
+def _parse_xmltv_time(value):
+    return datetime.datetime.strptime(str(value)[:14], "%Y%m%d%H%M%S")
 
 
 def init_db():
@@ -95,6 +98,16 @@ def init_db():
         """)
 
         _ensure_column(db, "series_recordings", "priority", "INTEGER DEFAULT 50")
+        _ensure_column(db, "series_recordings", "start_padding", "INTEGER DEFAULT 2")
+        _ensure_column(db, "series_recordings", "end_padding", "INTEGER DEFAULT 5")
+        _ensure_column(db, "series_recordings", "keep_last", "INTEGER DEFAULT 0")
+        _ensure_column(db, "series_recordings", "any_channel", "INTEGER DEFAULT 0")
+
+        _ensure_column(db, "scheduled_recordings", "priority", "INTEGER DEFAULT 50")
+        _ensure_column(db, "scheduled_recordings", "start_padding", "INTEGER DEFAULT 2")
+        _ensure_column(db, "scheduled_recordings", "end_padding", "INTEGER DEFAULT 5")
+        _ensure_column(db, "scheduled_recordings", "series_id", "INTEGER DEFAULT 0")
+
         db.commit()
 
 
@@ -254,11 +267,9 @@ def get_now_next():
             result.append({
                 "guide_number": ch["guide_number"],
                 "guide_name": ch["guide_name"],
-
                 "now_title": now_program["title"] if now_program else None,
                 "now_start": now_program["start"] if now_program else None,
                 "now_stop": now_program["stop"] if now_program else None,
-
                 "next_title": next_program["title"] if next_program else None,
                 "next_start": next_program["start"] if next_program else None,
                 "next_stop": next_program["stop"] if next_program else None,
@@ -304,15 +315,34 @@ def get_guide_grid(limit_channels=20, limit_programs=8):
 # Scheduled Recordings
 # --------------------------------------------------
 
-def add_scheduled_recording(channel, title, subtitle, start, stop):
+def add_scheduled_recording(
+    channel,
+    title,
+    subtitle,
+    start,
+    stop,
+    priority=50,
+    start_padding=2,
+    end_padding=5,
+    series_id=0,
+):
     with connect() as db:
         db.execute("""
             INSERT INTO scheduled_recordings
-            (channel, title, subtitle, start, stop, status)
-            VALUES (?, ?, ?, ?, ?, 'Scheduled')
-        """, (channel, title, subtitle, start, stop))
+            (channel, title, subtitle, start, stop, status, priority, start_padding, end_padding, series_id)
+            VALUES (?, ?, ?, ?, ?, 'Scheduled', ?, ?, ?, ?)
+        """, (
+            channel,
+            title,
+            subtitle,
+            start,
+            stop,
+            int(priority or 50),
+            int(start_padding or 0),
+            int(end_padding or 0),
+            int(series_id or 0),
+        ))
         db.commit()
-
 
 
 def list_scheduled_recordings():
@@ -323,6 +353,39 @@ def list_scheduled_recordings():
             ORDER BY start
         """).fetchall()
         return [dict(r) for r in rows]
+
+
+def list_upcoming_scheduled_recordings():
+    with connect() as db:
+        rows = db.execute("""
+            SELECT *
+            FROM scheduled_recordings
+            WHERE status IN ('Scheduled','Recording')
+            ORDER BY start
+        """).fetchall()
+
+        return [dict(r) for r in rows]
+
+
+def list_recording_history():
+    with connect() as db:
+        rows = db.execute("""
+            SELECT *
+            FROM scheduled_recordings
+            WHERE status NOT IN ('Scheduled','Recording')
+            ORDER BY start DESC
+        """).fetchall()
+
+        return [dict(r) for r in rows]
+
+
+def clear_old_recording_history():
+    with connect() as db:
+        db.execute("""
+            DELETE FROM scheduled_recordings
+            WHERE status NOT IN ('Scheduled','Recording')
+        """)
+        db.commit()
 
 
 def delete_scheduled_recording(schedule_id):
@@ -361,6 +424,7 @@ def expire_old_scheduled_recordings(now):
         """, (now,))
         db.commit()
 
+
 def list_active_schedules():
     with connect() as db:
         rows = db.execute("""
@@ -379,11 +443,9 @@ def fail_scheduled_recording(schedule_id, reason):
             UPDATE scheduled_recordings
             SET status=?
             WHERE id=?
-        """, (
-            reason,
-            schedule_id
-        ))
+        """, (reason, schedule_id))
         db.commit()
+
 
 def recover_stale_recordings(now):
     with connect() as db:
@@ -396,64 +458,94 @@ def recover_stale_recordings(now):
         db.commit()
 
 
-
 # --------------------------------------------------
 # Series Recordings
 # --------------------------------------------------
 
-def add_series_recording(title, channel="", only_new=0, priority=50):
+def add_series_recording(
+    title,
+    channel="",
+    only_new=0,
+    priority=50,
+    start_padding=2,
+    end_padding=5,
+    keep_last=0,
+    any_channel=0,
+):
     with connect() as db:
         db.execute("""
             INSERT INTO series_recordings
-            (title, channel, only_new, priority, enabled)
-            VALUES (?, ?, ?, ?, 1)
-        """, (title, channel, only_new, priority))
+            (title, channel, only_new, priority, enabled, start_padding, end_padding, keep_last, any_channel)
+            VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)
+        """, (
+            title,
+            channel,
+            int(only_new or 0),
+            int(priority or 50),
+            int(start_padding or 0),
+            int(end_padding or 0),
+            int(keep_last or 0),
+            int(any_channel or 0),
+        ))
         db.commit()
 
 
-
-def list_upcoming_scheduled_recordings():
-    with connect() as db:
-        rows = db.execute("""
-            SELECT *
-            FROM scheduled_recordings
-            WHERE status IN ('Scheduled','Recording')
-            ORDER BY start
-        """).fetchall()
-
-        return [dict(r) for r in rows]
-
-
-def list_recording_history():
-    with connect() as db:
-        rows = db.execute("""
-            SELECT *
-            FROM scheduled_recordings
-            WHERE status NOT IN ('Scheduled','Recording')
-            ORDER BY start DESC
-        """).fetchall()
-
-        return [dict(r) for r in rows]
-
-
-def clear_old_recording_history():
+def update_series_recording(
+    series_id,
+    title,
+    channel="",
+    only_new=0,
+    enabled=1,
+    priority=50,
+    start_padding=2,
+    end_padding=5,
+    keep_last=0,
+    any_channel=0,
+):
     with connect() as db:
         db.execute("""
-            DELETE FROM scheduled_recordings
-            WHERE status NOT IN ('Scheduled','Recording')
-        """)
+            UPDATE series_recordings
+            SET title=?,
+                channel=?,
+                only_new=?,
+                enabled=?,
+                priority=?,
+                start_padding=?,
+                end_padding=?,
+                keep_last=?,
+                any_channel=?
+            WHERE id=?
+        """, (
+            title,
+            channel,
+            int(only_new or 0),
+            int(enabled or 0),
+            int(priority or 50),
+            int(start_padding or 0),
+            int(end_padding or 0),
+            int(keep_last or 0),
+            int(any_channel or 0),
+            series_id,
+        ))
         db.commit()
 
 
-
-def list_series_recordings():
+def list_series_recordings(include_disabled=False):
     with connect() as db:
-        rows = db.execute("""
-            SELECT *
-            FROM series_recordings
-            WHERE enabled=1
-            ORDER BY priority DESC, title
-        """).fetchall()
+        if include_disabled:
+            rows = db.execute("""
+                SELECT *
+                FROM series_recordings
+                ORDER BY enabled DESC, priority DESC, title
+            """).fetchall()
+        else:
+            rows = db.execute("""
+                SELECT *
+                FROM series_recordings
+                WHERE enabled=1
+                ORDER BY priority DESC, title
+            """).fetchall()
+
         return [dict(r) for r in rows]
 
 
@@ -481,26 +573,33 @@ def apply_series_rules():
             SELECT *
             FROM series_recordings
             WHERE enabled=1
+            ORDER BY priority DESC, title
         """).fetchall()
 
         created = 0
 
         for rule in rules:
-            if rule["channel"]:
-                programs = db.execute("""
+            only_new_clause = "AND COALESCE(is_new, 0)=1" if int(rule["only_new"] or 0) else ""
+            record_any_channel = int(rule["any_channel"] or 0) == 1
+            has_channel = bool(rule["channel"])
+
+            if has_channel and not record_any_channel:
+                programs = db.execute(f"""
                     SELECT *
                     FROM programs
                     WHERE title=?
                       AND channel=?
                       AND substr(stop, 1, 14) > ?
+                      {only_new_clause}
                     ORDER BY start
                 """, (rule["title"], rule["channel"], now)).fetchall()
             else:
-                programs = db.execute("""
+                programs = db.execute(f"""
                     SELECT *
                     FROM programs
                     WHERE title=?
                       AND substr(stop, 1, 14) > ?
+                      {only_new_clause}
                     ORDER BY start
                 """, (rule["title"], now)).fetchall()
 
@@ -513,20 +612,41 @@ def apply_series_rules():
                       AND start=?
                 """, (p["channel"], p["title"], p["start"])).fetchone()
 
-                if not exists:
-                    db.execute("""
-                        INSERT INTO scheduled_recordings
-                        (channel, title, subtitle, start, stop, status)
-                        VALUES (?, ?, ?, ?, ?, 'Scheduled')
-                    """, (
-                        p["channel"],
-                        p["title"],
-                        p["subtitle"],
-                        p["start"],
-                        p["stop"],
-                    ))
-                    created += 1
+                if exists:
+                 db.execute("""
+              UPDATE scheduled_recordings
+               SET priority=?,
+            start_padding=?,
+            end_padding=?,
+            series_id=?
+           WHERE id=?
+          AND status='Scheduled'
+    """, (
+        int(rule["priority"] or 50),
+        int(rule["start_padding"] or 0),
+        int(rule["end_padding"] or 0),
+        int(rule["id"]),
+        exists["id"],
+    ))
+                 continue
 
+                db.execute("""
+                    INSERT INTO scheduled_recordings
+                    (channel, title, subtitle, start, stop, status, priority, start_padding, end_padding, series_id)
+                    VALUES (?, ?, ?, ?, ?, 'Scheduled', ?, ?, ?, ?)
+                """, (
+                    p["channel"],
+                    p["title"],
+                    p["subtitle"],
+                    p["start"],
+                    p["stop"],
+                    int(rule["priority"] or 50),
+                    int(rule["start_padding"] or 0),
+                    int(rule["end_padding"] or 0),
+                    int(rule["id"]),
+                ))
+
+                created += 1
 
         db.commit()
         return created
@@ -535,6 +655,21 @@ def apply_series_rules():
 # --------------------------------------------------
 # Conflicts
 # --------------------------------------------------
+
+def _schedule_window(row):
+    start = str(row["start"])[:14]
+    stop = str(row["stop"])[:14]
+
+    try:
+        start_dt = _parse_xmltv_time(row["start"]) - datetime.timedelta(minutes=int(row.get("start_padding", 0) or 0))
+        stop_dt = _parse_xmltv_time(row["stop"]) + datetime.timedelta(minutes=int(row.get("end_padding", 0) or 0))
+        start = start_dt.strftime("%Y%m%d%H%M%S")
+        stop = stop_dt.strftime("%Y%m%d%H%M%S")
+    except Exception:
+        pass
+
+    return start, stop
+
 
 def get_schedule_conflicts(max_tuners=4):
     rows = list_scheduled_recordings()
@@ -548,13 +683,10 @@ def get_schedule_conflicts(max_tuners=4):
 
     for r in active_rows:
         overlaps = []
-
-        r_start = str(r["start"])[:14]
-        r_stop = str(r["stop"])[:14]
+        r_start, r_stop = _schedule_window(r)
 
         for other in active_rows:
-            o_start = str(other["start"])[:14]
-            o_stop = str(other["stop"])[:14]
+            o_start, o_stop = _schedule_window(other)
 
             if o_start < r_stop and o_stop > r_start:
                 overlaps.append(other)

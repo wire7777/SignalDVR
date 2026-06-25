@@ -8,8 +8,8 @@ from app.recorder import Recorder
 
 
 CHECK_INTERVAL = 30
-START_PADDING_SECONDS = 120
-STOP_PADDING_SECONDS = 300
+DEFAULT_START_PADDING_SECONDS = 120
+DEFAULT_STOP_PADDING_SECONDS = 300
 DEBUG = False
 
 _running = False
@@ -25,6 +25,26 @@ def _now_key():
 
 def _parse_time(value):
     return datetime.strptime(str(value)[:14], "%Y%m%d%H%M%S")
+
+
+def _padding_seconds(item, key, default_seconds):
+    try:
+        if key in item.keys():
+            return int(item[key] or 0) * 60
+    except Exception:
+        pass
+
+    return default_seconds
+
+
+def _start_window(item):
+    start_padding = _padding_seconds(item, "start_padding", DEFAULT_START_PADDING_SECONDS)
+    return _parse_time(item["start"]) - timedelta(seconds=start_padding)
+
+
+def _stop_window(item):
+    end_padding = _padding_seconds(item, "end_padding", DEFAULT_STOP_PADDING_SECONDS)
+    return _parse_time(item["stop"]) + timedelta(seconds=end_padding)
 
 
 def _debug(*args):
@@ -56,6 +76,10 @@ def _start_recording(item):
         item["id"],
         item["title"],
         item["channel"],
+        "priority",
+        item.get("priority", 50),
+        "padding",
+        f"{item.get('start_padding', 0)}/{item.get('end_padding', 0)}",
         "using tuner",
         tuner_id,
         flush=True
@@ -107,17 +131,17 @@ def scheduler_loop():
         try:
             now_key = _now_key()
             now = datetime.now()
+
             database.recover_stale_recordings(now_key)
+            database.expire_old_scheduled_recordings(now_key)
 
             _debug("Scheduler tick", now_key)
 
-            database.expire_old_scheduled_recordings(now_key)
-
-            # Stop completed active recordings
+            # Stop completed active recordings using per-recording end padding.
             active_items = database.list_active_schedules()
 
             for item in active_items:
-                stop = _parse_time(item["stop"]) + timedelta(seconds=STOP_PADDING_SECONDS)
+                stop = _stop_window(item)
 
                 _debug(
                     "Active schedule:",
@@ -131,21 +155,32 @@ def scheduler_loop():
                 if now >= stop:
                     _stop_recording(item)
 
-            # Start due scheduled recordings
+            # Start due scheduled recordings.
             scheduled_items = database.list_scheduled_recordings()
+
+            scheduled_items = sorted(
+                scheduled_items,
+                key=lambda r: (
+                    -int(r.get("priority", 50) or 50),
+                    str(r.get("start", "")),
+                    int(r.get("id", 0) or 0),
+                )
+            )
 
             for item in scheduled_items:
                 if item["status"] != "Scheduled":
                     continue
 
-                start = _parse_time(item["start"]) - timedelta(seconds=START_PADDING_SECONDS)
-                stop = _parse_time(item["stop"]) + timedelta(seconds=STOP_PADDING_SECONDS)
+                start = _start_window(item)
+                stop = _stop_window(item)
 
                 _debug(
                     "Checking schedule:",
                     item["id"],
                     item["title"],
                     item["channel"],
+                    "priority",
+                    item.get("priority", 50),
                     "window",
                     start.strftime("%Y%m%d%H%M%S"),
                     "-",
@@ -172,7 +207,8 @@ def start_scheduler():
 
     _thread = threading.Thread(
         target=scheduler_loop,
-        daemon=True
+        daemon=True,
+        name="SignalDVRScheduler"
     )
 
     _thread.start()
