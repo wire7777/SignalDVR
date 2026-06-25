@@ -1,139 +1,152 @@
-<!doctype html>
-<html>
+{% extends "base.html" %}
 
-<head>
-    <title>SignalDVR Guide</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+{% block title %}SignalDVR Guide{% endblock %}
 
-    <style>
-        body {
-            margin: 0;
-            background: #111;
-            color: #eee;
-            font-family: Arial, Helvetica, sans-serif;
-        }
+{% block head %}
+<style>
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        gap: 18px;
+    }
 
-        .header {
-            background: #1b1b1b;
-            border-bottom: 2px solid #333;
-            padding: 20px 30px;
-        }
+    .channel-card {
+        background: #1d1d1d;
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 18px;
+        transition: .2s;
+    }
 
-        h1 {
-            margin: 0;
-        }
+    .channel-card:hover {
+        border-color: #4da3ff;
+        transform: translateY(-2px);
+    }
 
-        .nav {
-            background: #191919;
-            padding: 15px 30px;
-            border-bottom: 1px solid #333;
-        }
+    .channel-title {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 14px;
+    }
 
-        .nav a {
-            color: #4da3ff;
-            text-decoration: none;
-            margin-right: 18px;
-            font-weight: bold;
-        }
+    .section-label {
+        font-size: 13px;
+        font-weight: bold;
+        color: #aaa;
+        margin-bottom: 5px;
+    }
 
-        .content {
-            padding: 25px;
-        }
+    .now-title {
+        color: #55ff88;
+        font-size: 18px;
+        font-weight: bold;
+    }
 
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-            gap: 18px;
-        }
+    .next-title {
+        color: #ffd966;
+        font-size: 17px;
+        font-weight: bold;
+    }
 
-        .card {
-            background: #1d1d1d;
-            border: 1px solid #333;
-            border-radius: 12px;
-            padding: 18px;
-        }
+    .progress-bg {
+        margin: 10px 0 14px 0;
+        background: #333;
+        border-radius: 10px;
+        overflow: hidden;
+        height: 9px;
+    }
 
-        .now {
-            color: #55ff88;
-            margin-top: 10px;
-        }
+    .progress-fill {
+        height: 9px;
+        background: #55ff88;
+    }
 
-        .next {
-            color: #ffd966;
-            margin-top: 14px;
-        }
+    .live-text {
+        color: #55ff88;
+        font-size: 12px;
+        font-weight: bold;
+        margin-bottom: 14px;
+    }
 
-        button,
-        .button {
-            display: inline-block;
-            border: 0;
-            border-radius: 8px;
-            padding: 10px 16px;
-            cursor: pointer;
-            margin: 10px 6px 0 0;
-            font-weight: bold;
-            text-decoration: none;
-            color: white;
-        }
+    .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
 
-        .view {
-            background: #2196f3;
-        }
+    .view {
+        background: #2196f3;
+    }
 
-        .record {
-            background: #d93025;
-        }
-    </style>
-</head>
+    .record {
+        background: #d93025;
+    }
+</style>
+{% endblock %}
 
-<body>
+{% block content %}
 
-    <div class="header">
-        <h1>📺 SignalDVR Guide</h1>
-    </div>
+<h1>📺 Program Guide</h1>
 
-    <div class="nav">
-        <a href="/">Home</a>
-        <a href="/timeshift">Live TV DVR</a>
-        <a href="/grid">Grid</a>
-        <a href="/scheduled">Scheduled</a>
-        <a href="/series">Series</a>
-        <a href="/recordings">Recordings</a>
-        <a href="/tuners">Tuners</a>
-        <a href="/health">Health</a>
-        <a href="/timeline">Timeline</a>
-    </div>
+<div class="grid">
 
-    <div class="content">
-        <div class="grid">
+    {% for ch in channels %}
 
-            {% for ch in channels %}
-            <div class="card">
-                <h2>{{ ch["guide_number"] }} {{ ch["guide_name"] }}</h2>
+    <div class="channel-card">
 
-                <div class="now">
-                    <b>NOW</b><br>
-                    {{ ch["now_title"] or "No guide data" }}
-                </div>
+        <div class="channel-title">
+            {{ ch["guide_number"] }} {{ ch["guide_name"] }}
+        </div>
 
-                <div class="next">
-                    <b>NEXT</b><br>
-                    {{ ch["next_title"] or "No guide data" }}
-                </div>
+        <div class="section-label">NOW</div>
+        <div class="now-title">
+            {{ ch["now_title"] or "No guide data available." }}
+        </div>
 
-                <a class="button view" href="/guide-view/{{ ch['guide_number'] }}">View Schedule</a>
-
-                <form action="/record-channel/{{ ch['guide_number'] }}" method="post" style="display:inline;">
-                    <button class="record" type="submit">● Record Live</button>
-                </form>
+        {% if ch["now_start"] and ch["now_stop"] %}
+        <div class="progress-bg">
+            <div class="progress-fill" style="width:{{ ch['now_start']|progress_percent(ch['now_stop']) }}%;">
             </div>
-            {% else %}
-            <p>No channels yet.</p>
-            {% endfor %}
+        </div>
+
+        <div class="live-text">
+            ● LIVE · {{ ch["now_start"]|progress_percent(ch["now_stop"]) }}% complete
+        </div>
+        {% endif %}
+
+        <div class="section-label">NEXT</div>
+        <div class="next-title">
+            {{ ch["next_title"] or "No guide data available." }}
+        </div>
+
+        <br>
+
+        <div class="actions">
+
+            <a class="button view" href="/guide-view/{{ ch['guide_number'] }}">
+                📅 View Schedule
+            </a>
+
+            <form action="/record-channel/{{ ch['guide_number'] }}" method="post">
+
+                <button class="button record" type="submit">
+                    🔴 Record Live
+                </button>
+
+            </form>
 
         </div>
+
     </div>
 
-</body>
+    {% else %}
 
-</html>
+    <div class="card">
+        No channels found.
+    </div>
+
+    {% endfor %}
+
+</div>
+
+{% endblock %}

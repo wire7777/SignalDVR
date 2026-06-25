@@ -1,510 +1,602 @@
-<!doctype html>
-<html>
+{% extends "base.html" %}
 
-<head>
-    <title>SignalDVR Live TV DVR</title>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+{% block title %}SignalDVR Live TV DVR{% endblock %}
 
-    <style>
-        body {
-            background: #111;
-            color: #eee;
-            font-family: Arial;
-            margin: 25px;
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+<style>
+    .timeshift-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 360px;
+        gap: 22px;
+        align-items: start;
+    }
+
+    .player-panel {
+        min-width: 0;
+    }
+
+    .video-frame {
+        background: #000;
+        border: 1px solid #333;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 0 18px rgba(0, 0, 0, .35);
+    }
+
+    video {
+        width: 100%;
+        background: #000;
+        display: block;
+    }
+
+    .status-panel {
+        background: #202020;
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 18px;
+        margin-bottom: 18px;
+    }
+
+    .now-playing {
+        border-left: 6px solid #55ff88;
+    }
+
+    #nowChannel {
+        margin: 0 0 8px 0;
+        color: #55ff88;
+    }
+
+    #nowTitle {
+        margin: 0 0 8px 0;
+        font-size: 26px;
+    }
+
+    #nowDescription {
+        color: #ccc;
+        line-height: 1.5;
+    }
+
+    .live-badge {
+        color: #55ff88;
+        font-weight: bold;
+    }
+
+    #playerStatus {
+        color: #ffd966;
+        font-weight: bold;
+        margin: 14px 0;
+    }
+
+    .timeline-panel {
+        background: #202020;
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 18px;
+        margin: 18px 0;
+    }
+
+    .timeline-row {
+        display: flex;
+        justify-content: space-between;
+        color: #ccc;
+        font-size: 14px;
+        margin-bottom: 8px;
+    }
+
+    #timeline {
+        width: 100%;
+    }
+
+    .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 16px 0;
+    }
+
+    .controls button {
+        margin: 0;
+    }
+
+    .stop {
+        background: #aa2222;
+        color: white;
+    }
+
+    .stop:hover {
+        background: #cc3333;
+    }
+
+    .channel-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
+    }
+
+    .channel-card {
+        background: #1d1d1d;
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 12px;
+    }
+
+    .channel-card:hover {
+        border-color: #4da3ff;
+    }
+
+    .channel-card button {
+        width: 100%;
+    }
+
+    .engine-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 10px;
+    }
+
+    .engine-stat {
+        background: #181818;
+        border: 1px solid #333;
+        border-radius: 10px;
+        padding: 12px;
+    }
+
+    .engine-label {
+        color: #888;
+        font-size: 13px;
+        font-weight: bold;
+    }
+
+    .engine-value {
+        margin-top: 6px;
+        font-size: 18px;
+        font-weight: bold;
+    }
+
+    .remote-help {
+        color: #aaa;
+        font-size: 14px;
+        line-height: 1.6;
+    }
+
+    @media(max-width:1100px) {
+        .timeshift-layout {
+            grid-template-columns: 1fr;
         }
+    }
+</style>
+{% endblock %}
 
-        a {
-            color: #4da3ff;
-            text-decoration: none;
-        }
+{% block content %}
 
-        video {
-            width: 100%;
-            max-width: 1100px;
-            background: #000;
-            border-radius: 10px;
-        }
+<h1>⏯ Live TV DVR</h1>
 
-        button {
-            background: #2196f3;
-            color: white;
-            border: 0;
-            padding: 10px 18px;
-            margin: 4px;
-            border-radius: 8px;
-            cursor: pointer;
-        }
+<div class="timeshift-layout">
 
-        button:hover {
-            background: #1976d2;
-        }
+    <div class="player-panel">
 
-        .stop {
-            background: #aa2222;
-        }
-
-        .stop:hover {
-            background: #cc3333;
-        }
-
-        .card {
-            background: #222;
-            border-radius: 8px;
-            padding: 10px;
-            margin: 6px;
-            display: inline-block;
-        }
-
-        .status {
-            background: #202020;
-            border: 1px solid #333;
-            border-radius: 10px;
-            padding: 15px;
-            margin: 20px 0;
-        }
-
-        #playerStatus {
-            color: #ffd966;
-            margin-top: 10px;
-        }
-
-        #timeline {
-            width: 100%;
-        }
-
-        .remote-help {
-            color: #aaa;
-            font-size: 14px;
-        }
-
-        #nowPlayingBox {
-            border-left: 5px solid #55ff88;
-        }
-
-        #nowChannel {
-            margin: 0;
-            color: #55ff88;
-        }
-
-        #nowTitle {
-            margin-bottom: 5px;
-            font-size: 24px;
-        }
-
-        #nowDescription {
-            color: #ccc;
-        }
-    </style>
-</head>
-
-<body>
-
-    <h1>⏯ SignalDVR Live TV DVR</h1>
-
-    <p>
-        <a href="/">Home</a> |
-        <a href="/live">HLS Live Test</a> |
-        <a href="/grid">Grid</a> |
-        <a href="/recordings">Recordings</a>
-    </p>
-
-    <div class="status" id="nowPlayingBox">
-        <h2 id="nowChannel">Loading channel...</h2>
-        <h3 id="nowTitle">Loading program...</h3>
-        <p id="nowDescription"></p>
-        <p style="color:#55ff88;font-weight:bold;">● LIVE</p>
-    </div>
-
-    <div class="status">
-        <h3>Status</h3>
-        <p>Channel: {{ status["channel"] }}</p>
-        <p>File: <span id="fileName">{{ status["file"] }}</span></p>
-        <p>Size: <span id="fileSize">{{ status["raw_size"] }}</span> bytes</p>
-    </div>
-
-    <video id="video" controls autoplay playsinline></video>
-
-    <div id="playerStatus">Click Watch to start real DVR buffer.</div>
-
-    <div class="status">
-        <div style="display:flex;justify-content:space-between;">
-            <span id="currentTime">00:00:00</span>
-            <span id="liveTime">LIVE</span>
+        <div class="status-panel now-playing" id="nowPlayingBox">
+            <h2 id="nowChannel">Loading channel...</h2>
+            <h3 id="nowTitle">Loading program...</h3>
+            <p id="nowDescription"></p>
+            <p class="live-badge">● LIVE</p>
         </div>
 
-        <input id="timeline" type="range" min="0" max="100" value="0">
+        <div class="video-frame">
+            <video id="video" controls autoplay playsinline></video>
+        </div>
 
-        <div style="display:flex;justify-content:space-between;">
-            <span>Beginning</span>
-            <span id="bufferSize">0 MB Buffer</span>
+        <div id="playerStatus">Click Watch to start real DVR buffer.</div>
+
+        <div class="timeline-panel">
+            <div class="timeline-row">
+                <span id="currentTime">00:00:00</span>
+                <span id="liveTime">LIVE</span>
+            </div>
+
+            <input id="timeline" type="range" min="0" max="100" value="0">
+
+            <div class="timeline-row" style="margin-top:8px;">
+                <span>Beginning</span>
+                <span id="bufferSize">0 MB Buffer</span>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="primary" onclick="pauseDvr()">❚❚ Pause</button>
+            <button class="success" onclick="resumeDvr()">▶ Resume</button>
+            <button class="primary" onclick="replayDvr()">⏪ Replay 7 sec</button>
+            <button class="primary" onclick="skipDvr()">⏩ Skip 30 sec</button>
+            <button class="danger" onclick="jumpLive()">🔴 Jump Live</button>
+            <button class="primary" onclick="loadCurrent()">↻ Load / Reload Buffer</button>
+            <button class="stop" onclick="stopTimeshift()">■ Stop Timeshift</button>
+        </div>
+
+        <div class="status-panel">
+            <h2>DVR Engine</h2>
+
+            <div class="engine-grid">
+                <div class="engine-stat">
+                    <div class="engine-label">Paused</div>
+                    <div class="engine-value" id="pausedState">false</div>
+                </div>
+
+                <div class="engine-stat">
+                    <div class="engine-label">Position</div>
+                    <div class="engine-value"><span id="positionState">0</span> sec</div>
+                </div>
+
+                <div class="engine-stat">
+                    <div class="engine-label">File</div>
+                    <div class="engine-value" id="fileName">{{ status["file"] }}</div>
+                </div>
+
+                <div class="engine-stat">
+                    <div class="engine-label">Raw Size</div>
+                    <div class="engine-value"><span id="fileSize">{{ status["raw_size"] }}</span> bytes</div>
+                </div>
+            </div>
+
+            <p class="remote-help">
+                Keyboard: Space = Pause/Resume | ← = Replay | → = Skip |
+                ↑/↓ = Channel Up/Down | L = Live | F = Fullscreen | M = Mute | R = Reload
+            </p>
+        </div>
+
+    </div>
+
+    <div>
+        <div class="status-panel">
+            <h2>Current Status</h2>
+            <p><b>Channel:</b> {{ status["channel"] }}</p>
+            <p><b>File:</b> <span id="fileNameSide">{{ status["file"] }}</span></p>
+            <p><b>Size:</b> <span id="fileSizeSide">{{ status["raw_size"] }}</span> bytes</p>
+        </div>
+
+        <h2>Channels</h2>
+
+        <div class="channel-list">
+            {% for ch in channels %}
+            <div class="channel-card">
+                <b>{{ ch["guide_number"] }}</b><br>
+                {{ ch["guide_name"] }}
+                <br><br>
+                <button class="primary channel-watch"
+                    onclick="startTimeshift('{{ ch['guide_number'] }}')">Watch</button>
+            </div>
+            {% endfor %}
         </div>
     </div>
 
-    <div style="margin-top:12px;">
-        <button onclick="pauseDvr()">❚❚ Pause</button>
-        <button onclick="resumeDvr()">▶ Resume</button>
-        <button onclick="replayDvr()">⏪ Replay 7 sec</button>
-        <button onclick="skipDvr()">⏩ Skip 30 sec</button>
-        <button onclick="jumpLive()">🔴 Jump Live</button>
-    </div>
+</div>
 
-    <div class="status">
-        <h3>DVR Engine</h3>
-        <p>Paused: <span id="pausedState">false</span></p>
-        <p>Position: <span id="positionState">0</span> sec</p>
+<script>
+    let hls = null;
+    let draggingTimeline = false;
 
-        <p class="remote-help">
-            Keyboard:
-            Space = Pause/Resume |
-            ← = Replay |
-            → = Skip |
-            ↑/↓ = Channel Up/Down |
-            L = Live |
-            F = Fullscreen |
-            M = Mute |
-            R = Reload
-        </p>
-    </div>
+    const slider = document.getElementById("timeline");
+    const video = document.getElementById("video");
+    const channelButtons = Array.from(document.querySelectorAll(".channel-watch"));
 
-    <button onclick="loadCurrent()">↻ Load / Reload Buffer</button>
-    <button class="stop" onclick="stopTimeshift()">■ Stop Timeshift</button>
+    let currentChannelIndex = -1;
 
-    <h2>Channels</h2>
+    function setStatus(text) {
+        const box = document.getElementById("playerStatus");
+        if (box) {
+            box.innerText = text;
+        }
+    }
 
-    {% for ch in channels %}
-    <div class="card">
-        <b>{{ ch["guide_number"] }}</b> {{ ch["guide_name"] }}<br><br>
-        <button class="channel-watch" onclick="startTimeshift('{{ ch['guide_number'] }}')">Watch</button>
-    </div>
-    {% endfor %}
+    function secondsToTime(sec) {
+        sec = Math.floor(sec || 0);
 
-    <script>
-        let hls = null;
-        let draggingTimeline = false;
+        const h = Math.floor(sec / 3600);
+        const m = Math.floor((sec % 3600) / 60);
+        const s = sec % 60;
 
-        const slider = document.getElementById("timeline");
-        const video = document.getElementById("video");
-        const channelButtons = Array.from(document.querySelectorAll(".channel-watch"));
+        return (
+            String(h).padStart(2, "0") + ":" +
+            String(m).padStart(2, "0") + ":" +
+            String(s).padStart(2, "0")
+        );
+    }
 
-        let currentChannelIndex = -1;
+    async function getStatus() {
+        const r = await fetch("/api/timeshift/status?ts=" + Date.now());
+        return await r.json();
+    }
 
-        function setStatus(text) {
-            const box = document.getElementById("playerStatus");
-            if (box) {
-                box.innerText = text;
+    function updateDvrState(s) {
+        document.getElementById("pausedState").innerText = s.paused;
+        document.getElementById("positionState").innerText = s.position || 0;
+    }
+
+    async function updateStatusPanel() {
+        const s = await getStatus();
+
+        document.getElementById("fileName").innerText = s.file || "";
+        document.getElementById("fileSize").innerText = s.raw_size || 0;
+
+        updateDvrState(s);
+
+        const mb = Math.floor((s.raw_size || 0) / 1024 / 1024);
+        document.getElementById("bufferSize").innerText = mb + " MB Buffer";
+
+        return s;
+    }
+
+    async function updateNowPlaying() {
+        try {
+            const r = await fetch("/api/timeshift/now?ts=" + Date.now());
+            const data = await r.json();
+
+            document.getElementById("nowChannel").innerText =
+                data.channel || "No channel selected";
+
+            if (data.program) {
+                document.getElementById("nowTitle").innerText =
+                    data.program.title || "No title";
+
+                document.getElementById("nowDescription").innerText =
+                    data.program.description || "";
+            } else {
+                document.getElementById("nowTitle").innerText =
+                    "No guide data";
+
+                document.getElementById("nowDescription").innerText = "";
+            }
+        } catch (e) {
+            console.log(e);
+        }
+    }
+
+    async function loadHlsPlayer() {
+        const src = "/timeshiftbuffer/timeshift_hls.m3u8?ts=" + Date.now();
+
+        if (hls) {
+            hls.destroy();
+            hls = null;
+        }
+
+        video.muted = false;
+        video.volume = 1.0;
+
+        if (Hls.isSupported()) {
+            hls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: false,
+                liveSyncDuration: 10,
+                liveMaxLatencyDuration: 60,
+                backBufferLength: 3600,
+                maxBufferLength: 3600,
+                maxMaxBufferLength: 3600
+            });
+
+            hls.loadSource(src);
+            hls.attachMedia(video);
+
+            hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                video.play().catch(() => { });
+                setStatus("Playing HLS mirror. Raw DVR buffer is recording.");
+            });
+        } else {
+            video.src = src;
+            video.play().catch(() => { });
+            setStatus("Playing HLS mirror.");
+        }
+    }
+
+    async function waitForHlsThenLoad(attempt = 0) {
+        const s = await updateStatusPanel();
+
+        if (s.hls_exists) {
+            setStatus("HLS mirror ready. Loading player...");
+            await loadHlsPlayer();
+            await updateNowPlaying();
+            return;
+        }
+
+        if (attempt < 60) {
+            setStatus("Waiting for HLS mirror... " + (attempt + 1));
+            setTimeout(() => waitForHlsThenLoad(attempt + 1), 1000);
+        } else {
+            setStatus("HLS mirror took too long. Check timeshift_hls.log.");
+        }
+    }
+
+    async function loadCurrent() {
+        waitForHlsThenLoad();
+    }
+
+    async function startTimeshift(channel) {
+        setStatus("Starting real DVR buffer...");
+
+        await fetch("/api/timeshift/start/" + channel, {
+            method: "POST"
+        });
+
+        await updateNowPlaying();
+        waitForHlsThenLoad();
+    }
+
+    async function stopTimeshift() {
+        await fetch("/api/timeshift/stop", {
+            method: "POST"
+        });
+
+        if (hls) {
+            hls.destroy();
+            hls = null;
+        }
+
+        video.pause();
+        video.removeAttribute("src");
+        video.load();
+
+        setStatus("Stopped.");
+
+        document.getElementById("nowChannel").innerText = "No channel selected";
+        document.getElementById("nowTitle").innerText = "Stopped";
+        document.getElementById("nowDescription").innerText = "";
+    }
+
+    async function pauseDvr() {
+        const r = await fetch("/api/timeshift/pause", { method: "POST" });
+        const s = await r.json();
+
+        updateDvrState(s);
+        video.pause();
+    }
+
+    async function resumeDvr() {
+        const r = await fetch("/api/timeshift/resume", { method: "POST" });
+        const s = await r.json();
+
+        updateDvrState(s);
+        video.play().catch(() => { });
+    }
+
+    async function replayDvr() {
+        const r = await fetch("/api/timeshift/replay/7", { method: "POST" });
+        const s = await r.json();
+
+        updateDvrState(s);
+        video.currentTime = Math.max(0, video.currentTime - 7);
+    }
+
+    async function skipDvr() {
+        const r = await fetch("/api/timeshift/skip/30", { method: "POST" });
+        const s = await r.json();
+
+        updateDvrState(s);
+        video.currentTime = video.currentTime + 30;
+    }
+
+    async function jumpLive() {
+        const r = await fetch("/api/timeshift/live", { method: "POST" });
+        const s = await r.json();
+
+        updateDvrState(s);
+
+        if (video.seekable.length > 0) {
+            video.currentTime = video.seekable.end(video.seekable.length - 1);
+        }
+    }
+
+    function tuneChannelIndex(index) {
+        if (index < 0 || index >= channelButtons.length) {
+            return;
+        }
+
+        currentChannelIndex = index;
+        channelButtons[currentChannelIndex].click();
+    }
+
+    slider.oninput = () => {
+        draggingTimeline = true;
+        document.getElementById("currentTime").innerText =
+            secondsToTime(parseInt(slider.value));
+    };
+
+    slider.onchange = () => {
+        if (video.seekable.length > 0) {
+            const start = video.seekable.start(0);
+            video.currentTime = start + parseInt(slider.value);
+        }
+
+        draggingTimeline = false;
+    };
+
+    setInterval(() => {
+        if (draggingTimeline) return;
+
+        if (video.seekable.length > 0) {
+            const start = video.seekable.start(0);
+            const end = video.seekable.end(video.seekable.length - 1);
+            const pos = video.currentTime - start;
+            const len = end - start;
+
+            slider.max = Math.floor(len);
+            slider.value = Math.floor(pos);
+
+            document.getElementById("currentTime").innerText =
+                secondsToTime(pos);
+
+            document.getElementById("liveTime").innerText =
+                "LIVE " + secondsToTime(len);
+        }
+    }, 1000);
+
+    setInterval(updateStatusPanel, 3000);
+    setInterval(updateNowPlaying, 5000);
+    updateNowPlaying();
+
+    document.addEventListener("keydown", function (e) {
+        if (e.target.tagName === "INPUT") {
+            return;
+        }
+
+        if (e.code === "Space") {
+            e.preventDefault();
+
+            if (video.paused) {
+                resumeDvr();
+            } else {
+                pauseDvr();
             }
         }
 
-        function secondsToTime(sec) {
-            sec = Math.floor(sec || 0);
+        if (e.key === "ArrowLeft") {
+            e.preventDefault();
+            replayDvr();
+        }
 
-            const h = Math.floor(sec / 3600);
-            const m = Math.floor((sec % 3600) / 60);
-            const s = sec % 60;
+        if (e.key === "ArrowRight") {
+            e.preventDefault();
+            skipDvr();
+        }
 
-            return (
-                String(h).padStart(2, "0") + ":" +
-                String(m).padStart(2, "0") + ":" +
-                String(s).padStart(2, "0")
+        if (e.key === "ArrowUp") {
+            e.preventDefault();
+            tuneChannelIndex(currentChannelIndex <= 0 ? 0 : currentChannelIndex - 1);
+        }
+
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            tuneChannelIndex(
+                currentChannelIndex >= channelButtons.length - 1
+                    ? channelButtons.length - 1
+                    : currentChannelIndex + 1
             );
         }
 
-        async function getStatus() {
-            const r = await fetch("/api/timeshift/status?ts=" + Date.now());
-            return await r.json();
+        if (e.key.toLowerCase() === "l") {
+            e.preventDefault();
+            jumpLive();
         }
 
-        function updateDvrState(s) {
-            document.getElementById("pausedState").innerText = s.paused;
-            document.getElementById("positionState").innerText = s.position || 0;
-        }
+        if (e.key.toLowerCase() === "f") {
+            e.preventDefault();
 
-        async function updateStatusPanel() {
-            const s = await getStatus();
-
-            document.getElementById("fileName").innerText = s.file || "";
-            document.getElementById("fileSize").innerText = s.raw_size || 0;
-
-            updateDvrState(s);
-
-            const mb = Math.floor((s.raw_size || 0) / 1024 / 1024);
-            document.getElementById("bufferSize").innerText = mb + " MB Buffer";
-
-            return s;
-        }
-
-        async function updateNowPlaying() {
-            try {
-                const r = await fetch("/api/timeshift/now?ts=" + Date.now());
-                const data = await r.json();
-
-                document.getElementById("nowChannel").innerText =
-                    data.channel || "No channel selected";
-
-                if (data.program) {
-                    document.getElementById("nowTitle").innerText =
-                        data.program.title || "No title";
-
-                    document.getElementById("nowDescription").innerText =
-                        data.program.description || "";
-                } else {
-                    document.getElementById("nowTitle").innerText =
-                        "No guide data";
-
-                    document.getElementById("nowDescription").innerText = "";
-                }
-            } catch (e) {
-                console.log(e);
-            }
-        }
-
-        async function loadHlsPlayer() {
-            const src = "/timeshiftbuffer/timeshift_hls.m3u8?ts=" + Date.now();
-
-            if (hls) {
-                hls.destroy();
-                hls = null;
-            }
-
-            video.muted = false;
-            video.volume = 1.0;
-
-            if (Hls.isSupported()) {
-                hls = new Hls({
-                    enableWorker: true,
-                    lowLatencyMode: false,
-                    liveSyncDuration: 10,
-                    liveMaxLatencyDuration: 60,
-                    backBufferLength: 3600,
-                    maxBufferLength: 3600,
-                    maxMaxBufferLength: 3600
-                });
-
-                hls.loadSource(src);
-                hls.attachMedia(video);
-
-                hls.on(Hls.Events.MANIFEST_PARSED, function () {
-                    video.play().catch(() => { });
-                    setStatus("Playing HLS mirror. Raw DVR buffer is recording.");
-                });
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
             } else {
-                video.src = src;
-                video.play().catch(() => { });
-                setStatus("Playing HLS mirror.");
+                video.requestFullscreen();
             }
         }
 
-        async function waitForHlsThenLoad(attempt = 0) {
-            const s = await updateStatusPanel();
-
-            if (s.hls_exists) {
-                setStatus("HLS mirror ready. Loading player...");
-                await loadHlsPlayer();
-                await updateNowPlaying();
-                return;
-            }
-
-            if (attempt < 60) {
-                setStatus("Waiting for HLS mirror... " + (attempt + 1));
-                setTimeout(() => waitForHlsThenLoad(attempt + 1), 1000);
-            } else {
-                setStatus("HLS mirror took too long. Check timeshift_hls.log.");
-            }
+        if (e.key.toLowerCase() === "m") {
+            e.preventDefault();
+            video.muted = !video.muted;
         }
 
-        async function loadCurrent() {
-            waitForHlsThenLoad();
+        if (e.key.toLowerCase() === "r") {
+            e.preventDefault();
+            loadCurrent();
         }
+    });
+</script>
 
-        async function startTimeshift(channel) {
-            setStatus("Starting real DVR buffer...");
-
-            await fetch("/api/timeshift/start/" + channel, {
-                method: "POST"
-            });
-
-            await updateNowPlaying();
-            waitForHlsThenLoad();
-        }
-
-        async function stopTimeshift() {
-            await fetch("/api/timeshift/stop", {
-                method: "POST"
-            });
-
-            if (hls) {
-                hls.destroy();
-                hls = null;
-            }
-
-            video.pause();
-            video.removeAttribute("src");
-            video.load();
-
-            setStatus("Stopped.");
-
-            document.getElementById("nowChannel").innerText = "No channel selected";
-            document.getElementById("nowTitle").innerText = "Stopped";
-            document.getElementById("nowDescription").innerText = "";
-        }
-
-        async function pauseDvr() {
-            const r = await fetch("/api/timeshift/pause", { method: "POST" });
-            const s = await r.json();
-
-            updateDvrState(s);
-            video.pause();
-        }
-
-        async function resumeDvr() {
-            const r = await fetch("/api/timeshift/resume", { method: "POST" });
-            const s = await r.json();
-
-            updateDvrState(s);
-            video.play().catch(() => { });
-        }
-
-        async function replayDvr() {
-            const r = await fetch("/api/timeshift/replay/7", { method: "POST" });
-            const s = await r.json();
-
-            updateDvrState(s);
-            video.currentTime = Math.max(0, video.currentTime - 7);
-        }
-
-        async function skipDvr() {
-            const r = await fetch("/api/timeshift/skip/30", { method: "POST" });
-            const s = await r.json();
-
-            updateDvrState(s);
-            video.currentTime = video.currentTime + 30;
-        }
-
-        async function jumpLive() {
-            const r = await fetch("/api/timeshift/live", { method: "POST" });
-            const s = await r.json();
-
-            updateDvrState(s);
-
-            if (video.seekable.length > 0) {
-                video.currentTime = video.seekable.end(video.seekable.length - 1);
-            }
-        }
-
-        function tuneChannelIndex(index) {
-            if (index < 0 || index >= channelButtons.length) {
-                return;
-            }
-
-            currentChannelIndex = index;
-            channelButtons[currentChannelIndex].click();
-        }
-
-        slider.oninput = () => {
-            draggingTimeline = true;
-            document.getElementById("currentTime").innerText =
-                secondsToTime(parseInt(slider.value));
-        };
-
-        slider.onchange = () => {
-            if (video.seekable.length > 0) {
-                const start = video.seekable.start(0);
-                video.currentTime = start + parseInt(slider.value);
-            }
-
-            draggingTimeline = false;
-        };
-
-        setInterval(() => {
-            if (draggingTimeline) return;
-
-            if (video.seekable.length > 0) {
-                const start = video.seekable.start(0);
-                const end = video.seekable.end(video.seekable.length - 1);
-                const pos = video.currentTime - start;
-                const len = end - start;
-
-                slider.max = Math.floor(len);
-                slider.value = Math.floor(pos);
-
-                document.getElementById("currentTime").innerText =
-                    secondsToTime(pos);
-
-                document.getElementById("liveTime").innerText =
-                    "LIVE " + secondsToTime(len);
-            }
-        }, 1000);
-
-        setInterval(updateStatusPanel, 3000);
-        setInterval(updateNowPlaying, 5000);
-        updateNowPlaying();
-
-        document.addEventListener("keydown", function (e) {
-            if (e.target.tagName === "INPUT") {
-                return;
-            }
-
-            if (e.code === "Space") {
-                e.preventDefault();
-
-                if (video.paused) {
-                    resumeDvr();
-                } else {
-                    pauseDvr();
-                }
-            }
-
-            if (e.key === "ArrowLeft") {
-                e.preventDefault();
-                replayDvr();
-            }
-
-            if (e.key === "ArrowRight") {
-                e.preventDefault();
-                skipDvr();
-            }
-
-            if (e.key === "ArrowUp") {
-                e.preventDefault();
-                tuneChannelIndex(currentChannelIndex <= 0 ? 0 : currentChannelIndex - 1);
-            }
-
-            if (e.key === "ArrowDown") {
-                e.preventDefault();
-                tuneChannelIndex(
-                    currentChannelIndex >= channelButtons.length - 1
-                        ? channelButtons.length - 1
-                        : currentChannelIndex + 1
-                );
-            }
-
-            if (e.key.toLowerCase() === "l") {
-                e.preventDefault();
-                jumpLive();
-            }
-
-            if (e.key.toLowerCase() === "f") {
-                e.preventDefault();
-
-                if (document.fullscreenElement) {
-                    document.exitFullscreen();
-                } else {
-                    video.requestFullscreen();
-                }
-            }
-
-            if (e.key.toLowerCase() === "m") {
-                e.preventDefault();
-                video.muted = !video.muted;
-            }
-
-            if (e.key.toLowerCase() === "r") {
-                e.preventDefault();
-                loadCurrent();
-            }
-        });
-    </script>
-
-</body>
-
-</html>
+{% endblock %}

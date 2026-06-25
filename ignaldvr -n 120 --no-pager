@@ -1,0 +1,15 @@
+[0;1;34m# ]8;;file://tv-server/etc/systemd/system/signaldvr.service/etc/systemd/system/signaldvr.service]8;;[0m
+[0;1;36m[Unit][0m
+Description=SignalDVR
+After=network-online.target
+Wants=network-online.target
+[0;1;38;5;245m[0m
+[0;1;36m[Service][0m
+User=wire
+WorkingDirectory=/home/wire/signaldvr
+ExecStart=/usr/bin/python3 -m app.app
+Restart=always
+RestartSec=5
+[0;1;38;5;245m[0m
+[0;1;36m[Install][0m
+WantedBy=multi-user.target

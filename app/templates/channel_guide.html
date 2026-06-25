@@ -1,156 +1,214 @@
-<!doctype html>
-<html>
+{% extends "base.html" %}
 
-<head>
-    <title>SignalDVR Channel Guide</title>
-    <style>
-        body {
-            background: #111;
-            color: #eee;
-            font-family: Arial;
-            margin: 25px;
-        }
+{% block title %}Channel {{ channel }}{% endblock %}
 
-        a {
-            color: #4da3ff;
-            text-decoration: none;
-        }
+{% block head %}
+<style>
+    .program-card {
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 18px;
+        margin-bottom: 18px;
+        transition: .2s;
+    }
 
-        .card {
-            border: 1px solid #333;
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 14px;
-        }
+    .program-card:hover {
+        transform: translateY(-2px);
+        border-color: #4da3ff;
+    }
 
-        .live-card {
-            border-left: 5px solid #55ff88;
-            box-shadow: inset 0 0 0 1px #55ff88;
-        }
+    .live {
+        border-left: 6px solid #55ff88;
+        box-shadow: 0 0 12px rgba(85, 255, 136, .15);
+    }
 
-        .time {
-            color: #ddd;
-            font-size: 14px;
-            margin-bottom: 6px;
-        }
+    .time {
+        color: #bbb;
+        font-size: 14px;
+        margin-bottom: 10px;
+    }
 
-        .title {
-            font-size: 22px;
-            font-weight: bold;
-        }
+    .title {
+        font-size: 26px;
+        font-weight: bold;
+        margin-bottom: 8px;
+    }
 
-        .subtitle {
-            color: #eee;
-            margin-top: 5px;
-        }
+    .subtitle {
+        color: #ddd;
+        font-style: italic;
+        margin-bottom: 12px;
+    }
 
-        .desc {
-            color: #ddd;
-            margin-top: 8px;
-            line-height: 1.4;
-        }
+    .description {
+        color: #ccc;
+        line-height: 1.6;
+        margin-bottom: 12px;
+    }
 
-        .progress-bg {
-            margin-top: 8px;
-            background: rgba(0, 0, 0, .35);
-            border-radius: 10px;
-            overflow: hidden;
-            height: 9px;
-        }
+    .category {
+        display: inline-block;
+        background: rgba(255, 255, 255, .08);
+        padding: 5px 10px;
+        border-radius: 8px;
+        font-size: 13px;
+        margin-bottom: 14px;
+    }
 
-        .progress-fill {
-            height: 9px;
-            background: #55ff88;
-        }
+    .progress-bg {
+        height: 10px;
+        background: #333;
+        border-radius: 12px;
+        overflow: hidden;
+        margin: 12px 0;
+    }
 
-        .live-text {
-            font-size: 13px;
-            color: #55ff88;
-            margin-top: 5px;
-            font-weight: bold;
-        }
+    .progress-fill {
+        height: 10px;
+        background: #55ff88;
+    }
 
-        button {
-            color: white;
-            border: 0;
-            padding: 9px 14px;
-            border-radius: 7px;
-            cursor: pointer;
-            margin-top: 10px;
-            margin-right: 6px;
-        }
+    .live-text {
+        color: #55ff88;
+        font-size: 13px;
+        font-weight: bold;
+        margin-bottom: 14px;
+    }
 
-        .record-btn {
-            background: #2196f3;
-        }
+    .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
 
-        .series-btn {
-            background: #7b1fa2;
-        }
-    </style>
-</head>
+    .record {
+        background: #d93025;
+        color: white;
+    }
 
-<body>
+    .series {
+        background: #7b1fa2;
+        color: white;
+    }
+</style>
+{% endblock %}
 
-    <h1>📺 Channel {{ channel }}</h1>
+{% block content %}
 
-    <p>
-        <a href="/">Home</a> |
-        <a href="/guide">Now / Next</a> |
-        <a href="/grid">Grid</a> |
-        <a href="/timeshift">Live TV DVR</a> |
-        <a href="/series">Series</a>
-    </p>
+<h1>📺 Channel {{ channel }}</h1>
 
-    {% for p in programs %}
-    <div class="card {% if p['start']|is_live_now(p['stop']) %}live-card{% endif %}"
-        style="background: {{ p['category']|category_color }};">
-        <div class="time">
-            {{ p["start"]|tvtime }} - {{ p["stop"]|tvtime }}
+{% for p in programs %}
+
+<div class="program-card {% if p['start']|is_live_now(p['stop']) %}live{% endif %}"
+    style="background:{{ p['category']|category_color }};">
+
+    <div class="time">
+
+        {{ p["start"]|tvtime }}
+
+        —
+
+        {{ p["stop"]|tvtime }}
+
+    </div>
+
+    {% if p["start"]|is_live_now(p["stop"]) %}
+
+    <div class="progress-bg">
+
+        <div class="progress-fill" style="width:{{ p['start']|progress_percent(p['stop']) }}%;">
         </div>
 
-        {% if p["start"]|is_live_now(p["stop"]) %}
-        <div class="progress-bg">
-            <div class="progress-fill" style="width:{{ p['start']|progress_percent(p['stop']) }}%;"></div>
-        </div>
-        <div class="live-text">
-            ● LIVE NOW · {{ p["start"]|progress_percent(p["stop"]) }}% complete
-        </div>
-        {% endif %}
+    </div>
 
-        <div class="title">{{ p["title"] }}</div>
+    <div class="live-text">
 
-        {% if p["subtitle"] %}
-        <div class="subtitle">{{ p["subtitle"] }}</div>
-        {% endif %}
+        🔴 LIVE NOW · {{ p["start"]|progress_percent(p["stop"]) }}%
 
-        {% if p["description"] %}
-        <div class="desc">{{ p["description"] }}</div>
-        {% endif %}
+    </div>
 
-        {% if p["category"] %}
-        <div class="desc">Category: {{ p["category"] }}</div>
-        {% endif %}
+    {% endif %}
 
-        <form action="/schedule-program" method="post" style="display:inline;">
+    <div class="title">
+
+        {{ p["title"] }}
+
+    </div>
+
+    {% if p["subtitle"] %}
+
+    <div class="subtitle">
+
+        {{ p["subtitle"] }}
+
+    </div>
+
+    {% endif %}
+
+    {% if p["description"] %}
+
+    <div class="description">
+
+        {{ p["description"] }}
+
+    </div>
+
+    {% endif %}
+
+    {% if p["category"] %}
+
+    <div class="category">
+
+        {{ p["category"] }}
+
+    </div>
+
+    {% endif %}
+
+    <div class="actions">
+
+        <form action="/schedule-program" method="post">
+
             <input type="hidden" name="channel" value="{{ channel }}">
             <input type="hidden" name="title" value="{{ p['title'] }}">
             <input type="hidden" name="subtitle" value="{{ p['subtitle'] }}">
             <input type="hidden" name="start" value="{{ p['start'] }}">
             <input type="hidden" name="stop" value="{{ p['stop'] }}">
-            <button class="record-btn" type="submit">Record This</button>
+
+            <button class="record" type="submit">
+
+                🔴 Record This
+
+            </button>
+
         </form>
 
-        <form action="/series/add" method="post" style="display:inline;">
+        <form action="/series/add" method="post">
+
             <input type="hidden" name="title" value="{{ p['title'] }}">
+
             <input type="hidden" name="channel" value="{{ channel }}">
-            <button class="series-btn" type="submit">Record Series</button>
+
+            <button class="series" type="submit">
+
+                🔁 Record Series
+
+            </button>
+
         </form>
+
     </div>
-    {% else %}
-    <p>No upcoming guide data.</p>
-    {% endfor %}
 
-</body>
+</div>
 
-</html>
+{% else %}
+
+<div class="card">
+
+    <h2>No Upcoming Guide Data</h2>
+
+</div>
+
+{% endfor %}
+
+{% endblock %}

@@ -1,93 +1,238 @@
-<!doctype html>
-<html>
-<head>
-    <title>SignalDVR Health</title>
-    <meta http-equiv="refresh" content="30">
-    <style>
-        body { background:#111; color:#eee; font-family:Arial; margin:25px; }
-        a { color:#4da3ff; text-decoration:none; }
-        .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; }
-        .card { background:#1d1d1d; border:1px solid #333; border-radius:12px; padding:16px; }
-        .good { border-left:5px solid #55ff88; }
-        .warn { border-left:5px solid #ffaa33; }
-        .bad { border-left:5px solid #ff5555; }
-        .big { font-size:28px; font-weight:bold; }
-        .muted { color:#aaa; }
-        pre { background:#0b0b0b; color:#ddd; padding:12px; border-radius:8px; overflow:auto; }
-        .bar { background:#333; border-radius:10px; height:12px; overflow:hidden; }
-        .fill { background:#55ff88; height:12px; }
-    </style>
-</head>
-<body>
+{% extends "base.html" %}
 
-<h1>🩺 SignalDVR Health</h1>
+{% block title %}SignalDVR Health{% endblock %}
 
-<p>
-    <a href="/">Home</a> |
-    <a href="/tuners">Tuners</a> |
-    <a href="/scheduled">Scheduled</a> |
-    <a href="/recordings">Recordings</a>
-</p>
+{% block head %}
+<meta http-equiv="refresh" content="30">
+
+<style>
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 18px;
+    }
+
+    .health-card {
+        background: #1d1d1d;
+        border: 1px solid #333;
+        border-left: 6px solid #55ff88;
+        border-radius: 12px;
+        padding: 18px;
+    }
+
+    .warn {
+        border-left-color: #ffb300;
+    }
+
+    .bad {
+        border-left-color: #d93025;
+    }
+
+    .big {
+        font-size: 34px;
+        font-weight: bold;
+        margin: 10px 0;
+    }
+
+    .muted {
+        color: #aaa;
+    }
+
+    .bar {
+        background: #333;
+        border-radius: 12px;
+        overflow: hidden;
+        height: 14px;
+        margin: 12px 0;
+    }
+
+    .fill {
+        background: #55ff88;
+        height: 14px;
+    }
+
+    .tuner-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 18px;
+        margin-top: 18px;
+    }
+
+    .tuner-card {
+        background: #1d1d1d;
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 18px;
+    }
+
+    .tuner-busy {
+        border-left: 6px solid #d93025;
+    }
+
+    .tuner-idle {
+        border-left: 6px solid #55ff88;
+    }
+
+    pre {
+        background: #0b0b0b;
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 18px;
+        overflow: auto;
+        color: #ddd;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<h1>🩺 System Health</h1>
 
 <div class="grid">
-    <div class="card good">
+
+    <div class="health-card">
+
         <h2>Service</h2>
+
         <div class="big">🟢 Online</div>
-        <p class="muted">Auto-refreshes every 30 seconds.</p>
-    </div>
 
-    <div class="card good">
-        <h2>Guide</h2>
-        <div class="big">{{ program_count }}</div>
-        <p class="muted">Programs in database</p>
-    </div>
-
-    <div class="card good">
-        <h2>Disk</h2>
-        {% set used_pct = ((disk.used / disk.total) * 100)|round(1) %}
-        <div class="big">{{ used_pct }}%</div>
-        <div class="bar">
-            <div class="fill" style="width:{{ used_pct }}%;"></div>
+        <div class="muted">
+            Auto refresh every 30 seconds
         </div>
-        <p>
-            Free: {{ "%.1f"|format(disk.free / 1024 / 1024 / 1024) }} GB<br>
-            Total: {{ "%.1f"|format(disk.total / 1024 / 1024 / 1024) }} GB
-        </p>
+
     </div>
 
-    <div class="card {% if next_recording %}good{% else %}warn{% endif %}">
+    <div class="health-card">
+
+        <h2>Guide Database</h2>
+
+        <div class="big">
+            {{ program_count }}
+        </div>
+
+        <div class="muted">
+            Programs indexed
+        </div>
+
+    </div>
+
+    <div class="health-card">
+
+        {% set used_pct=((disk.used/disk.total)*100)|round(1) %}
+
+        <h2>Recording Storage</h2>
+
+        <div class="big">
+            {{ used_pct }}%
+        </div>
+
+        <div class="bar">
+            <div class="fill" style="width:{{ used_pct }}%;">
+            </div>
+        </div>
+
+        <div>
+
+            <b>Free:</b>
+
+            {{ "%.1f"|format(disk.free/1024/1024/1024) }} GB
+
+            <br><br>
+
+            <b>Total:</b>
+
+            {{ "%.1f"|format(disk.total/1024/1024/1024) }} GB
+
+        </div>
+
+    </div>
+
+    <div class="health-card {% if not next_recording %}warn{% endif %}">
+
         <h2>Next Recording</h2>
+
         {% if next_recording %}
-            <div class="big">{{ next_recording["title"] }}</div>
-            <p>
-                Channel {{ next_recording["channel"] }}<br>
-                {{ next_recording["start"]|tvtime }} - {{ next_recording["stop"]|tvtime }}
-            </p>
+
+        <div class="big">
+            {{ next_recording["title"] }}
+        </div>
+
+        <div>
+
+            Channel {{ next_recording["channel"] }}
+
+            <br><br>
+
+            {{ next_recording["start"]|tvtime }}
+
+            -
+
+            {{ next_recording["stop"]|tvtime }}
+
+        </div>
+
         {% else %}
-            <div class="big">None</div>
-            <p class="muted">No upcoming scheduled recordings.</p>
+
+        <div class="big">
+            None
+        </div>
+
+        <div class="muted">
+
+            No upcoming scheduled recordings.
+
+        </div>
+
         {% endif %}
+
     </div>
+
 </div>
 
-<h2>📡 Tuners</h2>
+<h2 style="margin-top:35px;">📡 Tuners</h2>
 
-<div class="grid">
-{% for t in tuners %}
-    <div class="card {% if t['state'] == 'busy' %}bad{% else %}good{% endif %}">
+<div class="tuner-grid">
+
+    {% for t in tuners %}
+
+    <div class="tuner-card {% if t['state']=='busy' %}tuner-busy{% else %}tuner-idle{% endif %}">
+
         <h2>Tuner {{ t["tuner_id"] }}</h2>
+
         <p>
-            <b>State:</b> {{ t["state"]|upper }}<br>
-            <b>Channel:</b> {{ t["channel"] or "-" }}<br>
-            <b>Purpose:</b> {{ t["purpose"] or "-" }}<br>
-            <b>Title:</b> {{ t["title"] or "-" }}
+
+            <b>Status</b><br>
+
+            {{ t["state"]|upper }}
+
+            <br><br>
+
+            <b>Channel</b><br>
+
+            {{ t["channel"] or "-" }}
+
+            <br><br>
+
+            <b>Purpose</b><br>
+
+            {{ t["purpose"] or "-" }}
+
+            <br><br>
+
+            <b>Recording</b><br>
+
+            {{ t["title"] or "-" }}
+
         </p>
+
     </div>
-{% endfor %}
+
+    {% endfor %}
+
 </div>
 
-<h2>HDHomeRun Debug</h2>
+<h2 style="margin-top:35px;">HDHomeRun Diagnostics</h2>
+
 <pre>{{ tuner_debug }}</pre>
 
-</body>
-</html>
+{% endblock %}

@@ -233,7 +233,7 @@ def get_now_next():
 
         for ch in channels:
             now_program = db.execute("""
-                SELECT title
+                SELECT title, start, stop
                 FROM programs
                 WHERE channel=?
                   AND substr(start, 1, 14) <= ?
@@ -243,7 +243,7 @@ def get_now_next():
             """, (ch["guide_number"], now, now)).fetchone()
 
             next_program = db.execute("""
-                SELECT title
+                SELECT title, start, stop
                 FROM programs
                 WHERE channel=?
                   AND substr(start, 1, 14) > ?
@@ -254,8 +254,14 @@ def get_now_next():
             result.append({
                 "guide_number": ch["guide_number"],
                 "guide_name": ch["guide_name"],
+
                 "now_title": now_program["title"] if now_program else None,
+                "now_start": now_program["start"] if now_program else None,
+                "now_stop": now_program["stop"] if now_program else None,
+
                 "next_title": next_program["title"] if next_program else None,
+                "next_start": next_program["start"] if next_program else None,
+                "next_stop": next_program["stop"] if next_program else None,
             })
 
         return result

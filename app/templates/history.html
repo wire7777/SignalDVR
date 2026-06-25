@@ -1,58 +1,158 @@
-<!doctype html>
-<html>
-<head>
-    <title>SignalDVR Recording History</title>
-    <style>
-        body { background:#111; color:#eee; font-family:Arial; margin:25px; }
-        a { color:#4da3ff; text-decoration:none; }
+{% extends "base.html" %}
 
-        .card {
-            background:#1d1d1d;
-            border:1px solid #333;
-            border-radius:12px;
-            padding:16px;
-            margin-bottom:14px;
-        }
+{% block title %}SignalDVR Recording History{% endblock %}
 
-        .Recording { border-left:5px solid #ff5555; }
-        .Recorded { border-left:5px solid #55ff88; }
-        .Scheduled { border-left:5px solid #4da3ff; }
-        .Expired { border-left:5px solid #ffaa33; }
-        .Failed { border-left:5px solid #ff3333; }
+{% block head %}
+<style>
+    .history-grid {
+        display: grid;
+        gap: 18px;
+    }
 
-        .title { font-size:22px; font-weight:bold; }
-        .meta { color:#ccc; margin-top:8px; line-height:1.5; }
-    </style>
-</head>
+    .history-card {
+        background: #1d1d1d;
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 20px;
+        transition: .2s;
+    }
 
-<body>
+    .history-card:hover {
+        transform: translateY(-2px);
+        border-color: #4da3ff;
+    }
 
-<h1>📜 SignalDVR Recording History</h1>
+    .recording {
+        border-left: 6px solid #ff5555;
+    }
 
-<p>
-    <a href="/">Home</a> |
-    <a href="/scheduled">Scheduled</a> |
-    <a href="/grid">Grid</a> |
-    <a href="/recordings">Recordings</a>
-</p>
+    .recorded {
+        border-left: 6px solid #55ff88;
+    }
 
-{% for h in history %}
-<div class="card {{ 'Failed' if h['status'].startswith('Failed') else h['status'] }}">
-    <div class="title">{{ h["title"] }}</div>
+    .scheduled {
+        border-left: 6px solid #4da3ff;
+    }
+
+    .expired {
+        border-left: 6px solid #ffaa33;
+    }
+
+    .failed {
+        border-left: 6px solid #d93025;
+    }
+
+    .title {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 8px;
+    }
+
+    .subtitle {
+        color: #bbb;
+        margin-bottom: 14px;
+        font-style: italic;
+    }
+
+    .meta {
+        color: #ddd;
+        line-height: 1.8;
+    }
+
+    .label {
+        color: #888;
+        display: inline-block;
+        width: 90px;
+        font-weight: bold;
+    }
+
+    .empty {
+        text-align: center;
+        padding: 60px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<h1>📜 Recording History</h1>
+
+<div class="history-grid">
+
+    {% for h in history %}
+
+    <div class="history-card
+{% if h['status'].startswith('Failed') %}
+failed
+{% elif h['status']==" Recording" %} recording {% elif h['status']=="Recorded" %} recorded {% elif
+        h['status']=="Scheduled" %} scheduled {% elif h['status']=="Expired" %} expired {% endif %} ">
+
+<div class=" title">
+
+        {{ h["title"] }}
+
+    </div>
 
     {% if h["subtitle"] %}
-    <div class="meta">{{ h["subtitle"] }}</div>
+
+    <div class="subtitle">
+
+        {{ h["subtitle"] }}
+
+    </div>
+
     {% endif %}
 
     <div class="meta">
-        <b>Status:</b> {{ h["status"]|status_badge }}<br>
-        <b>Channel:</b> {{ h["channel"] }}<br>
-        <b>Time:</b> {{ h["start"]|tvtime }} - {{ h["stop"]|tvtime }}
+
+        <div>
+
+            <span class="label">Status</span>
+
+            {{ h["status"]|status_badge }}
+
+        </div>
+
+        <div>
+
+            <span class="label">Channel</span>
+
+            {{ h["channel"] }}
+
+        </div>
+
+        <div>
+
+            <span class="label">Time</span>
+
+            {{ h["start"]|tvtime }}
+
+            —
+
+            {{ h["stop"]|tvtime }}
+
+        </div>
+
     </div>
+
 </div>
+
 {% else %}
-<p>No recording history yet.</p>
+
+<div class="card empty">
+
+    <h2>No Recording History</h2>
+
+    <p>
+
+        Completed, failed, and scheduled recordings will appear here.
+
+    </p>
+
+</div>
+
 {% endfor %}
 
-</body>
-</html>
+</div>
+
+{% endblock %}

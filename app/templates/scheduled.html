@@ -1,128 +1,56 @@
-<!doctype html>
-<html>
+{% extends "base.html" %}
 
-<head>
-    <title>SignalDVR Scheduled</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body {
-            margin: 0;
-            background: #111;
-            color: #eee;
-            font-family: Arial, Helvetica, sans-serif;
-        }
+{% block title %}SignalDVR Scheduled{% endblock %}
 
-        .header {
-            background: #1b1b1b;
-            border-bottom: 2px solid #333;
-            padding: 20px 30px;
-        }
+{% block head %}
+<style>
+    .Recording {
+        border-left: 5px solid #ff5555;
+    }
 
-        h1 {
-            margin: 0;
-        }
+    .Scheduled {
+        border-left: 5px solid #4da3ff;
+    }
 
-        .nav {
-            background: #191919;
-            padding: 15px 30px;
-            border-bottom: 1px solid #333;
-        }
+    .title {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 8px;
+    }
 
-        .nav a {
-            color: #4da3ff;
-            text-decoration: none;
-            margin-right: 18px;
-            font-weight: bold;
-        }
+    .meta {
+        color: #ccc;
+        line-height: 1.5;
+    }
+</style>
+{% endblock %}
 
-        .content {
-            padding: 25px;
-        }
+{% block content %}
 
-        .card {
-            background: #1d1d1d;
-            border: 1px solid #333;
-            border-radius: 12px;
-            padding: 18px;
-            margin-bottom: 16px;
-        }
+<h1>🗓 Scheduled Recordings</h1>
 
-        .Recording {
-            border-left: 5px solid #ff5555;
-        }
+{% for s in scheduled %}
+<div class="card {{ s['status'] }}">
+    <div class="title">{{ s["title"] }}</div>
 
-        .Scheduled {
-            border-left: 5px solid #4da3ff;
-        }
+    {% if s["subtitle"] %}
+    <div class="meta">{{ s["subtitle"] }}</div>
+    {% endif %}
 
-        .title {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 8px;
-        }
-
-        .meta {
-            color: #ccc;
-            line-height: 1.5;
-        }
-
-        button {
-            background: #aa2222;
-            color: white;
-            border: 0;
-            padding: 9px 14px;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-top: 10px;
-            font-weight: bold;
-        }
-    </style>
-</head>
-
-<body>
-
-    <div class="header">
-        <h1>🗓 SignalDVR Scheduled</h1>
+    <div class="meta">
+        <b>Status:</b> {{ s["status"]|status_badge }}<br>
+        <b>Channel:</b> {{ s["channel"] }}<br>
+        <b>Time:</b> {{ s["start"]|tvtime }} - {{ s["stop"]|tvtime }}
     </div>
 
-    <div class="nav">
-        <a href="/">Home</a>
-        <a href="/guide">Guide</a>
-        <a href="/grid">Grid</a>
-        <a href="/series">Series</a>
-        <a href="/recordings">Recordings</a>
-        <a href="/history">History</a>
-        <a href="/health">Health</a>
-    </div>
+    {% if s["status"] == "Scheduled" %}
+    <form action="/scheduled/delete/{{ s['id'] }}" method="post">
+        <button class="danger" type="submit">Cancel Recording</button>
+    </form>
+    {% endif %}
+</div>
+{% else %}
+<p>No upcoming scheduled recordings.</p>
+{% endfor %}
 
-    <div class="content">
-
-        {% for s in scheduled %}
-        <div class="card {{ s['status'] }}">
-            <div class="title">{{ s["title"] }}</div>
-
-            {% if s["subtitle"] %}
-            <div class="meta">{{ s["subtitle"] }}</div>
-            {% endif %}
-
-            <div class="meta">
-                <b>Status:</b> {{ s["status"]|status_badge }}<br>
-                <b>Channel:</b> {{ s["channel"] }}<br>
-                <b>Time:</b> {{ s["start"]|tvtime }} - {{ s["stop"]|tvtime }}
-            </div>
-
-            {% if s["status"] == "Scheduled" %}
-            <form action="/scheduled/delete/{{ s['id'] }}" method="post">
-                <button type="submit">Cancel Recording</button>
-            </form>
-            {% endif %}
-        </div>
-        {% else %}
-        <p>No upcoming scheduled recordings.</p>
-        {% endfor %}
-
-    </div>
-
-</body>
-
-</html>
+{% endblock %}

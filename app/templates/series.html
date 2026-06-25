@@ -1,189 +1,237 @@
-<!DOCTYPE html>
-<html>
+{% extends "base.html" %}
 
-<head>
-    <title>SignalDVR - Series Recordings</title>
+{% block title %}SignalDVR Series Rules{% endblock %}
 
-    <style>
-        body {
-            background: #111;
-            color: #eee;
-            font-family: Arial, Helvetica, sans-serif;
-            margin: 30px;
-        }
+{% block head %}
+<style>
+    .series-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+        gap: 18px;
+    }
 
-        h1 {
-            color: #55ccff;
-        }
+    .series-card {
+        background: #1d1d1d;
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 20px;
+        transition: .2s;
+    }
 
-        a {
-            color: #66b3ff;
-            text-decoration: none;
-        }
+    .series-card:hover {
+        transform: translateY(-2px);
+        border-color: #4da3ff;
+    }
 
-        .card {
-            background: #1d1d1d;
-            border: 1px solid #333;
-            border-radius: 12px;
-            padding: 18px;
-            margin-bottom: 15px;
-        }
+    .series-title {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 16px;
+    }
 
-        button {
-            background: #2d7cff;
-            color: white;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 6px;
-            cursor: pointer;
-            margin: 3px;
-        }
+    .label {
+        color: #888;
+        font-weight: bold;
+        display: inline-block;
+        width: 90px;
+    }
 
-        button:hover {
-            background: #4d95ff;
-        }
+    .value {
+        color: #eee;
+    }
 
-        .delete {
-            background: #aa2222;
-        }
+    .enabled {
+        color: #55ff88;
+        font-weight: bold;
+    }
 
-        .delete:hover {
-            background: #cc3333;
-        }
+    .disabled {
+        color: #ff6666;
+        font-weight: bold;
+    }
 
-        .priority {
-            color: #ffd966;
-            font-weight: bold;
-        }
+    .actions {
+        margin-top: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
 
-        .channel {
-            color: #7dd3fc;
-        }
+    .high {
+        background: #d93025;
+        color: white;
+    }
 
-        .status {
-            color: #55ff88;
-        }
+    .normal {
+        background: #2196f3;
+        color: white;
+    }
 
-        .topbar {
-            margin-bottom: 20px;
-        }
-    </style>
+    .low {
+        background: #666;
+        color: white;
+    }
 
-</head>
+    .delete {
+        background: #444;
+        color: white;
+    }
 
-<body>
+    .empty {
+        text-align: center;
+        padding: 60px 30px;
+    }
+</style>
+{% endblock %}
 
-    <div class="topbar">
+{% block content %}
 
-        <h1>🔁 Series Recording Rules</h1>
+<h1>🔁 Series Recording Rules</h1>
 
-        <p>
+<div style="margin-bottom:25px;">
 
-            <a href="/">Home</a> |
+    <form action="/series/apply" method="post">
 
-            <a href="/guide">Guide</a> |
+        <button class="success" type="submit">
 
-            <a href="/scheduled">Scheduled Recordings</a>
+            🔄 Apply Series Rules
 
-        </p>
+        </button>
 
-        <form action="/series/apply" method="post">
-            <button type="submit">
-                Apply Series Rules
-            </button>
-        </form>
+    </form>
 
-    </div>
+</div>
 
+{% if series|length == 0 %}
 
-    {% if series|length == 0 %}
+<div class="card empty">
 
-    <h2>No Series Recording Rules Yet</h2>
+    <h2>No Series Rules</h2>
 
     <p>
-        Go into the Guide and click
-        <b>🔁 Record Series</b>
-        on any program.
+
+        Go to the Guide and click
+
+        <strong>🔁 Record Series</strong>
+
+        to create your first recording rule.
+
     </p>
 
-    {% endif %}
+</div>
 
+{% else %}
+
+<div class="series-grid">
 
     {% for s in series %}
 
-    <div class="card">
+    <div class="series-card">
 
-        <h2>{{ s["title"] }}</h2>
+        <div class="series-title">
 
-        <p class="channel">
+            {{ s["title"] }}
 
-            Channel:
-            <b>{{ s["channel"] or "Any Channel" }}</b>
+        </div>
 
-        </p>
+        <p>
 
-        <p class="priority">
+            <span class="label">Channel</span>
 
-            Priority:
-            {{ s["priority"] }}
+            <span class="value">
 
-        </p>
+                {{ s["channel"] or "Any Channel" }}
 
-        <p class="status">
-
-            Enabled:
-            {{ s["enabled"] }}
+            </span>
 
         </p>
 
+        <p>
 
-        <form action="/series/priority/{{ s['id'] }}/100" method="post" style="display:inline;">
+            <span class="label">Priority</span>
 
-            <button>
+            <span class="value">
 
-                ⭐⭐⭐ High
+                {{ s["priority"] }}
 
-            </button>
+            </span>
 
-        </form>
+        </p>
 
+        <p>
 
-        <form action="/series/priority/{{ s['id'] }}/50" method="post" style="display:inline;">
+            <span class="label">Status</span>
 
-            <button>
+            {% if s["enabled"] %}
 
-                ⭐⭐ Normal
+            <span class="enabled">
 
-            </button>
+                Enabled
 
-        </form>
+            </span>
 
+            {% else %}
 
-        <form action="/series/priority/{{ s['id'] }}/10" method="post" style="display:inline;">
+            <span class="disabled">
 
-            <button>
+                Disabled
 
-                ⭐ Low
+            </span>
 
-            </button>
+            {% endif %}
 
-        </form>
+        </p>
 
+        <div class="actions">
 
-        <form action="/series/delete/{{ s['id'] }}" method="post" style="display:inline;">
+            <form action="/series/priority/{{ s['id'] }}/100" method="post">
 
-            <button class="delete">
+                <button class="high">
 
-                Delete Rule
+                    ⭐⭐⭐ High
 
-            </button>
+                </button>
 
-        </form>
+            </form>
+
+            <form action="/series/priority/{{ s['id'] }}/50" method="post">
+
+                <button class="normal">
+
+                    ⭐⭐ Normal
+
+                </button>
+
+            </form>
+
+            <form action="/series/priority/{{ s['id'] }}/10" method="post">
+
+                <button class="low">
+
+                    ⭐ Low
+
+                </button>
+
+            </form>
+
+            <form action="/series/delete/{{ s['id'] }}" method="post">
+
+                <button class="delete">
+
+                    🗑 Delete
+
+                </button>
+
+            </form>
+
+        </div>
 
     </div>
 
     {% endfor %}
 
-</body>
+</div>
 
-</html>
+{% endif %}
+
+{% endblock %}

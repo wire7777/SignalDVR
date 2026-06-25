@@ -1,274 +1,201 @@
-<!doctype html>
-<html>
+{% extends "base.html" %}
 
-<head>
-    <title>SignalDVR</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+{% block title %}SignalDVR Dashboard{% endblock %}
 
-    <style>
-        body {
-            margin: 0;
-            background: #111;
-            color: #eee;
-            font-family: Arial, Helvetica, sans-serif;
+{% block head %}
+<style>
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 18px;
+        margin-bottom: 24px;
+    }
+
+    .stat {
+        font-size: 32px;
+        font-weight: bold;
+    }
+
+    .idle {
+        color: #55ff88;
+    }
+
+    .recording-status {
+        color: #ff5555;
+    }
+
+    .section-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+    }
+
+    .channel-row,
+    .recording-row {
+        border-top: 1px solid #333;
+        padding-top: 12px;
+        margin-top: 12px;
+    }
+
+    .channel-title,
+    .recording-title {
+        font-size: 18px;
+        font-weight: bold;
+    }
+
+    .now {
+        color: #55ff88;
+    }
+
+    .next {
+        color: #ffd966;
+    }
+
+    .small {
+        color: #aaa;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    .record {
+        background: #d93025;
+        color: white;
+    }
+
+    .stop {
+        background: #ffb300;
+        color: black;
+    }
+
+    .play {
+        background: #2196f3;
+        color: white;
+    }
+
+    .download {
+        background: #2e7d32;
+        color: white;
+    }
+
+    .delete {
+        background: #555;
+        color: white;
+    }
+
+    @media(max-width:900px) {
+        .section-grid {
+            grid-template-columns: 1fr;
         }
+    }
+</style>
+{% endblock %}
 
-        .header {
-            background: #1b1b1b;
-            border-bottom: 2px solid #333;
-            padding: 20px 30px;
-        }
+{% block content %}
 
-        h1 {
-            margin: 0;
-        }
+<h1>📺 Dashboard</h1>
 
-        .status {
-            margin-top: 8px;
-            font-size: 22px;
-            font-weight: bold;
-        }
+<div class="dashboard-grid">
 
-        .recording {
-            color: #ff5555;
-        }
-
-        .idle {
-            color: #55ff88;
-        }
-
-        .nav {
-            background: #191919;
-            padding: 15px 30px;
-            border-bottom: 1px solid #333;
-        }
-
-        .nav a {
-            color: #4da3ff;
-            text-decoration: none;
-            margin-right: 18px;
-            font-weight: bold;
-        }
-
-        .content {
-            padding: 25px;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-            gap: 18px;
-        }
-
-        .card {
-            background: #1d1d1d;
-            border: 1px solid #333;
-            border-radius: 12px;
-            padding: 18px;
-        }
-
-        h2 {
-            margin-top: 0;
-        }
-
-        button {
-            border: 0;
-            border-radius: 8px;
-            padding: 10px 16px;
-            cursor: pointer;
-            margin: 5px 5px 5px 0;
-            font-weight: bold;
-        }
-
-        .record {
-            background: #d93025;
-            color: white;
-        }
-
-        .stop {
-            background: #ffb300;
-        }
-
-        .delete {
-            background: #555;
-            color: white;
-        }
-
-        .play {
-            background: #2196f3;
-            color: white;
-        }
-
-        .download {
-            background: #2e7d32;
-            color: white;
-        }
-
-        .actions {
-            margin-top: 15px;
-        }
-
-        .channel {
-            border-top: 1px solid #333;
-            padding-top: 10px;
-            margin-top: 10px;
-        }
-
-        a {
-            color: #4da3ff;
-        }
-
-        .recording-item {
-            border-top: 1px solid #333;
-            margin-top: 15px;
-            padding-top: 15px;
-        }
-
-        .small {
-            color: #aaa;
-            font-size: 13px;
-        }
-    </style>
-</head>
-
-<body>
-
-    <div class="header">
-
-        <h1>📺 SignalDVR</h1>
-
-        <div class="status">
-
-            Status:
-
-            {% if status=="RECORDING" %}
-            <span class="recording">● RECORDING</span>
-            {% else %}
-            <span class="idle">● IDLE</span>
-            {% endif %}
-
-        </div>
-
-        <div class="actions">
-
-            <form action="/scan-channels" method="post" style="display:inline;">
-                <button type="submit">📡 Scan Channels</button>
-            </form>
-
-            <form action="/import-epg" method="post" style="display:inline;">
-                <button type="submit">📅 Import Guide</button>
-            </form>
-
-            <form action="/stop" method="post" style="display:inline;">
-                <button class="stop">⏹ Stop Recording</button>
-            </form>
-
-        </div>
-
+    <div class="card">
+        <h2>Status</h2>
+        {% if status == "RECORDING" %}
+        <div class="stat recording-status">● RECORDING</div>
+        {% else %}
+        <div class="stat idle">● IDLE</div>
+        {% endif %}
     </div>
 
-    <div class="nav">
-
-        <a href="/">Home</a>
-        <a href="/timeshift">Live TV DVR</a>
-        <a href="/live">Live</a>
-        <a href="/guide">Guide</a>
-        <a href="/grid">Grid</a>
-        <a href="/scheduled">Scheduled</a>
-        <a href="/series">Series</a>
-        <a href="/recordings">Recordings</a>
-        <a href="/search">Search</a>
-        <a href="/conflicts">Conflicts</a>
-        <a href="/tuners">Tuners</a>
-        <a href="/history">History</a>
-        <a href="/health">Health</a>
-        <a href="/timeline">Timeline</a>
-
+    <div class="card">
+        <h2>Channels</h2>
+        <div class="stat">{{ channels|length }}</div>
     </div>
 
-    <div class="content">
+    <div class="card">
+        <h2>Recordings</h2>
+        <div class="stat">{{ recordings|length }}</div>
+    </div>
 
-        <div class="grid">
+    <div class="card">
+        <h2>Quick Actions</h2>
 
-            <div class="card">
+        <form action="/scan-channels" method="post" style="display:inline;">
+            <button class="primary" type="submit">📡 Scan Channels</button>
+        </form>
 
-                <h2>📺 Channels</h2>
+        <form action="/import-epg" method="post" style="display:inline;">
+            <button class="success" type="submit">📅 Import Guide</button>
+        </form>
 
-                {% for ch in channels %}
+        <form action="/stop" method="post" style="display:inline;">
+            <button class="stop" type="submit">⏹ Stop Recording</button>
+        </form>
+    </div>
 
-                <div class="channel">
+</div>
 
-                    <h3>{{ ch["guide_number"] }} {{ ch["guide_name"] }}</h3>
+<div class="section-grid">
 
-                    <b>NOW</b><br>
-                    {{ ch["now_title"] or "No guide data" }}
+    <div class="card">
+        <h2>📺 Now / Next</h2>
 
-                    <br><br>
-
-                    <b>NEXT</b><br>
-                    {{ ch["next_title"] or "No guide data" }}
-
-                    <br><br>
-
-                    <form action="/record-channel/{{ ch['guide_number'] }}" method="post" style="display:inline;">
-                        <button class="record">Record Channel</button>
-                    </form>
-
-                    <a href="/guide-view/{{ ch['guide_number'] }}">View Schedule</a>
-
-                </div>
-
-                {% endfor %}
-
+        {% for ch in channels[:12] %}
+        <div class="channel-row">
+            <div class="channel-title">
+                {{ ch["guide_number"] }} {{ ch["guide_name"] }}
             </div>
 
-            <div class="card">
+            <div class="small">
+                <span class="now"><b>NOW:</b></span>
+                {{ ch["now_title"] or "No guide data" }}<br>
 
-                <h2>🎬 Recent Recordings</h2>
-
-                {% for r in recordings[:10] %}
-
-                <div class="recording-item">
-
-                    <b>{{ r["title"] }}</b>
-
-                    <div class="small">
-
-                        Channel {{ r["channel"] }}<br>
-                        {{ r["status"] }}<br>
-                        {{ r["start_time"] }}<br>
-                        {{ "%.1f"|format((r["size_bytes"] or 0)/1024/1024) }} MB
-
-                    </div>
-
-                    <br>
-
-                    <a href="/recording/play/{{ r['filename'] }}">
-                        <button class="play" type="button">▶ Play</button>
-                    </a>
-
-                    <a href="/play/{{ r['filename'] }}">
-                        <button class="download" type="button">⬇ Download</button>
-                    </a>
-
-                    <form action="/delete/{{ r['filename'] }}" method="post" style="display:inline;">
-                        <button class="delete">🗑 Delete</button>
-                    </form>
-
-                </div>
-
-                {% else %}
-
-                No recordings.
-
-                {% endfor %}
-
+                <span class="next"><b>NEXT:</b></span>
+                {{ ch["next_title"] or "No guide data" }}
             </div>
 
-        </div>
+            <form action="/record-channel/{{ ch['guide_number'] }}" method="post" style="display:inline;">
+                <button class="record" type="submit">🔴 Record</button>
+            </form>
 
+            <a class="button primary" href="/guide-view/{{ ch['guide_number'] }}">Schedule</a>
+        </div>
+        {% else %}
+        <p>No channels yet.</p>
+        {% endfor %}
+
+        <br>
+        <a class="button primary" href="/guide">View Full Guide</a>
+        <a class="button primary" href="/grid">Timeline Grid</a>
     </div>
 
-</body>
+    <div class="card">
+        <h2>🎬 Recent Recordings</h2>
 
-</html>
+        {% for r in recordings[:10] %}
+        <div class="recording-row">
+            <div class="recording-title">{{ r["title"] }}</div>
+
+            <div class="small">
+                Channel {{ r["channel"] }}<br>
+                {{ r["status"] }}<br>
+                {{ r["start_time"] }}<br>
+                {{ "%.1f"|format((r["size_bytes"] or 0)/1024/1024) }} MB
+            </div>
+
+            <a class="button play" href="/recording/play/{{ r['filename'] }}">▶ Play</a>
+            <a class="button download" href="/play/{{ r['filename'] }}">⬇ Download</a>
+
+            <form action="/delete/{{ r['filename'] }}" method="post" style="display:inline;">
+                <button class="delete" type="submit">🗑 Delete</button>
+            </form>
+        </div>
+        {% else %}
+        <p>No recordings yet.</p>
+        {% endfor %}
+
+        <br>
+        <a class="button primary" href="/recordings">View Recordings</a>
+    </div>
+
+</div>
+
+{% endblock %}

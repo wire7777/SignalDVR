@@ -1,41 +1,84 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>SignalDVR Search</title>
-    <style>
-        body { background:#111; color:#eee; font-family:Arial; margin:30px; }
-        a { color:#4da3ff; }
-        input { padding:10px; width:300px; }
-        button { padding:10px 14px; border:0; border-radius:6px; cursor:pointer; }
-        .card { background:#1d1d1d; border:1px solid #333; border-radius:12px; padding:16px; margin:12px 0; }
-        .time { color:#ffd966; }
-        .record { background:#c33; color:white; }
-        .series { background:#2d7cff; color:white; }
-    </style>
-</head>
-<body>
+{% extends "base.html" %}
 
-<h1>🔎 SignalDVR Search</h1>
-<p><a href="/">Home</a> | <a href="/guide">Guide</a> | <a href="/grid">Grid</a></p>
+{% block title %}SignalDVR Search{% endblock %}
 
-<form action="/search" method="get">
-    <input name="q" value="{{ q }}" placeholder="Search shows, movies, sports...">
-    <button type="submit">Search</button>
+{% block head %}
+<style>
+    .search-box {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+    }
+
+    .search-input {
+        padding: 12px 14px;
+        width: min(520px, 100%);
+        border-radius: 8px;
+        border: 1px solid #333;
+        background: #1d1d1d;
+        color: #eee;
+        font-size: 16px;
+    }
+
+    .result-card {
+        border-left: 6px solid #4da3ff;
+    }
+
+    .result-title {
+        font-size: 24px;
+        font-weight: bold;
+    }
+
+    .subtitle {
+        color: #bbb;
+        margin-top: 8px;
+    }
+
+    .time {
+        color: #ffd966;
+        margin-top: 10px;
+    }
+
+    .desc {
+        color: #ccc;
+        line-height: 1.5;
+    }
+
+    .record {
+        background: #d93025;
+    }
+
+    .series {
+        background: #7b1fa2;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<h1>🔎 Search</h1>
+
+<form class="search-box" action="/search" method="get">
+    <input class="search-input" name="q" value="{{ q }}" placeholder="Search shows, movies, sports...">
+
+    <button class="primary" type="submit">Search</button>
 </form>
 
 {% for p in results %}
-<div class="card">
-    <h2>{{ p["title"] }}</h2>
+<div class="card result-card">
+    <div class="result-title">{{ p["title"] }}</div>
 
     {% if p["subtitle"] %}
-        <p><b>{{ p["subtitle"] }}</b></p>
+    <div class="subtitle">{{ p["subtitle"] }}</div>
     {% endif %}
 
-    <p>Channel: {{ p["channel"] }}</p>
-    <p class="time">{{ p["start"] }} → {{ p["stop"] }}</p>
+    <div class="time">
+        Channel {{ p["channel"] }} · {{ p["start"]|tvtime }} - {{ p["stop"]|tvtime }}
+    </div>
 
     {% if p["description"] %}
-        <p>{{ p["description"] }}</p>
+    <p class="desc">{{ p["description"] }}</p>
     {% endif %}
 
     <form action="/schedule-program" method="post" style="display:inline;">
@@ -44,7 +87,7 @@
         <input type="hidden" name="subtitle" value="{{ p['subtitle'] }}">
         <input type="hidden" name="start" value="{{ p['start'] }}">
         <input type="hidden" name="stop" value="{{ p['stop'] }}">
-        <button class="record" type="submit">● Record Once</button>
+        <button class="record" type="submit">🔴 Record Once</button>
     </form>
 
     <form action="/series/add" method="post" style="display:inline;">
@@ -53,7 +96,12 @@
         <button class="series" type="submit">🔁 Record Series</button>
     </form>
 </div>
+{% else %}
+{% if q %}
+<div class="card">
+    No results found for <b>{{ q }}</b>.
+</div>
+{% endif %}
 {% endfor %}
 
-</body>
-</html>
+{% endblock %}

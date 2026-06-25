@@ -1,37 +1,112 @@
-<!doctype html>
-<html>
-<head>
-    <title>SignalDVR Tuners</title>
-    <style>
-        body { background:#111; color:#eee; font-family:Arial; margin:25px; }
-        a { color:#4da3ff; text-decoration:none; }
-        .card { background:#1d1d1d; border:1px solid #333; border-radius:12px; padding:16px; margin-bottom:14px; }
-        .busy { border-left:5px solid #ff5555; }
-        .idle { border-left:5px solid #55ff88; }
-        .state { font-weight:bold; }
-    </style>
-</head>
-<body>
+{% extends "base.html" %}
 
-<h1>📡 SignalDVR Tuners</h1>
+{% block title %}SignalDVR Tuners{% endblock %}
 
-<p>
-    <a href="/">Home</a> |
-    <a href="/timeshift">Live TV DVR</a> |
-    <a href="/scheduled">Scheduled</a> |
-    <a href="/health">Health</a>
-</p>
+{% block head %}
+<style>
+    .tuner-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 18px;
+    }
 
-{% for t in tuners %}
-<div class="card {{ t['state'] }}">
-    <h2>Tuner {{ t["tuner_id"] }}</h2>
-    <p class="state">State: {{ t["state"]|upper }}</p>
-    <p>Channel: {{ t["channel"] or "-" }}</p>
-    <p>Purpose: {{ t["purpose"] or "-" }}</p>
-    <p>Title: {{ t["title"] or "-" }}</p>
-    <p>Started: {{ t["started_at"] or "-" }}</p>
+    .tuner-card {
+        background: #1d1d1d;
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 20px;
+        transition: .2s;
+    }
+
+    .tuner-card:hover {
+        transform: translateY(-2px);
+        border-color: #4da3ff;
+    }
+
+    .busy {
+        border-left: 6px solid #d93025;
+    }
+
+    .idle {
+        border-left: 6px solid #55ff88;
+    }
+
+    .state {
+        font-size: 28px;
+        font-weight: bold;
+        margin: 15px 0;
+    }
+
+    .state.busy {
+        color: #ff6666;
+    }
+
+    .state.idle {
+        color: #55ff88;
+    }
+
+    .info {
+        line-height: 1.8;
+        color: #ddd;
+    }
+
+    .label {
+        color: #888;
+        display: inline-block;
+        width: 90px;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<h1>📡 Tuner Manager</h1>
+
+<div class="tuner-grid">
+
+    {% for t in tuners %}
+
+    <div class="tuner-card {{ t['state'] }}">
+
+        <h2>HDHomeRun Tuner {{ t["tuner_id"] }}</h2>
+
+        <div class="state {{ t['state'] }}">
+            {% if t["state"] == "busy" %}
+            🔴 BUSY
+            {% else %}
+            🟢 IDLE
+            {% endif %}
+        </div>
+
+        <div class="info">
+
+            <div>
+                <span class="label">Channel</span>
+                {{ t["channel"] or "-" }}
+            </div>
+
+            <div>
+                <span class="label">Purpose</span>
+                {{ t["purpose"] or "-" }}
+            </div>
+
+            <div>
+                <span class="label">Program</span>
+                {{ t["title"] or "-" }}
+            </div>
+
+            <div>
+                <span class="label">Started</span>
+                {{ t["started_at"] or "-" }}
+            </div>
+
+        </div>
+
+    </div>
+
+    {% endfor %}
+
 </div>
-{% endfor %}
 
-</body>
-</html>
+{% endblock %}

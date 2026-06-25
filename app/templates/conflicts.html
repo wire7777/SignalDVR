@@ -1,41 +1,78 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Recording Conflicts</title>
-    <style>
-        body { background:#111; color:#eee; font-family:Arial; margin:30px; }
-        a { color:#4da3ff; }
-        .card { background:#2a1515; border:1px solid #aa3333; border-radius:12px; padding:16px; margin:12px 0; }
-        .ok { color:#55ff88; }
-        .bad { color:#ff6666; }
-    </style>
-</head>
-<body>
+{% extends "base.html" %}
+
+{% block title %}SignalDVR Conflicts{% endblock %}
+
+{% block head %}
+<style>
+    .conflict-card {
+        background: #2a1515;
+        border: 1px solid #aa3333;
+        border-left: 6px solid #d93025;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 18px;
+    }
+
+    .ok-card {
+        border-left: 6px solid #55ff88;
+    }
+
+    .bad {
+        color: #ff6666;
+    }
+
+    .ok {
+        color: #55ff88;
+    }
+
+    .conflict-title {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 16px;
+    }
+
+    .program {
+        background: #1d1d1d;
+        border: 1px solid #333;
+        border-radius: 10px;
+        padding: 14px;
+        margin-top: 12px;
+    }
+
+    .time {
+        color: #ffd966;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
 
 <h1>⚠ Recording Conflicts</h1>
-<p><a href="/">Home</a> | <a href="/scheduled">Scheduled</a> | <a href="/grid">Grid</a></p>
 
 {% for c in conflicts %}
-<div class="card">
-    <h2 class="bad">Conflict Detected</h2>
+<div class="conflict-card">
+    <div class="conflict-title bad">Conflict Detected</div>
 
-    <p>
-        <b>{{ c["title1"] }}</b><br>
-        Channel {{ c["channel1"] }}<br>
-        {{ c["start1"] }} → {{ c["stop1"] }}
-    </p>
+    <div class="program">
+        <h2>{{ c["title1"] }}</h2>
+        <p>
+            Channel {{ c["channel1"] }}<br>
+            <span class="time">{{ c["start1"]|tvtime }} - {{ c["stop1"]|tvtime }}</span>
+        </p>
+    </div>
 
-    <hr>
-
-    <p>
-        <b>{{ c["title2"] }}</b><br>
-        Channel {{ c["channel2"] }}<br>
-        {{ c["start2"] }} → {{ c["stop2"] }}
-    </p>
+    <div class="program">
+        <h2>{{ c["title2"] }}</h2>
+        <p>
+            Channel {{ c["channel2"] }}<br>
+            <span class="time">{{ c["start2"]|tvtime }} - {{ c["stop2"]|tvtime }}</span>
+        </p>
+    </div>
 </div>
 {% else %}
-<p class="ok">No recording conflicts found.</p>
+<div class="card ok-card">
+    <h2 class="ok">✅ No recording conflicts found.</h2>
+</div>
 {% endfor %}
 
-</body>
-</html>
+{% endblock %}

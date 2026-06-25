@@ -11,6 +11,7 @@ from app import timeshift
 from app import tuner_manager
 from app import scheduler_service
 from app import guide_service
+from app import cleanup_service
 from app.recorder import Recorder
 
 import subprocess
@@ -486,6 +487,7 @@ def health():
 
 scheduler_service.start_scheduler()
 guide_service.start_guide_updater()
+cleanup_service.start_cleanup_service()
 
 
 if __name__ == "__main__":

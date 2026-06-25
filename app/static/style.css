@@ -1,0 +1,139 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: #111;
+    color: #eee;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+a {
+    color: #4da3ff;
+    text-decoration: none;
+}
+
+.header {
+    background: #151515;
+    border-bottom: 1px solid #333;
+    padding: 8px 22px;
+    display: flex;
+    align-items: center;
+    gap: 35px;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.brand {
+    flex-shrink: 0;
+}
+
+.brand-logo {
+    height: 75px;
+    width: auto;
+    display: block;
+}
+
+.nav {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 18px;
+}
+
+.nav a {
+    color: #eee;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.nav a:hover {
+    color: #4da3ff;
+}
+
+.content {
+    padding: 28px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+h1 {
+    margin-top: 0;
+    font-size: 34px;
+    color: #fff;
+}
+
+.card {
+    background: #1d1d1d;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 18px;
+    color: #eee;
+}
+
+button,
+.button {
+    display: inline-block;
+    border: 0;
+    border-radius: 8px;
+    padding: 9px 14px;
+    cursor: pointer;
+    margin: 10px 6px 0 0;
+    font-weight: bold;
+    text-decoration: none;
+    color: white;
+}
+
+.primary,
+.play {
+    background: #2196f3;
+}
+
+.success,
+.download {
+    background: #2e7d32;
+}
+
+.danger {
+    background: #d93025;
+}
+
+.delete {
+    background: #555;
+}
+
+.warn {
+    background: #ffb300;
+    color: #111;
+}
+
+.footer {
+    border-top: 1px solid #333;
+    color: #888;
+    padding: 20px 28px;
+    margin-top: 30px;
+    text-align: center;
+}
+
+.meta {
+    color: #ccc;
+}
+
+@media (max-width: 800px) {
+    .header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .brand-logo {
+        height: 55px;
+    }
+
+    .nav {
+        gap: 12px;
+    }
+}
