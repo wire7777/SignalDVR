@@ -468,6 +468,54 @@ def api_tuners():
     return jsonify(tuner_manager.status())
 
 
+@app.route("/settings")
+def settings_page():
+    settings = database.get_all_settings()
+    return render_template("settings.html", settings=settings)
+
+@app.route("/settings/save", methods=["POST"])
+def save_settings():
+
+    keys = [
+        "dvr_name",
+        "theme",
+
+        "guide_source",
+        "guide_days",
+        "xmltv_path",
+        "sd_username",
+        "sd_password",
+        "sd_country",
+        "sd_postal_code",
+        "sd_lineup",
+
+        "default_start_padding",
+        "default_end_padding",
+        "default_priority",
+        "default_keep_last",
+        "skip_duplicates",
+        "record_new_only",
+
+        "max_recordings",
+
+        "recording_path",
+        "timeshift_path",
+        "thumbnail_path",
+
+        "timeshift_enabled",
+        "timeshift_minutes",
+
+        "generate_thumbnails",
+        "thumbnail_interval",
+
+        "debug_logging",
+    ]
+
+    for key in keys:
+        database.set_setting(key, request.form.get(key, ""))
+
+    return redirect("/settings")
+
 @app.route("/tuners")
 def tuners_page():
     return render_template("tuners.html", tuners=tuner_manager.status())

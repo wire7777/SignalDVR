@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}SignalDVR Settings{% endblock %}
+
+{% block content %}
+
+<h1>⚙️ Settings</h1>
+
+<form action="/settings/save" method="post">
+
+    <div class="settings-layout">
+
+        <aside class="settings-nav">
+            <button type="button" onclick="showSection('general')">General</button>
+            <button type="button" onclick="showSection('guide')">Guide</button>
+            <button type="button" onclick="showSection('recording')">Recording</button>
+            <button type="button" onclick="showSection('tuners')">Tuners</button>
+            <button type="button" onclick="showSection('storage')">Storage</button>
+            <button type="button" onclick="showSection('timeshift')">Timeshift</button>
+            <button type="button" onclick="showSection('thumbnails')">Thumbnails</button>
+            <button type="button" onclick="showSection('advanced')">Advanced</button>
+            <button type="button" onclick="showSection('about')">About</button>
+        </aside>
+
+        <main class="settings-main">
+
+            <section id="general" class="settings-section active">
+                <h2>General</h2>
+
+                <label>DVR Name</label>
+                <input type="text" name="dvr_name" value="{{ settings.get('dvr_name','SignalDVR') }}">
+
+                <label>Theme</label>
+                <select name="theme">
+                    <option value="dark" {% if settings.get("theme")=="dark" %}selected{% endif %}>Dark</option>
+                    <option value="light" {% if settings.get("theme")=="light" %}selected{% endif %}>Light</option>
+                </select>
+            </section>
+
+            <section id="guide" class="settings-section">
+                <h2>TV Guide</h2>
+
+                <label>Guide Source</label>
+                <select name="guide_source">
+                    <option value="xmltv" {% if settings.get("guide_source")=="xmltv" %}selected{% endif %}>XMLTV
+                    </option>
+                    <option value="schedules_direct" {% if settings.get("guide_source")=="schedules_direct" %}selected{%
+                        endif %}>Schedules Direct</option>
+                </select>
+
+                <label>Guide Days</label>
+                <input type="number" name="guide_days" value="{{ settings.get('guide_days','14') }}">
+
+                <hr>
+
+                <h3>XMLTV</h3>
+
+                <label>XMLTV File Path</label>
+                <input type="text" name="xmltv_path" value="{{ settings.get('xmltv_path','') }}"
+                    placeholder="/home/wire/xmltv.xml">
+
+                <hr>
+
+                <h3>Schedules Direct</h3>
+
+                <label>Username</label>
+                <input type="text" name="sd_username" value="{{ settings.get('sd_username','') }}">
+
+                <label>Password</label>
+                <input type="password" name="sd_password" value="{{ settings.get('sd_password','') }}">
+
+                <label>Country</label>
+                <input type="text" name="sd_country" value="{{ settings.get('sd_country','USA') }}">
+
+                <label>ZIP / Postal Code</label>
+                <input type="text" name="sd_postal_code" value="{{ settings.get('sd_postal_code','') }}">
+
+                <label>Lineup</label>
+                <input type="text" name="sd_lineup" value="{{ settings.get('sd_lineup','') }}">
+
+                <p class="muted">
+                    Schedules Direct support will use these settings later.
+                </p>
+            </section>
+
+            <section id="recording" class="settings-section">
+                <h2>Recording</h2>
+
+                <label>Default Start Padding</label>
+                <input type="number" name="default_start_padding"
+                    value="{{ settings.get('default_start_padding','2') }}">
+
+                <label>Default End Padding</label>
+                <input type="number" name="default_end_padding" value="{{ settings.get('default_end_padding','5') }}">
+
+                <label>Default Priority</label>
+                <input type="number" name="default_priority" value="{{ settings.get('default_priority','50') }}">
+
+                <label>Default Keep Last</label>
+                <input type="number" name="default_keep_last" value="{{ settings.get('default_keep_last','0') }}">
+
+                <label>Skip Duplicates</label>
+                <select name="skip_duplicates">
+                    <option value="1" {% if settings.get("skip_duplicates")=="1" %}selected{% endif %}>Yes</option>
+                    <option value="0" {% if settings.get("skip_duplicates")=="0" %}selected{% endif %}>No</option>
+                </select>
+
+                <label>Record New Only</label>
+                <select name="record_new_only">
+                    <option value="0" {% if settings.get("record_new_only")=="0" %}selected{% endif %}>No</option>
+                    <option value="1" {% if settings.get("record_new_only")=="1" %}selected{% endif %}>Yes</option>
+                </select>
+            </section>
+
+            <section id="tuners" class="settings-section">
+                <h2>Tuners</h2>
+
+                <label>Max Simultaneous Recordings</label>
+                <input type="number" name="max_recordings" value="{{ settings.get('max_recordings','4') }}">
+
+                <p class="muted">HDHomeRun discovery and tuner priority will be added here.</p>
+            </section>
+
+            <section id="storage" class="settings-section">
+                <h2>Storage</h2>
+
+                <label>Recording Folder</label>
+                <input type="text" name="recording_path" value="{{ settings.get('recording_path','') }}">
+
+                <label>Timeshift Folder</label>
+                <input type="text" name="timeshift_path" value="{{ settings.get('timeshift_path','') }}">
+
+                <label>Thumbnail Folder</label>
+                <input type="text" name="thumbnail_path" value="{{ settings.get('thumbnail_path','') }}">
+            </section>
+
+            <section id="timeshift" class="settings-section">
+                <h2>Timeshift</h2>
+
+                <label>Timeshift Enabled</label>
+                <select name="timeshift_enabled">
+                    <option value="1" {% if settings.get("timeshift_enabled")=="1" %}selected{% endif %}>Yes</option>
+                    <option value="0" {% if settings.get("timeshift_enabled")=="0" %}selected{% endif %}>No</option>
+                </select>
+
+                <label>Buffer Minutes</label>
+                <input type="number" name="timeshift_minutes" value="{{ settings.get('timeshift_minutes','90') }}">
+            </section>
+
+            <section id="thumbnails" class="settings-section">
+                <h2>Thumbnails</h2>
+
+                <label>Generate Thumbnails</label>
+                <select name="generate_thumbnails">
+                    <option value="1" {% if settings.get("generate_thumbnails")=="1" %}selected{% endif %}>Yes</option>
+                    <option value="0" {% if settings.get("generate_thumbnails")=="0" %}selected{% endif %}>No</option>
+                </select>
+
+                <label>Thumbnail Interval Seconds</label>
+                <input type="number" name="thumbnail_interval" value="{{ settings.get('thumbnail_interval','60') }}">
+            </section>
+
+            <section id="advanced" class="settings-section">
+                <h2>Advanced</h2>
+
+                <label>Debug Logging</label>
+                <select name="debug_logging">
+                    <option value="0" {% if settings.get("debug_logging")=="0" %}selected{% endif %}>Off</option>
+                    <option value="1" {% if settings.get("debug_logging")=="1" %}selected{% endif %}>On</option>
+                </select>
+
+                <p class="muted">Database backup, restore, and maintenance tools will be added here.</p>
+            </section>
+
+            <section id="about" class="settings-section">
+                <h2>About</h2>
+
+                <p><b>SignalDVR</b></p>
+                <p class="muted">Custom DVR server for HDHomeRun and local recording.</p>
+            </section>
+
+        </main>
+
+    </div>
+
+    <div class="settings-actions">
+        <button class="success" type="submit">💾 Save Settings</button>
+    </div>
+
+</form>
+
+<style>
+    .settings-layout {
+        display: grid;
+        grid-template-columns: 230px 1fr;
+        gap: 20px;
+    }
+
+    .settings-nav {
+        background: #1d1d1d;
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 12px;
+        height: fit-content;
+    }
+
+    .settings-nav button {
+        display: block;
+        width: 100%;
+        text-align: left;
+        margin-bottom: 8px;
+        background: #222;
+        color: #eee;
+        border: 1px solid #333;
+    }
+
+    .settings-nav button:hover {
+        background: #333;
+    }
+
+    .settings-main {
+        background: #1d1d1d;
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 24px;
+    }
+
+    .settings-section {
+        display: none;
+    }
+
+    .settings-section.active {
+        display: block;
+    }
+
+    label {
+        display: block;
+        margin-top: 14px;
+        margin-bottom: 5px;
+        color: #aaa;
+        font-weight: bold;
+    }
+
+    input,
+    select {
+        width: 100%;
+        max-width: 520px;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #333;
+        background: #111;
+        color: #eee;
+    }
+
+    hr {
+        border: 0;
+        border-top: 1px solid #333;
+        margin: 25px 0;
+    }
+
+    .settings-actions {
+        margin-top: 20px;
+    }
+
+    @media (max-width: 800px) {
+        .settings-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<script>
+    function showSection(id) {
+        document.querySelectorAll(".settings-section").forEach(section => {
+            section.classList.remove("active");
+        });
+
+        document.getElementById(id).classList.add("active");
+    }
+</script>
+
+{% endblock %}

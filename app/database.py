@@ -16,6 +16,37 @@ def connect():
     conn.execute("PRAGMA foreign_keys=ON")
     return conn
 
+def get_setting(key, default=""):
+    with connect() as db:
+        row = db.execute("""
+            SELECT value
+            FROM settings
+            WHERE key=?
+        """, (key,)).fetchone()
+
+        return row["value"] if row else default
+
+
+def set_setting(key, value):
+    with connect() as db:
+        db.execute("""
+            INSERT INTO settings(key, value)
+            VALUES (?, ?)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value
+        """, (key, str(value)))
+        db.commit()
+
+
+def get_all_settings():
+    with connect() as db:
+        rows = db.execute("""
+            SELECT key, value
+            FROM settings
+            ORDER BY key
+        """).fetchall()
+
+        return {r["key"]: r["value"] for r in rows}
+
 
 def _ensure_column(db, table, column, definition):
     cols = db.execute(f"PRAGMA table_info({table})").fetchall()
@@ -124,14 +155,88 @@ def list_recordings():
         """).fetchall()
 
 
-def add_recording(filename, channel, title, start_time, end_time="", size_bytes=0, status="Recording"):
+def add_recording(
+    filename,
+    channel,
+    title,
+    start_time,
+    end_time="",
+    size_bytes=0,
+    status="Recording",
+    subtitle="",
+    description="",
+    category="",
+    season="",
+    episode="",
+    programid="",
+    seriesid="",
+    recording_rule=0,
+    originalairdate="",
+    thumbnail="",
+):
     with connect() as db:
         db.execute("""
             INSERT OR REPLACE INTO recordings
-            (filename, channel, title, start_time, end_time, size_bytes, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (filename, channel, title, start_time, end_time, size_bytes, status))
+            (
+                filename,
+                channel,
+                title,
+                start_time,
+                end_time,
+                size_bytes,
+                status,
+                subtitle,
+                description,
+                category,
+                season,
+                episode,
+                programid,
+                seriesid,
+                recording_rule,
+                originalairdate,
+                thumbnail
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            filename,
+            channel,
+            title,
+            start_time,
+            end_time,
+            int(size_bytes or 0),
+            status,
+            subtitle or "",
+            description or "",
+            category or "",
+            season or "",
+            episode or "",
+            programid or "",
+            seriesid or "",
+            int(recording_rule or 0),
+            originalairdate or "",
+            thumbnail or "",
+        ))
         db.commit()
+
+
+def add_recording_from_schedule(filename, schedule, start_time, size_bytes=0, status="Recording"):
+    add_recording(
+        filename=filename,
+        channel=schedule.get("channel", ""),
+        title=schedule.get("title", ""),
+        start_time=start_time,
+        end_time="",
+        size_bytes=size_bytes,
+        status=status,
+        subtitle=schedule.get("subtitle", ""),
+        description=schedule.get("description", ""),
+        category=schedule.get("category", ""),
+        episode=schedule.get("episode", ""),
+        programid=schedule.get("programid", ""),
+        seriesid=schedule.get("seriesid", ""),
+        recording_rule=schedule.get("series_id", 0),
+        originalairdate=schedule.get("originalairdate", ""),
+    )
 
 
 def finish_recording(filename, end_time, size_bytes):
@@ -148,6 +253,81 @@ def delete_recording(filename):
     with connect() as db:
         db.execute("DELETE FROM recordings WHERE filename=?", (filename,))
         db.commit()
+
+
+def get_recordings_to_prune_for_rule(recording_rule, keep_last):
+    if not recording_rule or not keep_last or int(keep_last) <= 0:
+        return []
+
+    with connect() as db:
+        rows = db.execute("""
+            SELECT *
+            FROM recordings
+            WHERE recording_rule=?
+              AND status='Recorded'
+            ORDER BY start_time DESC
+        """, (recording_rule,)).fetchall()
+
+        all_rows = [dict(r) for r in rows]
+        return all_rows[int(keep_last):]
+    
+
+def get_recording(filename):
+    with connect() as db:
+        row = db.execute("""
+            SELECT *
+            FROM recordings
+            WHERE filename=?
+        """, (filename,)).fetchone()
+
+        return dict(row) if row else None
+
+
+def get_series_recording(series_id):
+    with connect() as db:
+        row = db.execute("""
+            SELECT *
+            FROM series_recordings
+            WHERE id=?
+        """, (series_id,)).fetchone()
+
+        return dict(row) if row else None
+    
+def has_recorded_program(title, subtitle="", episode="", programid=""):
+    with connect() as db:
+        if programid:
+            row = db.execute("""
+                SELECT id
+                FROM recordings
+                WHERE programid=?
+                  AND status='Recorded'
+                LIMIT 1
+            """, (programid,)).fetchone()
+            return row is not None
+
+        if episode:
+            row = db.execute("""
+                SELECT id
+                FROM recordings
+                WHERE title=?
+                  AND episode=?
+                  AND status='Recorded'
+                LIMIT 1
+            """, (title, episode)).fetchone()
+            return row is not None
+
+        if subtitle:
+            row = db.execute("""
+                SELECT id
+                FROM recordings
+                WHERE title=?
+                  AND subtitle=?
+                  AND status='Recorded'
+                LIMIT 1
+            """, (title, subtitle)).fetchone()
+            return row is not None
+
+        return False
 
 
 # --------------------------------------------------
@@ -603,50 +783,77 @@ def apply_series_rules():
                     ORDER BY start
                 """, (rule["title"], now)).fetchall()
 
-            for p in programs:
-                exists = db.execute("""
-                    SELECT id
-                    FROM scheduled_recordings
-                    WHERE channel=?
-                      AND title=?
-                      AND start=?
+        for p in programs:
+
+            if has_recorded_program(
+                 title=p["title"],
+                 subtitle=p["subtitle"] or "",
+                 episode=p["episode"] or "",
+                 programid="",
+             
+            ):
+                    print(
+                        "Skipping already recorded:",
+                        p["title"],
+                        p["episode"] or "",
+                        p["subtitle"] or "",
+                        flush=True,
+                    )
+                    continue
+
+            exists = db.execute("""
+                       SELECT id
+                       FROM scheduled_recordings
+                       WHERE channel=?
+                       AND title=?
+                       AND start=?
                 """, (p["channel"], p["title"], p["start"])).fetchone()
 
-                if exists:
-                 db.execute("""
-              UPDATE scheduled_recordings
-               SET priority=?,
-            start_padding=?,
-            end_padding=?,
-            series_id=?
-           WHERE id=?
-          AND status='Scheduled'
-    """, (
-        int(rule["priority"] or 50),
-        int(rule["start_padding"] or 0),
-        int(rule["end_padding"] or 0),
-        int(rule["id"]),
-        exists["id"],
-    ))
-                 continue
+            if exists:
+                    db.execute("""
+                        UPDATE scheduled_recordings
+                        SET priority=?,
+                            start_padding=?,
+                            end_padding=?,
+                            series_id=?
+                        WHERE id=?
+                          AND status='Scheduled'
+                    """, (
+                        int(rule["priority"] or 50),
+                        int(rule["start_padding"] or 0),
+                        int(rule["end_padding"] or 0),
+                        int(rule["id"]),
+                        exists["id"],
+                    ))
+                    continue
 
-                db.execute("""
-                    INSERT INTO scheduled_recordings
-                    (channel, title, subtitle, start, stop, status, priority, start_padding, end_padding, series_id)
-                    VALUES (?, ?, ?, ?, ?, 'Scheduled', ?, ?, ?, ?)
+            db.execute("""
+                                 INSERT INTO scheduled_recordings
+                    (
+                        channel, title, subtitle, start, stop, status,
+                        priority, start_padding, end_padding, series_id,
+                        description, category, episode, programid, seriesid, originalairdate
+                    )
+                    VALUES (?, ?, ?, ?, ?, 'Scheduled', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     p["channel"],
                     p["title"],
-                    p["subtitle"],
+                    p["subtitle"] or "",
                     p["start"],
                     p["stop"],
                     int(rule["priority"] or 50),
                     int(rule["start_padding"] or 0),
                     int(rule["end_padding"] or 0),
                     int(rule["id"]),
+                    p["description"] or "",
+                    p["category"] or "",
+                    p["episode"] or "",
+                    "",
+                    "",
+                    "",
                 ))
 
-                created += 1
+        created += 1
 
         db.commit()
         return created
