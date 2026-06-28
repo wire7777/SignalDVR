@@ -516,6 +516,28 @@ def save_settings():
 
     return redirect("/settings")
 
+@app.route("/settings/sd/lineups", methods=["POST"])
+def sd_get_lineups():
+    keys = [
+        "sd_username",
+        "sd_password",
+        "sd_country",
+        "sd_postal_code",
+        "sd_lineup",
+        "guide_days",
+        "guide_source",
+    ]
+
+    for key in keys:
+        database.set_setting(key, request.form.get(key, ""))
+
+    lineups = schedules_direct.get_lineups()
+    database.save_sd_lineups(lineups)
+    database.set_setting("sd_last_lineup_refresh", "test")
+
+    print(f"Schedules Direct lineups saved: {len(lineups)}", flush=True)
+    return redirect("/settings")
+
 @app.route("/tuners")
 def tuners_page():
     return render_template("tuners.html", tuners=tuner_manager.status())
@@ -555,6 +577,8 @@ def health():
 scheduler_service.start_scheduler()
 guide_service.start_guide_updater()
 cleanup_service.start_cleanup_service()
+
+
 
 
 if __name__ == "__main__":

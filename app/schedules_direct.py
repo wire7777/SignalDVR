@@ -14,3 +14,24 @@ def update():
         f"lineup={lineup or '-'} "
         f"days={days}"
     )
+
+
+def get_lineups():
+    """
+    Temporary test lineups until the real Schedules Direct API
+    is implemented.
+    """
+    return [
+        {
+            "lineup": "TEST-OTA",
+            "name": "Test Antenna Lineup",
+            "location": "Bakersfield, CA",
+            "transport": "Antenna",
+        },
+        {
+            "lineup": "TEST-CABLE",
+            "name": "Test Cable Lineup",
+            "location": "Bakersfield, CA",
+            "transport": "Cable",
+        },
+    ]
