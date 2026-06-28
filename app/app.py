@@ -318,14 +318,43 @@ def search_page():
 
 @app.route("/recordings")
 def recordings_page():
+    q = request.args.get("q", "").strip().lower()
+    sort = request.args.get("sort", "date")
+
     recordings = []
+
     for r in database.list_recordings():
         item = dict(r)
         item["thumbnail"] = thumbnails.make_thumbnail(item["filename"])
+
+        if q:
+            haystack = " ".join([
+                str(item.get("title", "")),
+                str(item.get("subtitle", "")),
+                str(item.get("channel", "")),
+                str(item.get("filename", "")),
+            ]).lower()
+
+            if q not in haystack:
+                continue
+
         recordings.append(item)
 
-    return render_template("recordings.html", recordings=recordings)
+    if sort == "title":
+        recordings.sort(key=lambda x: (x.get("title") or "").lower())
+    elif sort == "channel":
+        recordings.sort(key=lambda x: str(x.get("channel") or ""))
+    elif sort == "size":
+        recordings.sort(key=lambda x: int(x.get("size_bytes") or 0), reverse=True)
+    else:
+        recordings.sort(key=lambda x: str(x.get("start_time") or ""), reverse=True)
 
+    return render_template(
+        "recordings.html",
+        recordings=recordings,
+        q=q,
+        sort=sort,
+    )
 
 @app.route("/thumbs/<path:filename>")
 def thumbs(filename):

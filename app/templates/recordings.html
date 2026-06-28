@@ -1,116 +1,204 @@
-<!doctype html>
-<html>
-<head>
-    <title>SignalDVR Recordings</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+{% extends "base.html" %}
 
-    <style>
-        body { margin:0; background:#111; color:#eee; font-family:Arial,Helvetica,sans-serif; }
-        .header { background:#1b1b1b; border-bottom:2px solid #333; padding:20px 30px; }
-        h1 { margin:0; }
-        .nav { background:#191919; padding:15px 30px; border-bottom:1px solid #333; }
-        .nav a { color:#4da3ff; text-decoration:none; margin-right:18px; font-weight:bold; }
-        .content { padding:25px; }
+{% block title %}Recordings - SignalDVR{% endblock %}
+
+{% block head %}
+<style>
+    .recording-toolbar {
+        display: flex;
+        gap: 10px;
+        margin: 18px 0 24px 0;
+        flex-wrap: wrap;
+    }
+
+    .recording-toolbar input {
+        min-width: 260px;
+        flex: 1;
+    }
+
+    .recording-toolbar input,
+    .recording-toolbar select {
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #333;
+        background: #111;
+        color: #eee;
+    }
+
+
+    .recording {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        gap: 18px;
+        background: #1d1d1d;
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+
+    .thumb {
+        width: 220px;
+        height: 124px;
+        background: #000;
+        border-radius: 10px;
+        object-fit: cover;
+    }
+
+    .title {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 8px;
+    }
+
+    .meta {
+        color: #ccc;
+        line-height: 1.6;
+    }
+
+    .actions {
+        margin-top: 12px;
+    }
+
+    .actions .button {
+        margin-right: 8px;
+    }
+
+    .play {
+        background: #2196f3;
+    }
+
+    .download {
+        background: #2e7d32;
+    }
+
+    .delete {
+        background: #c62828;
+    }
+
+    @media (max-width:700px) {
 
         .recording {
-            display:grid;
-            grid-template-columns:220px 1fr;
-            gap:18px;
-            background:#1d1d1d;
-            border:1px solid #333;
-            border-radius:12px;
-            padding:16px;
-            margin-bottom:16px;
+            grid-template-columns: 1fr;
         }
 
         .thumb {
-            width:220px;
-            height:124px;
-            background:#000;
-            border-radius:10px;
-            object-fit:cover;
+            width: 100%;
+            height: auto;
         }
 
-        .title { font-size:24px; font-weight:bold; margin-bottom:8px; }
-        .meta { color:#ccc; line-height:1.5; }
+    }
+</style>
+{% endblock %}
 
-        button, .button {
-            display:inline-block;
-            border:0;
-            border-radius:8px;
-            padding:9px 14px;
-            cursor:pointer;
-            margin:10px 6px 0 0;
-            font-weight:bold;
-            text-decoration:none;
-            color:white;
-        }
+{% block content %}
 
-        .play { background:#2196f3; }
-        .download { background:#2e7d32; }
-        .delete { background:#555; }
+<h2>🎬 Recordings</h2>
+<form method="get" action="/recordings" class="recording-toolbar">
+    <input type="text" name="q" placeholder="Search recordings..." value="{{ q or '' }}">
 
-        @media (max-width:700px) {
-            .recording { grid-template-columns:1fr; }
-            .thumb { width:100%; height:auto; }
-        }
-    </style>
-</head>
+    <select name="sort">
+        <option value="date" {% if sort=="date" %}selected{% endif %}>Newest First</option>
+        <option value="title" {% if sort=="title" %}selected{% endif %}>Title</option>
+        <option value="channel" {% if sort=="channel" %}selected{% endif %}>Channel</option>
+        <option value="size" {% if sort=="size" %}selected{% endif %}>Size</option>
+    </select>
 
-<body>
+    <button class="button play" type="submit">🔍 Search</button>
 
-<div class="header">
-    <h1>🎬 SignalDVR Recordings</h1>
-</div>
+    {% if q %}
+    <a class="button download" href="/recordings">Clear</a>
+    {% endif %}
+</form>
 
-<div class="nav">
-    <a href="/">Home</a>
-    <a href="/timeshift">Live TV DVR</a>
-    <a href="/guide">Guide</a>
-    <a href="/grid">Grid</a>
-    <a href="/scheduled">Scheduled</a>
-    <a href="/series">Series</a>
-    <a href="/tuners">Tuners</a>
-    <a href="/health">Health</a>
-</div>
-
-<div class="content">
+{% if recordings %}
 
 {% for r in recordings %}
+
 <div class="recording">
+
     <div>
-        {% if r["thumbnail"] %}
-            <img class="thumb" src="/thumbs/{{ r['thumbnail'] }}">
+
+        {% if r.thumbnail %}
+        <img class="thumb" src="/thumbs/{{ r.thumbnail }}" alt="{{ r.title }}">
         {% else %}
-            <div class="thumb"></div>
+        <div class="thumb"></div>
         {% endif %}
+
     </div>
 
     <div>
-        <div class="title">{{ r["title"] }}</div>
 
-        <div class="meta">
-            <b>Channel:</b> {{ r["channel"] }}<br>
-            <b>Status:</b> {{ r["status"] }}<br>
-            <b>Start:</b> {{ r["start_time"] }}<br>
-            <b>End:</b> {{ r["end_time"] or "-" }}<br>
-            <b>Size:</b> {{ "%.1f"|format((r["size_bytes"] or 0) / 1024 / 1024) }} MB<br>
-            <b>File:</b> {{ r["filename"] }}
+        <div class="title">
+            {{ r.title }}
         </div>
 
-        <a class="button play" href="/recording/play/{{ r['filename'] }}">▶ Play</a>
-        <a class="button download" href="/play/{{ r['filename'] }}">⬇ Download</a>
+        {% if r.subtitle %}
+        <div style="margin-bottom:8px;color:#aaa;">
+            {{ r.subtitle }}
+        </div>
+        {% endif %}
 
-        <form action="/delete/{{ r['filename'] }}" method="post" style="display:inline;">
-            <button class="delete" type="submit">🗑 Delete</button>
-        </form>
+        <div class="meta">
+
+            <b>Channel:</b>
+            {{ r.channel }}
+            <br>
+
+            <b>Status:</b>
+            {{ r.status }}
+            <br>
+
+            <b>Start:</b>
+            {{ r.start_time }}
+            <br>
+
+            <b>End:</b>
+            {{ r.end_time or "-" }}
+            <br>
+
+            <b>Size:</b>
+            {{ "%.1f"|format((r.size_bytes or 0)/1024/1024) }} MB
+            <br>
+
+            <b>Filename:</b>
+            {{ r.filename }}
+
+        </div>
+
+        <div class="actions">
+
+            <a class="button play" href="/recording/play/{{ r.filename }}">
+                ▶ Play
+            </a>
+
+            <a class="button download" href="/play/{{ r.filename }}">
+                ⬇ Download
+            </a>
+
+            <form action="/delete/{{ r.filename }}" method="post" style="display:inline;">
+
+                <button class="button delete" type="submit" onclick="return confirm('Delete this recording?');">
+                    🗑 Delete
+                </button>
+
+            </form>
+
+        </div>
+
     </div>
+
 </div>
-{% else %}
-<p>No recordings yet.</p>
+
 {% endfor %}
 
+{% else %}
+
+<div class="card">
+    <h3>No recordings yet</h3>
+    <p>Your completed recordings will appear here.</p>
 </div>
 
-</body>
-</html>
+{% endif %}
+
+{% endblock %}
