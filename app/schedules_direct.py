@@ -1,5 +1,7 @@
 import hashlib
 import requests
+import json
+from pathlib import Path
 
 from app import database
 
@@ -188,3 +190,45 @@ def get_lineups(force=False):
 
     mark_now("sd_last_lineup_refresh")
     return data
+
+
+def get_lineup_map(lineup_id=None):
+    lineup_id = lineup_id or database.get_setting("sd_lineup", "")
+
+    if not lineup_id:
+        raise RuntimeError("Schedules Direct lineup is not selected.")
+
+    token = get_token()
+
+    response = requests.get(
+        f"{BASE_URL}/lineups/{lineup_id}",
+        headers={"token": token},
+        timeout=30,
+    )
+
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"Unable to download lineup map: HTTP {response.status_code}"
+        )
+
+    return response.json()
+
+def cache_lineup_map(lineup_id=None):
+    lineup_id = lineup_id or database.get_setting("sd_lineup", "")
+
+    if not lineup_id:
+        raise RuntimeError("Schedules Direct lineup is not selected.")
+
+    data = get_lineup_map(lineup_id)
+
+    cache_dir = Path("guide")
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    cache_file = cache_dir / "schedules_direct_lineup_map.json"
+
+    with open(cache_file, "w") as f:
+        json.dump(data, f, indent=2)
+
+    mark_now("sd_last_lineup_map_download")
+
+    return cache_file
