@@ -641,8 +641,32 @@ def sd_download_guide():
     for key in keys:
         database.set_setting(key, request.form.get(key, ""))
 
-    print("Schedules Direct guide download requested", flush=True)
+    try:
+        schedules_direct.cache_lineup_map(force=True)
+        channel_count = schedules_direct.import_cached_channel_map()
+
+        schedules_direct.cache_schedules_for_matched_channels(
+            days=int(request.form.get("guide_days", 1) or 1),
+            force=True,
+        )
+        program_cache, program_id_count = schedules_direct.cache_program_metadata(
+            force=True
+        )
+        program_count = schedules_direct.import_cached_programs()
+
+        print(
+            f"Schedules Direct guide update complete: "
+            f"channels={channel_count} "
+            f"program_ids={program_id_count} "
+            f"programs={program_count}",
+            flush=True,
+        )
+
+    except Exception as e:
+        print("Schedules Direct guide update error:", e, flush=True)
+
     return redirect("/settings")
+
 @app.route("/tuners")
 def tuners_page():
     return render_template("tuners.html", tuners=tuner_manager.status())

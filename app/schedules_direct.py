@@ -213,7 +213,7 @@ def get_lineup_map(lineup_id=None):
 
     return response.json()
 
-def cache_lineup_map(lineup_id=None):
+def cache_lineup_map(lineup_id=None, force=False):
     lineup_id = lineup_id or database.get_setting("sd_lineup", "")
 
     if not lineup_id:
@@ -278,12 +278,12 @@ def import_cached_channel_map():
 
     return len(data.get("map", []))
 
-def cache_schedules_for_matched_channels(days=1):
+def cache_schedules_for_matched_channels(days=1, force=False):
     import datetime
     import json
     from pathlib import Path
 
-    if not cooldown_ok("sd_last_schedule_download", hours=12):
+    if not force and not cooldown_ok("sd_last_schedule_download", hours=12):
         raise RuntimeError("Schedules Direct schedule download skipped: cooldown active.")
 
     token = get_token()
@@ -342,11 +342,11 @@ def cache_schedules_for_matched_channels(days=1):
 
     return cache_file
 
-def cache_program_metadata():
+def cache_program_metadata(force=False):
     import json
     from pathlib import Path
 
-    if not cooldown_ok("sd_last_program_download", hours=12):
+    if not force and not cooldown_ok("sd_last_program_download", hours=12):
         raise RuntimeError("Schedules Direct program metadata download skipped: cooldown active.")
 
     schedules_file = Path("guide") / "schedules_direct_schedules.json"
@@ -368,20 +368,26 @@ def cache_program_metadata():
         raise RuntimeError("No program IDs found in schedules cache.")
 
     token = get_token()
+    data = []
+    batch_size = 400
 
-    response = requests.post(
-        f"{BASE_URL}/programs",
-        headers={"token": token},
-        json=program_ids,
-        timeout=60,
-    )
+    for i in range(0, len(program_ids), batch_size):
+        batch = program_ids[i:i + batch_size]
 
-    if response.status_code != 200:
-        raise RuntimeError(
-            f"Schedules Direct program metadata download failed: HTTP {response.status_code}"
+        response = requests.post(
+            f"{BASE_URL}/programs",
+            headers={"token": token},
+            json=batch,
+            timeout=60,
         )
 
-    data = response.json()
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Schedules Direct program metadata download failed: "
+                f"HTTP {response.status_code} batch={i // batch_size + 1}"
+            )
+
+        data.extend(response.json())
 
     cache_file = Path("guide") / "schedules_direct_programs.json"
 
@@ -391,7 +397,6 @@ def cache_program_metadata():
     mark_now("sd_last_program_download")
 
     return cache_file, len(program_ids)
-
 def preview_cached_program_import(limit=10):
     import datetime
     import json
