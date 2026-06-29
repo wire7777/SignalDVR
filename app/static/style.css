@@ -164,3 +164,31 @@ button,
 .button-secondary {
     background: #555;
 }
+
+.program-badges {
+    margin-top: 6px;
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: bold;
+    color: #fff;
+}
+
+.badge-new {
+    background: #d32f2f;
+}
+
+.badge-hd {
+    background: #1976d2;
+}
+
+.badge-audio {
+    background: #6f42c1;
+}

@@ -134,6 +134,19 @@
             style="background:{{ p['category']|category_color }};">
             <div class="time">{{ p["start"]|tvtime }} - {{ p["stop"]|tvtime }}</div>
             <div class="title">{{ p["title"] }}</div>
+            <div class="program-badges">
+                {% if p.is_new %}
+                <span class="badge badge-new">NEW</span>
+                {% endif %}
+
+                {% if p.video_properties|has_hd %}
+                <span class="badge badge-hd">{{ p.video_properties|short_video }}</span>
+                {% endif %}
+
+                {% if p.audio_properties|has_dd51 %}
+                <span class="badge badge-audio">DD 5.1</span>
+                {% endif %}
+            </div>
 
             {% if p["subtitle"] %}
             <div class="desc">{{ p["subtitle"] }}</div>

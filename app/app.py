@@ -109,6 +109,29 @@ def status_badge(status):
     return status
 
 
+@app.template_filter("has_hd")
+def has_hd(value):
+    return "HD" in (value or "") or "hdtv" in (value or "").lower()
+
+
+@app.template_filter("has_dd51")
+def has_dd51(value):
+    return "DD 5.1" in (value or "")
+
+
+@app.template_filter("short_video")
+def short_video(value):
+    value = value or ""
+
+    if "1080i" in value:
+        return "1080i"
+    if "720p" in value:
+        return "720p"
+    if "480i" in value:
+        return "480i"
+
+    return ""
+
 for folder in [
     config.RECORDINGS,
     config.LOGS,
