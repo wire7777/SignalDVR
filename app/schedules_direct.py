@@ -462,8 +462,13 @@ def preview_cached_program_import(limit=10):
                 )
                 stop_dt = start_dt + datetime.timedelta(seconds=duration)
 
-                start = start_dt.strftime("%Y%m%d%H%M%S")
-                stop = stop_dt.strftime("%Y%m%d%H%M%S")
+                local_tz = datetime.datetime.now().astimezone().tzinfo
+
+                start_local = start_dt.astimezone(local_tz)
+                stop_local = stop_dt.astimezone(local_tz)
+
+                start = start_local.strftime("%Y%m%d%H%M%S")
+                stop = stop_local.strftime("%Y%m%d%H%M%S")
             except Exception:
                 start = start_utc
                 stop = ""
@@ -560,8 +565,13 @@ def import_cached_programs():
                 try:
                     start_dt = datetime.datetime.fromisoformat(start_utc.replace("Z", "+00:00"))
                     stop_dt = start_dt + datetime.timedelta(seconds=duration)
-                    start = start_dt.strftime("%Y%m%d%H%M%S")
-                    stop = stop_dt.strftime("%Y%m%d%H%M%S")
+                    local_tz = datetime.datetime.now().astimezone().tzinfo
+
+                    start_local = start_dt.astimezone(local_tz)
+                    stop_local = stop_dt.astimezone(local_tz)
+
+                    start = start_local.strftime("%Y%m%d%H%M%S")
+                    stop = stop_local.strftime("%Y%m%d%H%M%S")
                 except Exception:
                     start = start_utc
                     stop = ""
