@@ -518,8 +518,13 @@ def api_tuners():
 @app.route("/settings")
 def settings_page():
     settings = database.get_all_settings()
-    return render_template("settings.html", settings=settings)
+    sd_lineups = database.list_sd_lineups()
 
+    return render_template(
+        "settings.html",
+        settings=settings,
+        sd_lineups=sd_lineups,
+    )
 @app.route("/settings/save", methods=["POST"])
 def save_settings():
 
@@ -560,6 +565,17 @@ def save_settings():
 
     for key in keys:
         database.set_setting(key, request.form.get(key, ""))
+
+    # Register selected lineup with Schedules Direct
+    guide_source = request.form.get("guide_source", "")
+    lineup = request.form.get("sd_lineup", "")
+
+    if guide_source == "schedules_direct" and lineup:
+        try:
+           result = schedules_direct.add_lineup(lineup)
+           print("Schedules Direct lineup added:", result, flush=True)
+        except Exception as e:
+           print("Schedules Direct add lineup:", e, flush=True)
 
     return redirect("/settings")
 

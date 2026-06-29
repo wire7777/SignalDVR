@@ -92,6 +92,23 @@ def update():
     )
 
 
+
+def add_lineup(lineup_id):
+    token = get_token()
+
+    response = requests.put(
+        f"{BASE_URL}/lineups/{lineup_id}",
+        headers={"token": token},
+        timeout=30,
+    )
+
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"Unable to add lineup: HTTP {response.status_code}"
+        )
+
+    return response.json()
+
 def flatten_lineups(headends):
     rows = []
 
@@ -107,6 +124,23 @@ def flatten_lineups(headends):
             })
 
     return rows
+
+def add_lineup(lineup_id):
+    token = get_token()
+
+    response = requests.put(
+        f"{BASE_URL}/lineups/{lineup_id}",
+        headers={"token": token},
+        timeout=30,
+    )
+
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"Unable to add lineup: HTTP {response.status_code}"
+        )
+
+    return response.json()
+
 
 
 def get_lineups(force=False):
