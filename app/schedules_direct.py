@@ -232,3 +232,48 @@ def cache_lineup_map(lineup_id=None):
     mark_now("sd_last_lineup_map_download")
 
     return cache_file
+
+def import_cached_channel_map():
+    import json
+    from pathlib import Path
+
+    cache_file = Path("guide") / "schedules_direct_lineup_map.json"
+
+    if not cache_file.exists():
+        raise RuntimeError("Schedules Direct lineup map cache not found.")
+
+    with open(cache_file) as f:
+        data = json.load(f)
+
+    stations = {
+        str(s.get("stationID", "")): s
+        for s in data.get("stations", [])
+    }
+
+    with database.connect() as db:
+        db.execute("DELETE FROM sd_channel_map")
+
+        for m in data.get("map", []):
+            guide_number = str(m.get("channel", ""))
+            station_id = str(m.get("stationID", ""))
+
+            station = stations.get(station_id, {})
+
+            db.execute("""
+                INSERT OR REPLACE INTO sd_channel_map
+                (guide_number, station_id, callsign, name, raw_json)
+                VALUES (?, ?, ?, ?, ?)
+            """, (
+                guide_number,
+                station_id,
+                station.get("callsign", ""),
+                station.get("name", ""),
+                json.dumps({
+                    "map": m,
+                    "station": station,
+                }),
+            ))
+
+        db.commit()
+
+    return len(data.get("map", []))
