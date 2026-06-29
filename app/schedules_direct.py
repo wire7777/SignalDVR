@@ -82,16 +82,42 @@ def login():
 
 
 def update():
-    postal_code = database.get_setting("sd_postal_code", "")
-    lineup = database.get_setting("sd_lineup", "")
-    days = database.get_setting("guide_days", "14")
+    """
+    Full Schedules Direct guide update pipeline.
+    Used by background guide updater.
+    Respects cooldowns, but imports cached data if downloads are skipped.
+    """
+    try:
+        cache_lineup_map()
+    except Exception as e:
+        print(f"Schedules Direct lineup map cache skipped: {e}", flush=True)
 
-    raise RuntimeError(
-        "Schedules Direct importer is not implemented yet. "
-        f"postal_code={postal_code or '-'} "
-        f"lineup={lineup or '-'} "
-        f"days={days}"
+    channel_count = import_cached_channel_map()
+
+    days = int(database.get_setting("guide_days", "14") or 14)
+
+    try:
+        cache_schedules_for_matched_channels(days=days)
+    except Exception as e:
+        print(f"Schedules Direct schedule cache skipped: {e}", flush=True)
+
+    try:
+        program_cache, program_id_count = cache_program_metadata()
+    except Exception as e:
+        print(f"Schedules Direct program metadata cache skipped: {e}", flush=True)
+        program_id_count = 0
+
+    program_count = import_cached_programs()
+
+    print(
+        f"Schedules Direct background update complete: "
+        f"channels={channel_count} "
+        f"program_ids={program_id_count} "
+        f"programs={program_count}",
+        flush=True,
     )
+
+    return program_count
 
 
 
