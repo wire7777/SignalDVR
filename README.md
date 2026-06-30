@@ -20,3 +20,19 @@ Initial public release.
 - Skip 30 seconds
 - Jump to Live
 - Modern web interface
+
+
+
+
+SignalDVR v0.5
+
+✓ Live TV
+✓ Guide
+✓ Timeline Guide
+✓ Search
+✓ Recordings
+✓ Series Recording
+✓ Recording Details
+✓ Rich Guide Metadata
+✓ REST API
+✓ First Working Kodi Client
