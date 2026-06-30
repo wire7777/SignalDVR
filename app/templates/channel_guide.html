@@ -193,6 +193,22 @@
     <div class="meta">Original Air Date: {{ p.originalairdate }}</div>
     {% endif %}
 
+    {% if p.episode_title %}
+    <div class="meta">Episode: {{ p.episode_title }}</div>
+    {% endif %}
+
+    {% if p.runtime %}
+    <div class="meta">Runtime: {{ (p.runtime // 60) }} minutes</div>
+    {% endif %}
+
+    {% if p.year %}
+    <div class="meta">Year: {{ p.year }}</div>
+    {% endif %}
+
+    {% if p.cast %}
+    <div class="meta">Cast: {{ p.cast }}</div>
+    {% endif %}
+
     {% if p.genres %}
     <div class="meta">Genres: {{ p.genres }}</div>
     {% endif %}
