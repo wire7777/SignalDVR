@@ -461,6 +461,19 @@ def get_current_program(channel, now=None):
         return dict(row) if row else None
 
 
+def get_program_by_id(programid):
+    if not programid:
+        return None
+
+    with connect() as db:
+        return db.execute("""
+            SELECT *
+            FROM programs
+            WHERE programid=?
+            ORDER BY start DESC
+            LIMIT 1
+        """, (programid,)).fetchone()
+
 def get_now_next():
     now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 

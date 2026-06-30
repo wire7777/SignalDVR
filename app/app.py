@@ -193,10 +193,14 @@ def recording_details(filename):
     if not recording:
         return "Recording not found", 404
 
+    program = database.get_program_by_id(recording.get("programid", ""))
+
+    if program:
+     recording.update(dict(program))
+
     recording["thumbnail"] = thumbnails.make_thumbnail(recording["filename"])
 
     return render_template("recording_details.html", r=recording)
-
 
 @app.route("/record-channel/<guide_number>", methods=["POST"])
 def record_channel(guide_number):

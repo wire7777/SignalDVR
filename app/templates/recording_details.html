@@ -9,18 +9,17 @@
 <div class="card">
 
     {% if r.thumbnail %}
-        <img style="width:100%;max-width:520px;border-radius:12px;background:#000;"
-             src="/thumbs/{{ r.thumbnail }}">
+    <img style="width:100%;max-width:520px;border-radius:12px;background:#000;" src="/thumbs/{{ r.thumbnail }}">
     {% endif %}
 
     <h1>{{ r.title }}</h1>
 
     {% if r.subtitle %}
-        <h3 style="color:#aaa;">{{ r.subtitle }}</h3>
+    <h3 style="color:#aaa;">{{ r.subtitle }}</h3>
     {% endif %}
 
     {% if r.description %}
-        <p>{{ r.description }}</p>
+    <p>{{ r.description }}</p>
     {% endif %}
 
     <p><b>Channel:</b> {{ r.channel }}</p>
@@ -30,7 +29,38 @@
     <p><b>Size:</b> {{ "%.1f"|format((r.size_bytes or 0)/1024/1024) }} MB</p>
     <p><b>Category:</b> {{ r.category or "-" }}</p>
     <p><b>Episode:</b> {{ r.episode or "-" }}</p>
-    <p><b>Original Air Date:</b> {{ r.originalairdate or "-" }}</p>
+
+    {% if r.episode_title %}
+    <p><b>Episode Title:</b> {{ r.episode_title }}</p>
+    {% endif %}
+
+    {% if r.runtime %}
+    <p><b>Runtime:</b> {{ (r.runtime // 60) }} minutes</p>
+    {% endif %}
+
+    {% if r.year %}
+    <p><b>Year:</b> {{ r.year }}</p>
+    {% endif %}
+
+    {% if r.video_properties %}
+    <p><b>Video:</b> {{ r.video_properties }}</p>
+    {% endif %}
+
+    {% if r.audio_properties %}
+    <p><b>Audio:</b> {{ r.audio_properties }}</p>
+    {% endif %}
+
+    {% if r.rating %}
+    <p><b>Rating:</b> {{ r.rating }}</p>
+    {% endif %}
+
+    {% if r.genres %}
+    <p><b>Genres:</b> {{ r.genres }}</p>
+    {% endif %}
+
+    {% if r.cast %}
+    <p><b>Cast:</b> {{ r.cast }}</p>
+    {% endif %}
     <p><b>File:</b> {{ r.filename }}</p>
 
     <a class="button" href="/recording/play/{{ r.filename }}">▶ Play</a>
