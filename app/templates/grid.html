@@ -104,6 +104,15 @@
         margin-top: 8px;
         text-decoration: none;
     }
+
+    .grid-channel-logo {
+        max-width: 90px;
+        max-height: 45px;
+        background: #fff;
+        border-radius: 8px;
+        padding: 5px;
+        margin-bottom: 8px;
+    }
 </style>
 {% endblock %}
 
@@ -124,8 +133,12 @@
 
         {% for ch in grid %}
         <div class="cell channel">
-            {{ ch["guide_number"] }}<br>
-            {{ ch["guide_name"] }}<br>
+            <img class="grid-channel-logo" src="/static/logos/{{ ch['guide_name']|logo_name }}"
+                onerror="this.style.display='none';">
+
+            <div>{{ ch["guide_number"] }}</div>
+            <div>{{ ch["guide_name"] }}</div>
+
             <a class="view-btn" href="/guide-view/{{ ch['guide_number'] }}">View</a>
         </div>
 
