@@ -97,12 +97,36 @@
         background: #7b1fa2;
         color: white;
     }
+
+    .channel-header {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        margin-bottom: 20px;
+    }
+
+    .channel-logo {
+        max-width: 120px;
+        max-height: 70px;
+        background: #fff;
+        border-radius: 10px;
+        padding: 8px;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
+<div class="channel-header">
+    <img class="channel-logo" src="/static/logos/{{ guide_name|logo_name }}" onerror="this.style.display='none';">
 
-<h1>📺 Channel {{ channel }}</h1>
+    <div>
+        <h1>📺 Channel {{ channel }}</h1>
+    </div>
+</div>
+<div class="card">
+    <strong>Logo support coming next:</strong>
+    app/static/logos/
+</div>
 
 {% for p in programs %}
 
@@ -175,6 +199,7 @@
 
     <div class="actions">
         <form action="/schedule-program" method="post">
+
             <input type="hidden" name="channel" value="{{ channel }}">
             <input type="hidden" name="title" value="{{ p['title'] }}">
             <input type="hidden" name="subtitle" value="{{ p['subtitle'] }}">
@@ -187,6 +212,7 @@
             <input type="hidden" name="title" value="{{ p['title'] }}">
             <input type="hidden" name="channel" value="{{ channel }}">
             <button class="button button-info" type="submit">🔁 Record Series</button>
+
         </form>
     </div>
 

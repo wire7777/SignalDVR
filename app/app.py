@@ -91,6 +91,28 @@ def is_live_now(start, stop):
         return False
 
 
+@app.template_filter("logo_file")
+def logo_file(value):
+    if not value:
+        return ""
+
+    safe = str(value).lower()
+    safe = safe.replace(" ", "")
+    safe = safe.replace("-", "")
+    safe = safe.replace(".", "")
+
+    return safe + ".png"
+@app.template_filter("logo_name")
+def logo_name(value):
+    if not value:
+        return ""
+
+    safe = str(value).lower()
+    for ch in [" ", "-", ".", "_"]:
+        safe = safe.replace(ch, "")
+
+    return safe + ".png"
+
 @app.template_filter("status_badge")
 def status_badge(status):
     status = status or ""
@@ -238,8 +260,14 @@ def guide_page():
 @app.route("/guide-view/<channel>")
 def guide_view_channel(channel):
     programs = database.get_programs_for_channel(channel, limit=30)
-    return render_template("channel_guide.html", channel=channel, programs=programs)
+    ch = database.get_channel(channel)
 
+    return render_template(
+        "channel_guide.html",
+        channel=channel,
+        guide_name=ch["guide_name"] if ch else "",
+        programs=programs,
+    )
 
 @app.route("/guide/<channel>")
 def guide_channel_json(channel):
