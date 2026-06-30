@@ -52,7 +52,13 @@
         padding: 5px 10px;
         border-radius: 8px;
         font-size: 13px;
-        margin-bottom: 14px;
+        margin-bottom: 10px;
+    }
+
+    .meta {
+        color: #ccc;
+        font-size: 13px;
+        margin-top: 6px;
     }
 
     .progress-bg {
@@ -79,6 +85,7 @@
         display: flex;
         flex-wrap: wrap;
         gap: 10px;
+        margin-top: 14px;
     }
 
     .record {
@@ -103,100 +110,84 @@
     style="background:{{ p['category']|category_color }};">
 
     <div class="time">
-
-        {{ p["start"]|tvtime }}
-
-        —
-
-        {{ p["stop"]|tvtime }}
-
+        {{ p["start"]|tvtime }} — {{ p["stop"]|tvtime }}
     </div>
 
     {% if p["start"]|is_live_now(p["stop"]) %}
-
     <div class="progress-bg">
-
-        <div class="progress-fill" style="width:{{ p['start']|progress_percent(p['stop']) }}%;">
-        </div>
-
+        <div class="progress-fill" style="width:{{ p['start']|progress_percent(p['stop']) }}%;"></div>
     </div>
 
     <div class="live-text">
-
         🔴 LIVE NOW · {{ p["start"]|progress_percent(p["stop"]) }}%
-
     </div>
-
     {% endif %}
 
     <div class="title">
-
         {{ p["title"] }}
-
     </div>
 
     {% if p["subtitle"] %}
-
     <div class="subtitle">
-
         {{ p["subtitle"] }}
-
     </div>
-
     {% endif %}
 
     {% if p["description"] %}
-
     <div class="description">
-
         {{ p["description"] }}
-
     </div>
-
     {% endif %}
 
     {% if p["category"] %}
-
     <div class="category">
-
         {{ p["category"] }}
+    </div>
+    {% endif %}
 
+    <div class="program-badges">
+        {% if p.is_new %}
+        <span class="badge badge-new">NEW</span>
+        {% else %}
+        <span class="badge badge-secondary">REPEAT</span>
+        {% endif %}
+
+        {% if p.video_properties|has_hd %}
+        <span class="badge badge-hd">{{ p.video_properties|short_video }}</span>
+        {% endif %}
+
+        {% if p.audio_properties|has_dd51 %}
+        <span class="badge badge-audio">DD 5.1</span>
+        {% endif %}
+
+        {% if p.rating %}
+        <span class="badge badge-rating">{{ p.rating }}</span>
+        {% endif %}
     </div>
 
+    {% if p.originalairdate %}
+    <div class="meta">Original Air Date: {{ p.originalairdate }}</div>
+    {% endif %}
+
+    {% if p.genres %}
+    <div class="meta">Genres: {{ p.genres }}</div>
     {% endif %}
 
     <div class="actions">
-
         <form action="/schedule-program" method="post">
-
             <input type="hidden" name="channel" value="{{ channel }}">
             <input type="hidden" name="title" value="{{ p['title'] }}">
             <input type="hidden" name="subtitle" value="{{ p['subtitle'] }}">
             <input type="hidden" name="start" value="{{ p['start'] }}">
             <input type="hidden" name="stop" value="{{ p['stop'] }}">
-
-            <button class="record" type="submit">
-
-                🔴 Record This
-
-            </button>
-
+            <button class="button button-danger" type="submit">🔴 Record This</button>
         </form>
 
         <form action="/series/add" method="post">
-
             <input type="hidden" name="title" value="{{ p['title'] }}">
-
             <input type="hidden" name="channel" value="{{ channel }}">
-
-            <button class="series" type="submit">
-
-                🔁 Record Series
-
-            </button>
-
+            <button class="button button-info" type="submit">🔁 Record Series</button>
         </form>
-
     </div>
 
 </div>
@@ -204,9 +195,7 @@
 {% else %}
 
 <div class="card">
-
     <h2>No Upcoming Guide Data</h2>
-
 </div>
 
 {% endfor %}

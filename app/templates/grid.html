@@ -132,8 +132,10 @@
         {% for p in ch["programs"][:12] %}
         <div class="cell program {% if p['start']|is_live_now(p['stop']) %}live{% endif %}"
             style="background:{{ p['category']|category_color }};">
+
             <div class="time">{{ p["start"]|tvtime }} - {{ p["stop"]|tvtime }}</div>
             <div class="title">{{ p["title"] }}</div>
+
             <div class="program-badges">
                 {% if p.is_new %}
                 <span class="badge badge-new">NEW</span>
@@ -145,6 +147,10 @@
 
                 {% if p.audio_properties|has_dd51 %}
                 <span class="badge badge-audio">DD 5.1</span>
+                {% endif %}
+
+                {% if p.rating %}
+                <span class="badge badge-rating">{{ p.rating }}</span>
                 {% endif %}
             </div>
 
@@ -173,6 +179,7 @@
                 <input type="hidden" name="channel" value="{{ ch['guide_number'] }}">
                 <button class="series-btn" type="submit">Series</button>
             </form>
+
         </div>
         {% endfor %}
 
@@ -181,6 +188,7 @@
             <div class="desc">No guide data</div>
         </div>
         {% endfor %}
+
         {% endfor %}
 
     </div>

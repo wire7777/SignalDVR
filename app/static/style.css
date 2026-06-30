@@ -185,10 +185,18 @@ button,
     background: #d32f2f;
 }
 
+.badge-secondary {
+    background: #666;
+}
+
 .badge-hd {
     background: #1976d2;
 }
 
 .badge-audio {
     background: #6f42c1;
+}
+
+.badge-rating {
+    background: #455a64;
 }

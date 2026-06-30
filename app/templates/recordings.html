@@ -178,7 +178,11 @@
             <a class="button button-primary" href="/recording/play/{{ r.filename }}">▶ Play</a>
             <a class="button button-success" href="/play/{{ r.filename }}">⬇ Download</a>
             <a class="button button-info" href="/recording/details/{{ r.filename }}">ℹ Details</a>
-            <button class="button button-danger" type="submit">🗑 Delete</button>
+            <form action="/delete/{{ r.filename }}" method="post" style="display:inline;">
+                <button class="button button-danger" type="submit" onclick="return confirm('Delete this recording?');">
+                    🗑 Delete
+                </button>
+            </form>
 
         </div>
 
