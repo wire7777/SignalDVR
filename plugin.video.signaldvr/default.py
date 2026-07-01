@@ -37,6 +37,7 @@ def add_play_item(name, url):
 
 def main_menu():
     add_dir("Live TV", "live")
+    add_dir("Favorites", "favorites")
     add_dir("Recordings", "recordings")
     xbmcplugin.endOfDirectory(HANDLE)
 
@@ -58,6 +59,20 @@ def live_tv():
         })
 
         play_url = BASE_URL + ch.get("play_url", "")
+        xbmcplugin.addDirectoryItem(HANDLE, play_url, item, False)
+
+    xbmcplugin.endOfDirectory(HANDLE)
+
+
+def favorites():
+    channels = fetch_json("/api/kodi/favorites")
+
+    for ch in channels:
+        name = "⭐ {} {}".format(ch.get("channel", ""), ch.get("name", ""))
+        play_url = BASE_URL + ch.get("play_url", "")
+
+        item = xbmcgui.ListItem(label=name)
+        item.setProperty("IsPlayable", "true")
         xbmcplugin.addDirectoryItem(HANDLE, play_url, item, False)
 
     xbmcplugin.endOfDirectory(HANDLE)
@@ -106,6 +121,8 @@ def router():
 
     if mode == "live":
         live_tv()
+    elif mode == "favorites":
+        favorites()
     elif mode == "recordings":
         recordings()
     else:

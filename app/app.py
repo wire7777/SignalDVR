@@ -631,6 +631,22 @@ def api_kodi_recordings():
 
     return jsonify(recordings)
 
+
+@app.route("/api/kodi/favorites")
+def api_kodi_favorites():
+    channels = database.list_channels()
+
+    return jsonify([
+        {
+            "channel": c["guide_number"],
+            "name": c["guide_name"],
+            "play_url": f"/play/live/{c['guide_number']}",
+        }
+        for c in channels
+        if c["enabled"] == 1 and c["favorite"] == 1
+    ])
+
+
 @app.route("/settings")
 def settings_page():
     settings = database.get_all_settings()
