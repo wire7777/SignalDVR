@@ -624,12 +624,12 @@ def api_kodi_recordings():
 
     for r in database.list_recordings():
         item = dict(r)
+        item["thumbnail"] = thumbnails.make_thumbnail(item["filename"])
         item["play_url"] = f"/recording/play/{item['filename']}"
         item["download_url"] = f"/play/{item['filename']}"
         recordings.append(item)
 
     return jsonify(recordings)
-
 
 @app.route("/settings")
 def settings_page():

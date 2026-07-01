@@ -45,14 +45,20 @@ def live_tv():
     channels = fetch_json("/api/kodi/live")
 
     for ch in channels:
-     name = "{} {}  |  NOW: {}  |  NEXT: {}".format(
-      ch.get("channel", ""),
-      ch.get("name", ""),
-      ch.get("now_title") or "No guide data",
-      ch.get("next_title") or "No guide data",
-)
-    play_url = BASE_URL + ch.get("play_url", "")
-    add_play_item(name, play_url)
+        name = "{} {}".format(ch.get("channel", ""), ch.get("name", ""))
+
+        now_title = ch.get("now_title") or "No guide data"
+        next_title = ch.get("next_title") or "No guide data"
+
+        item = xbmcgui.ListItem(label=name)
+        item.setProperty("IsPlayable", "true")
+        item.setInfo("video", {
+            "title": name,
+            "plot": "NOW: {}\n\nNEXT: {}".format(now_title, next_title),
+        })
+
+        play_url = BASE_URL + ch.get("play_url", "")
+        xbmcplugin.addDirectoryItem(HANDLE, play_url, item, False)
 
     xbmcplugin.endOfDirectory(HANDLE)
 
@@ -62,15 +68,37 @@ def recordings():
 
     for r in items:
         title = r.get("title") or r.get("filename") or "Recording"
+        subtitle = r.get("subtitle") or ""
         channel = r.get("channel", "")
         recorded = r.get("start_time", "")
-        label = "{}  [{} {}]".format(title, channel, recorded)
+        description = r.get("description") or ""
+
+        label = title
+        if subtitle:
+            label += " - " + subtitle
+
+        item = xbmcgui.ListItem(label=label)
+        item.setProperty("IsPlayable", "true")
+        item.setInfo("video", {
+            "title": title,
+            "plot": description,
+            "tvshowtitle": title,
+            "episode": 0,
+        })
+
+        thumb = r.get("thumbnail")
+        if thumb:
+            item.setArt({
+                "thumb": BASE_URL + "/thumbs/" + thumb,
+                "icon": BASE_URL + "/thumbs/" + thumb,
+            })
 
         play_url = BASE_URL + r.get("download_url", "")
-        add_play_item(label, play_url)
+        xbmcplugin.addDirectoryItem(HANDLE, play_url, item, False)
 
     xbmcplugin.endOfDirectory(HANDLE)
 
+   
 
 def router():
     params = dict(urllib.parse.parse_qsl(sys.argv[2][1:]))
