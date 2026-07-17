@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_dark">#0D0D1A</color>
+    <color name="brand_blue">#0077CC</color>
+    <color name="accent">#FFCC00</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#AAAAAA</color>
+    <color name="epg_cell">#1A1A2E</color>
+    <color name="epg_now">#0D3B66</color>
+    <color name="epg_focused">#0077CC</color>
+</resources>

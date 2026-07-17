@@ -1,0 +1,646 @@
+﻿package com.signaldvr.app.ui.player.controller
+
+import android.content.Context
+import android.os.Handler
+import com.signaldvr.app.api.ApiClient
+import com.signaldvr.app.ui.player.engine.PlayerEngine
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
+class PlaybackController(
+    private val context: Context,
+    private val playerEngine: PlayerEngine,
+    private val handler: Handler
+) {
+    companion object {
+        private const val LIVE_SEEK_DEBOUNCE_MS = 350L
+    }
+
+    var state = PlaybackState()
+        private set
+
+    private var pendingLiveBehindSeconds: Int? = null
+    private var pendingLiveSeekRunnable: Runnable? = null
+
+    fun updateState(newState: PlaybackState) {
+        state = newState
+    }
+
+    fun updatePlaybackState(
+        isLive: Boolean,
+        isRecordingPlayback: Boolean,
+        currentUrl: String,
+        liveUrl: String,
+        behindLiveSeconds: Int,
+        isReconnecting: Boolean
+    ): PlaybackState {
+        state = PlaybackState(
+            isLive = isLive,
+            isRecordingPlayback = isRecordingPlayback,
+            currentUrl = currentUrl,
+            liveUrl = liveUrl,
+            behindLiveSeconds = behindLiveSeconds,
+            isPlaying = playerEngine.isPlaying(),
+            isReconnecting = isReconnecting
+        )
+
+        return state
+    }
+
+    fun positionLabel(): String {
+        return state.positionLabel()
+    }
+
+    suspend fun startLiveStream(
+        channelNum: String,
+        onError: (String) -> Unit,
+        onStarted: (String) -> Unit
+    ) {
+        try {
+            val resp = ApiClient
+                .getApi(context)
+                .startTimeshift(channelNum)
+
+            if (!resp.ok) {
+                handler.post {
+                    onError(
+                        "Could not start stream"
+                    )
+                }
+                return
+            }
+
+            val url =
+                resp.streamUrl
+                    ?: resp.hlsUrl
+                    ?: resp.rawUrl
+                    ?: ""
+
+            if (url.isBlank()) {
+                handler.post {
+                    onError(
+                        "No stream URL from server"
+                    )
+                }
+                return
+            }
+
+            state = state.copy(
+                isLive = true,
+                isRecordingPlayback = false,
+                currentUrl = url,
+                liveUrl = url,
+                behindLiveSeconds = 0
+            )
+
+            handler.post {
+                onStarted(url)
+            }
+        } catch (e: Exception) {
+            handler.post {
+                onError(
+                    "Cannot reach server: ${e.message}"
+                )
+            }
+        }
+    }
+
+    fun startRecordingPlayback(
+        url: String,
+        onStarted: (String) -> Unit
+    ) {
+        state = state.copy(
+            isLive = false,
+            isRecordingPlayback = true,
+            currentUrl = url,
+            liveUrl = url,
+            behindLiveSeconds = 0
+        )
+
+        playStream(url)
+        onStarted(url)
+    }
+
+    fun playStream(url: String) {
+        if (url.isBlank()) {
+            return
+        }
+
+        state = state.copy(
+            currentUrl = url
+        )
+
+        playerEngine.playUrl(url)
+    }
+
+    fun reloadStream(
+        url: String,
+        delayMs: Long = 0L
+    ) {
+        if (url.isBlank()) {
+            return
+        }
+
+        if (delayMs <= 0L) {
+            playStream(url)
+        } else {
+            handler.postDelayed({
+                playStream(url)
+            }, delayMs)
+        }
+    }
+
+    fun recoverPlayback(
+        currentUrl: String,
+        isReconnecting: Boolean,
+        onReconnectStarted: () -> Unit,
+        onReconnectFailed: () -> Unit
+    ) {
+        if (
+            isReconnecting ||
+            currentUrl.isBlank()
+        ) {
+            return
+        }
+
+        onReconnectStarted()
+
+        handler.postDelayed({
+            try {
+                reloadStream(
+                    url = currentUrl,
+                    delayMs = 150L
+                )
+            } catch (_: Exception) {
+                onReconnectFailed()
+            }
+        }, 1500)
+    }
+
+    fun play() {
+        playerEngine.play()
+    }
+
+    fun pause() {
+        playerEngine.pause()
+    }
+
+    fun stop() {
+        playerEngine.stop()
+    }
+
+    fun togglePlayPause(
+        isRecordingPlayback: Boolean,
+        onPaused: () -> Unit,
+        onPlaying: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        if (playerEngine.isPlaying()) {
+            if (isRecordingPlayback) {
+                playerEngine.pause()
+
+                state = state.copy(
+                    isPlaying = false
+                )
+
+                onPaused()
+                return
+            }
+
+            /*
+             * Stop VLC immediately and preserve its exact position inside
+             * delayed_live.m3u8.
+             */
+            playerEngine.pauseLiveDvr()
+
+            state = state.copy(
+                isPlaying = false
+            )
+
+            onPaused()
+
+            /*
+             * Freeze the server playlist in the background.
+             */
+            CoroutineScope(
+                Dispatchers.IO
+            ).launch {
+                try {
+                    ApiClient
+                        .getApi(context)
+                        .timeshiftPause()
+                } catch (e: Exception) {
+                    handler.post {
+                        onError(
+                            "Pause sync failed: ${e.message}"
+                        )
+                    }
+                }
+            }
+
+            return
+        }
+
+        if (isRecordingPlayback) {
+            playerEngine.play()
+
+            state = state.copy(
+                isPlaying = true
+            )
+
+            onPlaying()
+            return
+        }
+
+        /*
+         * Reopen VLC while the delayed playlist is still frozen. Then
+         * unfreeze the server shortly afterward so new segments continue
+         * from the same DVR position.
+         */
+        playerEngine.resumeLiveDvr()
+
+        state = state.copy(
+            isPlaying = true
+        )
+
+        onPlaying()
+
+        CoroutineScope(
+            Dispatchers.IO
+        ).launch {
+            try {
+                ApiClient
+                    .getApi(context)
+                    .timeshiftResume()
+            } catch (e: Exception) {
+                handler.post {
+                    onError(
+                        "Resume sync failed: ${e.message}"
+                    )
+                }
+            }
+        }
+    }
+
+    fun seekRecordingRelative(seconds: Int) {
+        playerEngine.seekRelative(
+            seconds * 1000L
+        )
+    }
+
+    fun currentPositionMs(): Long {
+        return playerEngine.currentPositionMs()
+    }
+
+    fun durationMs(): Long {
+        return playerEngine.durationMs()
+    }
+
+    fun rewind(
+        seconds: Int,
+        isRecordingPlayback: Boolean,
+        currentBehindLiveSeconds: Int,
+        onRecordingSeek: () -> Unit,
+        onSeekBehindLive: (Int) -> Unit
+    ) {
+        if (isRecordingPlayback) {
+            cancelPendingLiveSeek()
+            seekRecordingRelative(-seconds)
+            onRecordingSeek()
+            return
+        }
+
+        val baseBehindSeconds =
+            pendingLiveBehindSeconds
+                ?: currentBehindLiveSeconds
+
+        val newBehindLiveSeconds =
+            baseBehindSeconds + seconds
+
+        scheduleLiveSeek(
+            secondsBehindLive = newBehindLiveSeconds,
+            onJumpLive = {},
+            onSeekBehindLive = onSeekBehindLive
+        )
+    }
+
+    fun fastForward(
+        seconds: Int,
+        isRecordingPlayback: Boolean,
+        currentBehindLiveSeconds: Int,
+        onRecordingSeek: () -> Unit,
+        onJumpLive: () -> Unit,
+        onSeekBehindLive: (Int) -> Unit
+    ) {
+        if (isRecordingPlayback) {
+            cancelPendingLiveSeek()
+            seekRecordingRelative(seconds)
+            onRecordingSeek()
+            return
+        }
+
+        val baseBehindSeconds =
+            pendingLiveBehindSeconds
+                ?: currentBehindLiveSeconds
+
+        val newBehindLiveSeconds =
+            kotlin.math.max(
+                0,
+                baseBehindSeconds - seconds
+            )
+
+        scheduleLiveSeek(
+            secondsBehindLive = newBehindLiveSeconds,
+            onJumpLive = onJumpLive,
+            onSeekBehindLive = onSeekBehindLive
+        )
+    }
+
+    private fun scheduleLiveSeek(
+        secondsBehindLive: Int,
+        onJumpLive: () -> Unit,
+        onSeekBehindLive: (Int) -> Unit
+    ) {
+        pendingLiveBehindSeconds =
+            kotlin.math.max(0, secondsBehindLive)
+
+        pendingLiveSeekRunnable?.let {
+            handler.removeCallbacks(it)
+        }
+
+        val runnable = Runnable {
+            val targetBehindSeconds =
+                pendingLiveBehindSeconds ?: return@Runnable
+
+            pendingLiveBehindSeconds = null
+            pendingLiveSeekRunnable = null
+
+            if (targetBehindSeconds <= 0) {
+                onJumpLive()
+            } else {
+                onSeekBehindLive(targetBehindSeconds)
+            }
+        }
+
+        pendingLiveSeekRunnable = runnable
+        handler.postDelayed(
+            runnable,
+            LIVE_SEEK_DEBOUNCE_MS
+        )
+    }
+
+    fun cancelPendingLiveSeek() {
+        pendingLiveSeekRunnable?.let {
+            handler.removeCallbacks(it)
+        }
+
+        pendingLiveSeekRunnable = null
+        pendingLiveBehindSeconds = null
+    }
+
+    suspend fun toggleRecording(
+        channelNum: String,
+        isRecording: Boolean,
+        onRecordingStarted: () -> Unit,
+        onRecordingStopped: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        try {
+            if (isRecording) {
+                ApiClient
+                    .getApi(context)
+                    .recordStop()
+
+                handler.post {
+                    onRecordingStopped()
+                }
+            } else {
+                val resp = ApiClient
+                    .getApi(context)
+                    .recordStart(channelNum)
+
+                if (resp.ok == true) {
+                    handler.post {
+                        onRecordingStarted()
+                    }
+                } else {
+                    handler.post {
+                        onError(
+                            resp.error
+                                ?: "Could not start recording"
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            handler.post {
+                onError(
+                    "Recording error: ${e.message}"
+                )
+            }
+        }
+    }
+
+    suspend fun recordRestOfShow(
+        channelNum: String,
+        onScheduled: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        try {
+            val resp = ApiClient
+                .getApi(context)
+                .recordRestOfShow(channelNum)
+
+            handler.post {
+                if (resp.ok) {
+                    onScheduled(
+                        resp.message
+                            ?: "Scheduled to record the rest of this show"
+                    )
+                } else {
+                    onError(
+                        resp.error
+                            ?: "Could not schedule recording"
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            handler.post {
+                onError(
+                    "Record rest failed: ${e.message}"
+                )
+            }
+        }
+    }
+
+    suspend fun scheduleCurrentShow(
+        channelNum: String,
+        onScheduled: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        try {
+            val resp = ApiClient
+                .getApi(context)
+                .recordScheduleShow(channelNum)
+
+            handler.post {
+                if (resp.ok) {
+                    onScheduled(
+                        resp.message
+                            ?: "Show scheduled"
+                    )
+                } else {
+                    onError(
+                        resp.error
+                            ?: "Could not schedule show"
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            handler.post {
+                onError(
+                    "Schedule failed: ${e.message}"
+                )
+            }
+        }
+    }
+
+    suspend fun refreshRecordingStatus(
+        onRecording: () -> Unit,
+        onNotRecording: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        try {
+            val resp = ApiClient
+                .getApi(context)
+                .recordStatus()
+
+            handler.post {
+                if (
+                    resp.ok == true &&
+                    resp.recording == true
+                ) {
+                    onRecording()
+                } else {
+                    onNotRecording()
+                }
+            }
+        } catch (e: Exception) {
+            handler.post {
+                onError(
+                    e.message
+                        ?: "Recording status error"
+                )
+            }
+        }
+    }
+
+    suspend fun jumpLive(
+        isRecordingPlayback: Boolean,
+        onNotAvailable: () -> Unit,
+        onError: (String) -> Unit,
+        onLive: (String) -> Unit
+    ) {
+        if (isRecordingPlayback) {
+            handler.post {
+                onNotAvailable()
+            }
+            return
+        }
+
+        try {
+            val resp = ApiClient
+                .getApi(context)
+                .playbackLive()
+
+            if (
+                !resp.ok ||
+                resp.playlistUrl.isNullOrBlank()
+            ) {
+                handler.post {
+                    onError(
+                        resp.error
+                            ?: "Could not jump live"
+                    )
+                }
+                return
+            }
+
+            val url = resp.playlistUrl
+
+            state = state.copy(
+                isLive = true,
+                currentUrl = url,
+                liveUrl = url,
+                behindLiveSeconds = 0
+            )
+
+            handler.post {
+                reloadStream(url)
+                onLive(url)
+            }
+        } catch (e: Exception) {
+            handler.post {
+                onError(
+                    "Jump live failed: ${e.message}"
+                )
+            }
+        }
+    }
+
+    suspend fun seekBehindLive(
+        secondsBehindLive: Int,
+        onError: (String) -> Unit,
+        onSeek: (String, Int) -> Unit
+    ) {
+        try {
+            val resp = ApiClient
+                .getApi(context)
+                .playbackSeek(
+                    -secondsBehindLive
+                )
+
+            if (
+                !resp.ok ||
+                resp.playlistUrl.isNullOrBlank()
+            ) {
+                handler.post {
+                    onError(
+                        resp.error
+                            ?: "Seek failed"
+                    )
+                }
+                return
+            }
+
+            val url = resp.playlistUrl
+
+            state = state.copy(
+                isLive = false,
+                currentUrl = url,
+                behindLiveSeconds =
+                    secondsBehindLive
+            )
+
+            handler.post {
+                reloadStream(url)
+
+                onSeek(
+                    url,
+                    secondsBehindLive
+                )
+            }
+        } catch (e: Exception) {
+            handler.post {
+                onError(
+                    "Seek failed: ${e.message}"
+                )
+            }
+        }
+    }
+
+    fun release() {
+        playerEngine.release()
+    }
+}

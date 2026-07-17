@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:background="#111122">
+
+    <!-- Fixed channel label column -->
+    <TextView
+        android:id="@+id/epg_chan_label"
+        android:layout_width="140dp"
+        android:layout_height="60dp"
+        android:gravity="center"
+        android:textColor="#FFFFCC00"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:background="#0D0D1A"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp" />
+
+    <!-- Divider -->
+    <View
+        android:layout_width="1dp"
+        android:layout_height="match_parent"
+        android:background="#2A2A4E" />
+
+    <!-- Horizontally scrollable program cells -->
+    <HorizontalScrollView
+        android:id="@+id/epg_row_scroll"
+        android:layout_width="0dp"
+        android:layout_height="60dp"
+        android:layout_weight="1"
+        android:scrollbars="none"
+        android:overScrollMode="never">
+
+        <LinearLayout
+            android:id="@+id/epg_row_content"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="horizontal" />
+
+    </HorizontalScrollView>
+
+</LinearLayout>
