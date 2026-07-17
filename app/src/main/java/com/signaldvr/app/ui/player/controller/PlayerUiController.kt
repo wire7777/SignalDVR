@@ -176,7 +176,9 @@ class PlayerUiController(
         timelineView.setMediaProgress(positionMs, durationMs)
 
         if (durationMs > 0L) {
-            positionText.text = "${formatDuration(positionMs)} / ${formatDuration(durationMs)}"
+            val remainingMs = (durationMs - positionMs).coerceAtLeast(0L)
+            positionText.text =
+                "${formatDuration(positionMs)}   •   -${formatDuration(remainingMs)}"
         } else {
             positionText.text = formatDuration(positionMs)
         }

@@ -225,8 +225,8 @@ class TimelineView @JvmOverloads constructor(
         val trackWidth = endX - startX
         val titleY = 24f
         val subtitleY = 46f
-        val labelY = 72f
-        val trackY = heightF - 22f
+        val labelY = 82f
+        val trackY = heightF - 24f
         val playheadX = startX + (trackWidth * displayedFraction.coerceIn(0f, 1f))
         val pulse = livePulse()
 
@@ -253,8 +253,15 @@ class TimelineView @JvmOverloads constructor(
 
         if (isRecordingPlayback) {
             canvas.drawText(formatDuration(playbackPositionMs), startX, labelY, labelPaint)
+
+            val remainingMs = (playbackDurationMs - playbackPositionMs).coerceAtLeast(0L)
             rightLabelPaint.color = 0xCCFFFFFF.toInt()
-            canvas.drawText(formatDuration(playbackDurationMs), endX, labelY, rightLabelPaint)
+            canvas.drawText(
+                if (playbackDurationMs > 0L) "-${formatDuration(remainingMs)}" else "--:--",
+                endX,
+                labelY,
+                rightLabelPaint
+            )
         } else {
             canvas.drawText(leftTimeLabel(), startX, labelY, labelPaint)
             liveLabelPaint.color = 0xFF00E676.toInt()
@@ -265,20 +272,21 @@ class TimelineView @JvmOverloads constructor(
 
     private fun drawStatus(canvas: Canvas, startX: Float, endX: Float, labelY: Float) {
         val text = if (isRecordingPlayback) {
-            if (playbackDurationMs > 0L) {
-                "${formatDuration(playbackPositionMs)} / ${formatDuration(playbackDurationMs)}"
-            } else {
-                "Playback"
-            }
+            if (playbackDurationMs > 0L) "PLAYING" else "LOADING"
         } else {
             when {
-                isPreviewing -> "Preview: ${behindLabel(previewBehindLiveSeconds)} behind live"
-                isLive || behindLiveSeconds <= 0 -> "Watching live"
-                else -> "${behindLabel(behindLiveSeconds)} behind live"
+                isPreviewing -> "PREVIEW • ${behindLabel(previewBehindLiveSeconds)} BEHIND LIVE"
+                isLive || behindLiveSeconds <= 0 -> "● LIVE"
+                else -> "● ${behindLabel(behindLiveSeconds)} BEHIND LIVE"
             }
         }
 
-        canvas.drawText(text, (startX + endX) / 2f, labelY, if (isPreviewing) previewPaint else statusPaint)
+        canvas.drawText(
+            text,
+            (startX + endX) / 2f,
+            labelY,
+            if (isPreviewing) previewPaint else statusPaint
+        )
     }
 
     private fun drawTimeline(
@@ -289,7 +297,7 @@ class TimelineView @JvmOverloads constructor(
         playheadX: Float,
         pulse: Float
     ) {
-        val stroke = 10f
+        val stroke = 13f
         val liveEdgeWidth = 30f
         val liveEdgeStartX = endX - liveEdgeWidth
 
@@ -327,9 +335,9 @@ class TimelineView @JvmOverloads constructor(
         }
 
         val glowRadius = when {
-            isPreviewing -> 24f + (pulse * 8f)
-            !isRecordingPlayback && (isLive || behindLiveSeconds <= 0) -> 20f + (pulse * 10f)
-            else -> 20f
+            isPreviewing -> 30f + (pulse * 8f)
+            !isRecordingPlayback && (isLive || behindLiveSeconds <= 0) -> 28f + (pulse * 10f)
+            else -> 26f
         }
 
         val glowRect = RectF(
@@ -338,7 +346,7 @@ class TimelineView @JvmOverloads constructor(
             playheadX + glowRadius,
             trackY + glowRadius
         )
-        val headRect = RectF(playheadX - 10f, trackY - 10f, playheadX + 10f, trackY + 10f)
+        val headRect = RectF(playheadX - 13f, trackY - 13f, playheadX + 13f, trackY + 13f)
         canvas.drawOval(glowRect, if (isPreviewing) previewGlowPaint else playheadGlowPaint)
         canvas.drawOval(headRect, playheadPaint)
     }

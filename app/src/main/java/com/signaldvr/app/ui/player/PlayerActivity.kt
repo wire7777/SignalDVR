@@ -293,6 +293,7 @@ class PlayerActivity : AppCompatActivity() {
             recordingId = -1
             isRecordingPlayback = false
             isLiveMode = true
+            updatePlaybackModeControls()
             startLiveStream()
             return
         }
@@ -305,6 +306,7 @@ class PlayerActivity : AppCompatActivity() {
         recordingId = -1
         isRecordingPlayback = false
         isLiveMode = true
+        updatePlaybackModeControls()
         startLiveStream()
     }
 
@@ -372,6 +374,7 @@ class PlayerActivity : AppCompatActivity() {
         playbackCompleted = false
         lastResumeSaveMs = 0L
 
+        updatePlaybackModeControls()
         playerUiController.hideRecordButton()
         playerUiController.clearPositionLabel()
 
@@ -423,6 +426,32 @@ class PlayerActivity : AppCompatActivity() {
             onLive = { jumpLive() },
             onRecord = { showRecordMenu() }
         )
+    }
+
+
+    private fun updatePlaybackModeControls() {
+        /*
+         * LIVE only applies to live TV and delayed-live playback.
+         * Hide it for completed recordings and DVR Library playback.
+         */
+        btnLive.visibility = if (isRecordingPlayback) {
+            View.GONE
+        } else {
+            View.VISIBLE
+        }
+
+        /*
+         * Keep remote focus navigation valid when LIVE is removed.
+         */
+        if (isRecordingPlayback) {
+            btnFf30.nextFocusRightId = btnRecord.id
+            btnRecord.nextFocusLeftId = btnFf30.id
+        } else {
+            btnFf30.nextFocusRightId = btnLive.id
+            btnLive.nextFocusLeftId = btnFf30.id
+            btnLive.nextFocusRightId = btnRecord.id
+            btnRecord.nextFocusLeftId = btnLive.id
+        }
     }
 
     private fun rewindSeconds(seconds: Int) {
@@ -848,6 +877,7 @@ class PlayerActivity : AppCompatActivity() {
         recordingId = -1
         isRecordingPlayback = false
         isLiveMode = true
+        updatePlaybackModeControls()
         behindLiveSeconds = 0
         userPaused = false
         reconnecting = false
@@ -880,6 +910,7 @@ class PlayerActivity : AppCompatActivity() {
         recordingId = -1
         isRecordingPlayback = false
         isLiveMode = true
+        updatePlaybackModeControls()
         behindLiveSeconds = 0
         userPaused = false
         reconnecting = false

@@ -12,11 +12,11 @@
         android:id="@+id/media3_player_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:visibility="visible"
         android:keepScreenOn="true"
-        app:use_controller="false"
+        android:visibility="visible"
+        app:keep_content_on_player_reset="true"
         app:surface_type="texture_view"
-        app:keep_content_on_player_reset="true" />
+        app:use_controller="false" />
 
     <LinearLayout
         android:layout_width="wrap_content"
@@ -27,18 +27,18 @@
 
         <ProgressBar
             android:id="@+id/loading_bar"
-            android:layout_width="72dp"
-            android:layout_height="72dp"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
             android:visibility="gone" />
 
         <TextView
             android:id="@+id/loading_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:textColor="#FFFFFF"
-            android:textSize="20sp"
+            android:layout_marginTop="14dp"
             android:gravity="center"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
             android:visibility="gone" />
     </LinearLayout>
 
@@ -51,172 +51,183 @@
 
     <com.signaldvr.app.ui.player.QuickGuideOverlayView
         android:id="@+id/quick_guide_overlay"
-        android:layout_width="420dp"
+        android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_gravity="end"
-        android:elevation="24dp"
         android:visibility="gone" />
 
     <com.signaldvr.app.ui.player.FullInfoOverlayView
         android:id="@+id/full_info_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:elevation="30dp"
         android:visibility="gone" />
 
+    <!--
+        Lightweight commercial-DVR transport panel.
+        Existing view IDs are preserved so no playback logic changes are needed.
+    -->
     <LinearLayout
         android:id="@+id/dvr_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:layout_marginBottom="170dp"
-        android:background="#CC000000"
+        android:background="#E6101014"
+        android:elevation="12dp"
         android:orientation="vertical"
-        android:padding="16dp"
+        android:paddingStart="36dp"
+        android:paddingTop="18dp"
+        android:paddingEnd="36dp"
+        android:paddingBottom="22dp"
         android:visibility="gone">
 
         <TextView
             android:id="@+id/tv_position"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
+            android:layout_gravity="end"
+            android:layout_marginEnd="8dp"
+            android:layout_marginBottom="2dp"
+            android:fontFamily="sans-serif-medium"
+            android:text="● LIVE"
             android:textColor="#FFFFCC00"
-            android:textSize="16sp"
-            android:layout_marginBottom="8dp"
-            android:text="● LIVE" />
+            android:textSize="15sp" />
 
         <com.signaldvr.app.ui.player.TimelineView
             android:id="@+id/timelineView"
             android:layout_width="match_parent"
-            android:layout_height="104dp"
-            android:layout_marginStart="12dp"
-            android:layout_marginEnd="12dp"
-            android:layout_marginBottom="12dp" />
+            android:layout_height="120dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:layout_marginBottom="10dp" />
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center">
+            android:layout_height="74dp"
+            android:gravity="center"
+            android:orientation="horizontal">
 
+            <!-- Retained for PlayerActivity binding; hidden from the simplified UI. -->
             <TextView
                 android:id="@+id/btn_rew60"
                 android:layout_width="0dp"
-                android:layout_height="56dp"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:gravity="center"
-                android:text="⏮ 60s"
-                android:textColor="#FFFFFF"
-                android:textSize="13sp"
-                android:focusable="true"
-                android:background="@drawable/bg_channel_normal" />
+                android:layout_height="0dp"
+                android:focusable="false"
+                android:text="-60"
+                android:visibility="gone" />
 
             <TextView
                 android:id="@+id/btn_rew30"
-                android:layout_width="0dp"
-                android:layout_height="56dp"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:gravity="center"
-                android:text="⏪ 30s"
-                android:textColor="#FFFFFF"
-                android:textSize="13sp"
+                android:layout_width="104dp"
+                android:layout_height="58dp"
+                android:layout_marginHorizontal="7dp"
+                android:background="@drawable/bg_channel_normal"
                 android:focusable="true"
-                android:background="@drawable/bg_channel_normal" />
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:nextFocusRight="@id/btn_rew10"
+                android:text="↶ 30"
+                android:textColor="#FFFFFFFF"
+                android:textSize="17sp" />
 
             <TextView
                 android:id="@+id/btn_rew10"
-                android:layout_width="0dp"
-                android:layout_height="56dp"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:gravity="center"
-                android:text="◀ 10s"
-                android:textColor="#FFFFFF"
-                android:textSize="13sp"
+                android:layout_width="104dp"
+                android:layout_height="58dp"
+                android:layout_marginHorizontal="7dp"
+                android:background="@drawable/bg_channel_normal"
                 android:focusable="true"
-                android:background="@drawable/bg_channel_normal" />
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:nextFocusLeft="@id/btn_rew30"
+                android:nextFocusRight="@id/btn_play_pause"
+                android:text="↶ 10"
+                android:textColor="#FFFFFFFF"
+                android:textSize="17sp" />
 
             <TextView
                 android:id="@+id/btn_play_pause"
-                android:layout_width="0dp"
-                android:layout_height="56dp"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
+                android:layout_width="92dp"
+                android:layout_height="68dp"
+                android:layout_marginHorizontal="10dp"
+                android:background="@drawable/bg_channel_normal"
+                android:focusable="true"
+                android:fontFamily="sans-serif-medium"
                 android:gravity="center"
+                android:nextFocusLeft="@id/btn_rew10"
+                android:nextFocusRight="@id/btn_ff10"
                 android:text="⏸"
                 android:textColor="#FFFFCC00"
-                android:textSize="24sp"
-                android:focusable="true"
-                android:background="@drawable/bg_channel_normal" />
+                android:textSize="32sp" />
 
             <TextView
                 android:id="@+id/btn_ff10"
-                android:layout_width="0dp"
-                android:layout_height="56dp"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:gravity="center"
-                android:text="10s ▶"
-                android:textColor="#FFFFFF"
-                android:textSize="13sp"
+                android:layout_width="104dp"
+                android:layout_height="58dp"
+                android:layout_marginHorizontal="7dp"
+                android:background="@drawable/bg_channel_normal"
                 android:focusable="true"
-                android:background="@drawable/bg_channel_normal" />
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:nextFocusLeft="@id/btn_play_pause"
+                android:nextFocusRight="@id/btn_ff30"
+                android:text="10 ↷"
+                android:textColor="#FFFFFFFF"
+                android:textSize="17sp" />
 
             <TextView
                 android:id="@+id/btn_ff30"
-                android:layout_width="0dp"
-                android:layout_height="56dp"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:gravity="center"
-                android:text="30s ⏩"
-                android:textColor="#FFFFFF"
-                android:textSize="13sp"
+                android:layout_width="104dp"
+                android:layout_height="58dp"
+                android:layout_marginHorizontal="7dp"
+                android:background="@drawable/bg_channel_normal"
                 android:focusable="true"
-                android:background="@drawable/bg_channel_normal" />
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:nextFocusLeft="@id/btn_ff10"
+                android:nextFocusRight="@id/btn_live"
+                android:text="30 ↷"
+                android:textColor="#FFFFFFFF"
+                android:textSize="17sp" />
 
+            <!-- Retained for PlayerActivity binding; hidden from the simplified UI. -->
             <TextView
                 android:id="@+id/btn_ff60"
                 android:layout_width="0dp"
-                android:layout_height="56dp"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:gravity="center"
-                android:text="60s ⏭"
-                android:textColor="#FFFFFF"
-                android:textSize="13sp"
-                android:focusable="true"
-                android:background="@drawable/bg_channel_normal" />
+                android:layout_height="0dp"
+                android:focusable="false"
+                android:text="+60"
+                android:visibility="gone" />
 
             <TextView
                 android:id="@+id/btn_live"
-                android:layout_width="0dp"
-                android:layout_height="56dp"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:gravity="center"
-                android:text="● LIVE"
-                android:textColor="#FF00FF00"
-                android:textSize="13sp"
-                android:textStyle="bold"
+                android:layout_width="112dp"
+                android:layout_height="58dp"
+                android:layout_marginStart="18dp"
+                android:layout_marginEnd="7dp"
+                android:background="@drawable/bg_channel_normal"
                 android:focusable="true"
-                android:background="@drawable/bg_channel_normal" />
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:nextFocusLeft="@id/btn_ff30"
+                android:nextFocusRight="@id/btn_record"
+                android:text="● LIVE"
+                android:textColor="#FF56E36F"
+                android:textSize="16sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/btn_record"
-                android:layout_width="0dp"
-                android:layout_height="56dp"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:gravity="center"
-                android:text="⏺ REC"
-                android:textColor="#FFFF4444"
-                android:textSize="13sp"
-                android:textStyle="bold"
+                android:layout_width="112dp"
+                android:layout_height="58dp"
+                android:layout_marginHorizontal="7dp"
+                android:background="@drawable/bg_channel_normal"
                 android:focusable="true"
-                android:background="@drawable/bg_channel_normal" />
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:nextFocusLeft="@id/btn_live"
+                android:text="● REC"
+                android:textColor="#FFFF5A5F"
+                android:textSize="16sp"
+                android:textStyle="bold" />
 
         </LinearLayout>
 
