@@ -12,12 +12,13 @@
     android:paddingEnd="18dp"
     android:paddingBottom="16dp">
 
-    <TextView
+    <ImageView
         android:id="@+id/home_item_icon"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:includeFontPadding="true"
-        android:textSize="36sp" />
+        android:layout_width="52dp"
+        android:layout_height="52dp"
+        android:alpha="0.92"
+        android:contentDescription="@null"
+        android:scaleType="fitCenter" />
 
     <TextView
         android:id="@+id/home_item_title"

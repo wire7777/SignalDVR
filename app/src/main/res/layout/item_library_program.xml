@@ -11,14 +11,14 @@
     android:layout_marginBottom="10dp"
     android:padding="18dp">
 
-    <TextView
+    <ImageView
         android:id="@+id/library_item_icon"
         android:layout_width="88dp"
         android:layout_height="match_parent"
-        android:gravity="center"
-        android:text="📺"
-        android:textSize="42sp"
-        android:background="#22000000" />
+        android:background="#22000000"
+        android:contentDescription="Program type"
+        android:padding="16dp"
+        android:scaleType="fitCenter" />
 
     <LinearLayout
         android:layout_width="0dp"

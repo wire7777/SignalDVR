@@ -4,7 +4,9 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
+import androidx.annotation.DrawableRes
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -15,7 +17,7 @@ import com.signaldvr.app.ui.live.LiveTvFragment
 import com.signaldvr.app.ui.recordings.RecordingsFragment
 
 data class HomeItem(
-    val icon: String,
+    @DrawableRes val iconRes: Int,
     val title: String,
     val subtitle: String,
     val id: Int
@@ -24,10 +26,30 @@ data class HomeItem(
 class HomeFragment : Fragment() {
 
     private val items = listOf(
-        HomeItem("📺", "Live TV", "Watch live channels with DVR controls", 1),
-        HomeItem("📚", "DVR Library", "Live, buffered, saved, and recorded TV", 2),
-        HomeItem("📅", "TV Guide", "Browse the complete program guide", 3),
-        HomeItem("⏺", "Recordings", "Watch your saved recordings", 4)
+        HomeItem(
+            R.drawable.ic_home_live_tv,
+            "Live TV",
+            "Watch live channels with DVR controls",
+            1
+        ),
+        HomeItem(
+            R.drawable.ic_home_library,
+            "DVR Library",
+            "Live, buffered, saved, and recorded TV",
+            2
+        ),
+        HomeItem(
+            R.drawable.ic_home_guide,
+            "TV Guide",
+            "Browse the complete program guide",
+            3
+        ),
+        HomeItem(
+            R.drawable.ic_home_recordings,
+            "Recordings",
+            "Watch your saved recordings",
+            4
+        )
     )
 
     override fun onCreateView(
@@ -65,7 +87,7 @@ class HomeAdapter(
 ) : RecyclerView.Adapter<HomeAdapter.VH>() {
 
     inner class VH(view: View) : RecyclerView.ViewHolder(view) {
-        val icon: TextView = view.findViewById(R.id.home_item_icon)
+        val icon: ImageView = view.findViewById(R.id.home_item_icon)
         val title: TextView = view.findViewById(R.id.home_item_title)
         val subtitle: TextView = view.findViewById(R.id.home_item_subtitle)
 
@@ -90,6 +112,13 @@ class HomeAdapter(
                     .scaleY(if (hasFocus) 1.025f else 1f)
                     .setDuration(120L)
                     .start()
+
+                icon.animate()
+                    .scaleX(if (hasFocus) 1.10f else 1f)
+                    .scaleY(if (hasFocus) 1.10f else 1f)
+                    .alpha(if (hasFocus) 1f else 0.92f)
+                    .setDuration(120L)
+                    .start()
             }
         }
     }
@@ -102,7 +131,8 @@ class HomeAdapter(
 
     override fun onBindViewHolder(holder: VH, position: Int) {
         val item = items[position]
-        holder.icon.text = item.icon
+        holder.icon.setImageResource(item.iconRes)
+        holder.icon.contentDescription = item.title
         holder.title.text = item.title
         holder.subtitle.text = item.subtitle
     }

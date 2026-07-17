@@ -5,25 +5,42 @@
     android:orientation="vertical"
     android:paddingBottom="24dp">
 
-    <TextView
-        android:id="@+id/library_section_title"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="#FFFFFFFF"
-        android:textSize="22sp"
-        android:textStyle="bold"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
         android:paddingTop="8dp"
-        android:paddingBottom="12dp" />
+        android:paddingBottom="12dp">
+
+        <ImageView
+            android:id="@+id/library_section_icon"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:contentDescription="Library section"
+            android:padding="2dp"
+            android:scaleType="fitCenter" />
+
+        <TextView
+            android:id="@+id/library_section_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:textColor="#FFFFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/library_section_empty"
         android:layout_width="360dp"
         android:layout_height="96dp"
+        android:background="@drawable/bg_channel_normal"
+        android:gravity="center"
         android:text="Nothing here yet."
         android:textColor="#FF888888"
         android:textSize="15sp"
-        android:gravity="center"
-        android:background="@drawable/bg_channel_normal"
         android:visibility="gone" />
 
     <androidx.recyclerview.widget.RecyclerView
@@ -31,7 +48,7 @@
         android:layout_width="match_parent"
         android:layout_height="214dp"
         android:clipToPadding="false"
-        android:paddingRight="36dp"
-        android:descendantFocusability="afterDescendants" />
+        android:descendantFocusability="afterDescendants"
+        android:paddingRight="36dp" />
 
 </LinearLayout>

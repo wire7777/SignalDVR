@@ -8,8 +8,10 @@ import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.annotation.DrawableRes
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DiffUtil
@@ -124,10 +126,10 @@ class LibraryFragment : Fragment() {
                     "Live ${live.size}  ·  Buffered ${buffered.size}  ·  Saved ${saved.size}  ·  Recorded ${recorded.size}"
 
                 val sections = listOf(
-                    LibrarySection("🔴 LIVE NOW", "live", live),
-                    LibrarySection("🟡 BUFFERED", "buffered", buffered),
-                    LibrarySection("🟢 SAVED", "saved", saved),
-                    LibrarySection("🔵 RECORDED", "recorded", recorded)
+                    LibrarySection("LIVE NOW", "live", R.drawable.ic_home_live_tv, live),
+                    LibrarySection("BUFFERED", "buffered", R.drawable.ic_library_buffered, buffered),
+                    LibrarySection("SAVED", "saved", R.drawable.ic_library_saved, saved),
+                    LibrarySection("RECORDED", "recorded", R.drawable.ic_home_recordings, recorded)
                 )
 
                 adapter?.submitSections(sections)
@@ -342,21 +344,21 @@ class LibraryFragment : Fragment() {
         val title = program.title ?: "Program"
         val actions = mutableListOf<String>()
 
-        actions.add("▶ Watch")
+        actions.add("Watch")
 
         if (program.saved != true && program.id != null && program.type != "recording") {
-            actions.add("💾 Save")
+            actions.add("Save")
         }
 
-        actions.add("🗑 Delete")
+        actions.add("Delete")
 
         AlertDialog.Builder(requireContext())
             .setTitle(title)
             .setItems(actions.toTypedArray()) { _, which ->
                 when (actions[which]) {
-                    "▶ Watch" -> watchProgram(program)
-                    "💾 Save" -> saveProgram(program)
-                    "🗑 Delete" -> confirmDelete(program)
+                    "Watch" -> watchProgram(program)
+                    "Save" -> saveProgram(program)
+                    "Delete" -> confirmDelete(program)
                 }
             }
             .show()
@@ -435,6 +437,7 @@ class LibraryFragment : Fragment() {
 data class LibrarySection(
     val title: String,
     val kind: String,
+    @DrawableRes val iconRes: Int,
     val programs: List<LibraryProgram>
 )
 
@@ -545,6 +548,9 @@ class LibrarySectionAdapter(
         view: View
     ) : RecyclerView.ViewHolder(view) {
 
+        private val sectionIcon: ImageView =
+            view.findViewById(R.id.library_section_icon)
+
         private val title: TextView =
             view.findViewById(R.id.library_section_title)
 
@@ -587,6 +593,8 @@ class LibrarySectionAdapter(
 
             boundKind = section.kind
             boundRows[section.kind] = recyclerView
+            sectionIcon.setImageResource(section.iconRes)
+            sectionIcon.contentDescription = section.title
             title.text = section.title
 
             if (section.programs.isEmpty()) {
@@ -761,7 +769,7 @@ class LibraryProgramAdapter(
         view: View
     ) : RecyclerView.ViewHolder(view) {
 
-        private val icon: TextView =
+        private val icon: ImageView =
             view.findViewById(R.id.library_item_icon)
 
         private val badge: TextView =
@@ -826,7 +834,8 @@ class LibraryProgramAdapter(
             program: LibraryProgram,
             kind: String
         ) {
-            icon.text = iconFor(program)
+            icon.setImageResource(iconFor(program))
+            icon.contentDescription = program.category ?: program.type ?: "Program"
 
             badge.text = when {
                 program.isNew -> "NEW"
@@ -872,9 +881,9 @@ class LibraryProgramAdapter(
             }
 
             if (program.isNew) {
-                metadata += "⭐ NEW"
+                metadata += "NEW"
             } else if (program.isRepeat) {
-                metadata += "🔁 Repeat"
+                metadata += "Repeat"
             }
 
             if (!program.showType.isNullOrBlank()) {
@@ -927,9 +936,10 @@ class LibraryProgramAdapter(
             hint.text = "OK: Watch\nHold OK: Options"
         }
 
+        @DrawableRes
         private fun iconFor(
             program: LibraryProgram
-        ): String {
+        ): Int {
             val category =
                 (program.category ?: "").lowercase()
 
@@ -938,20 +948,19 @@ class LibraryProgramAdapter(
 
             return when {
                 "baseball" in category ||
-                        "baseball" in programTitle -> "⚾"
-
-                "sports" in category -> "🏟️"
+                        "baseball" in programTitle ||
+                        "sports" in category -> R.drawable.ic_library_sports
 
                 "news" in category ||
-                        "news" in programTitle -> "📰"
+                        "news" in programTitle -> R.drawable.ic_library_news
 
                 "movie" in category ||
-                        "movie" in programTitle -> "🎬"
+                        "movie" in programTitle -> R.drawable.ic_library_movie
 
-                "music" in category -> "🎵"
-                "weather" in category -> "🌦️"
-                program.type == "recording" -> "📼"
-                else -> "📺"
+                "music" in category -> R.drawable.ic_library_music
+                "weather" in category -> R.drawable.ic_library_weather
+                program.type == "recording" -> R.drawable.ic_home_recordings
+                else -> R.drawable.ic_home_live_tv
             }
         }
 
