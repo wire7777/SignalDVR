@@ -9,135 +9,165 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <LinearLayout
+        <FrameLayout
             android:id="@+id/epg_details_panel"
             android:layout_width="match_parent"
             android:layout_height="176dp"
             android:background="#15152B"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="24dp"
-            android:paddingTop="12dp"
-            android:paddingEnd="24dp"
-            android:paddingBottom="12dp">
+            android:clipChildren="true"
+            android:clipToPadding="true">
 
-            <FrameLayout
-                android:layout_width="200dp"
-                android:layout_height="132dp"
-                android:layout_marginEnd="24dp"
-                android:background="#0D0D1A">
+            <ImageView
+                android:id="@+id/epg_details_backdrop"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:alpha="0.26"
+                android:contentDescription="Program backdrop"
+                android:scaleType="centerCrop"
+                android:visibility="invisible" />
 
-                <ImageView
-                    android:id="@+id/epg_details_artwork"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:adjustViewBounds="true"
-                    android:background="#0D0D1A"
-                    android:contentDescription="Program artwork"
-                    android:padding="2dp"
-                    android:scaleType="fitCenter" />
-            </FrameLayout>
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#C415152B" />
 
             <LinearLayout
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:layout_weight="1"
                 android:gravity="center_vertical"
-                android:orientation="vertical">
+                android:orientation="horizontal"
+                android:paddingStart="24dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="24dp"
+                android:paddingBottom="12dp">
 
-                <TextView
-                    android:id="@+id/epg_details_channel"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:ellipsize="end"
-                    android:maxLines="1"
-                    android:textColor="#FFFFCC00"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
+                <FrameLayout
+                    android:layout_width="200dp"
+                    android:layout_height="132dp"
+                    android:layout_marginEnd="24dp"
+                    android:background="#0D0D1A"
+                    android:elevation="4dp">
 
-                <TextView
-                    android:id="@+id/epg_details_title"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:ellipsize="end"
-                    android:maxLines="1"
-                    android:textColor="#FFFFFFFF"
-                    android:textSize="24sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/epg_details_metadata"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:ellipsize="end"
-                    android:maxLines="1"
-                    android:textColor="#FFD7D7E4"
-                    android:textSize="13sp"
-                    android:visibility="gone" />
-
-                <TextView
-                    android:id="@+id/epg_details_time"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:textColor="#FFAFAFC0"
-                    android:textSize="13sp" />
-
-                <TextView
-                    android:id="@+id/epg_details_description"
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_marginTop="5dp"
-                    android:layout_weight="1"
-                    android:ellipsize="end"
-                    android:maxLines="2"
-                    android:textColor="#FFE6E6EF"
-                    android:textSize="14sp" />
+                    <ImageView
+                        android:id="@+id/epg_details_artwork"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:adjustViewBounds="true"
+                        android:background="#0D0D1A"
+                        android:contentDescription="Program artwork"
+                        android:padding="2dp"
+                        android:scaleType="fitCenter" />
+                </FrameLayout>
 
                 <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="5dp"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
                     android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <ProgressBar
-                        android:id="@+id/epg_details_progress"
-                        style="?android:attr/progressBarStyleHorizontal"
-                        android:layout_width="220dp"
-                        android:layout_height="4dp"
-                        android:max="100"
-                        android:progress="0"
-                        android:progressTint="#FFFF3B30"
-                        android:progressBackgroundTint="#FF46465C"
-                        android:visibility="invisible" />
+                    android:orientation="vertical">
 
                     <TextView
-                        android:id="@+id/epg_details_progress_text"
-                        android:layout_width="wrap_content"
+                        android:id="@+id/epg_details_channel"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="12dp"
-                        android:textColor="#FFFF6A61"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        android:visibility="invisible" />
-                </LinearLayout>
-            </LinearLayout>
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textColor="#FFFFCC00"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
 
-            <TextView
-                android:id="@+id/epg_details_hint"
-                android:layout_width="170dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
-                android:gravity="center"
-                android:padding="10dp"
-                android:text="OK  Watch"
-                android:textColor="#FFFFFFFF"
-                android:textSize="13sp"
-                android:textStyle="bold" />
-        </LinearLayout>
+                    <TextView
+                        android:id="@+id/epg_details_title"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:shadowColor="#CC000000"
+                        android:shadowDx="0"
+                        android:shadowDy="1"
+                        android:shadowRadius="2"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/epg_details_metadata"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textColor="#FFD7D7E4"
+                        android:textSize="13sp"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/epg_details_time"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:textColor="#FFAFAFC0"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/epg_details_description"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_marginTop="5dp"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:maxLines="2"
+                        android:shadowColor="#AA000000"
+                        android:shadowDx="0"
+                        android:shadowDy="1"
+                        android:shadowRadius="1.5"
+                        android:textColor="#FFE6E6EF"
+                        android:textSize="14sp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ProgressBar
+                            android:id="@+id/epg_details_progress"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="220dp"
+                            android:layout_height="4dp"
+                            android:max="100"
+                            android:progress="0"
+                            android:progressTint="#FFFF3B30"
+                            android:progressBackgroundTint="#FF46465C"
+                            android:visibility="invisible" />
+
+                        <TextView
+                            android:id="@+id/epg_details_progress_text"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            android:textColor="#FFFF6A61"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:visibility="invisible" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/epg_details_hint"
+                    android:layout_width="170dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="20dp"
+                    android:gravity="center"
+                    android:padding="10dp"
+                    android:text="OK  Watch"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </FrameLayout>
 
         <View
             android:layout_width="match_parent"

@@ -48,6 +48,7 @@ class EpgFragment : Fragment() {
     private lateinit var nowPlayheadLabel: TextView
     private lateinit var nowPlayheadDot: View
 
+    private lateinit var detailsBackdrop: ImageView
     private lateinit var detailsArtwork: ImageView
     private lateinit var detailsChannel: TextView
     private lateinit var detailsTitle: TextView
@@ -98,6 +99,7 @@ class EpgFragment : Fragment() {
         nowPlayhead = view.findViewById(R.id.epg_now_playhead)
         nowPlayheadLabel = view.findViewById(R.id.epg_now_playhead_label)
 
+        detailsBackdrop = view.findViewById(R.id.epg_details_backdrop)
         detailsArtwork = view.findViewById(R.id.epg_details_artwork)
         detailsChannel = view.findViewById(R.id.epg_details_channel)
         detailsTitle = view.findViewById(R.id.epg_details_title)
@@ -126,6 +128,14 @@ class EpgFragment : Fragment() {
 
     override fun onDestroyView() {
         playheadHandler.removeCallbacks(playheadUpdater)
+
+        if (::detailsBackdrop.isInitialized) {
+            Glide.with(this).clear(detailsBackdrop)
+        }
+        if (::detailsArtwork.isInitialized) {
+            Glide.with(this).clear(detailsArtwork)
+        }
+
         super.onDestroyView()
     }
 
@@ -464,22 +474,35 @@ class EpgFragment : Fragment() {
             ?: channel.logo?.takeIf { it.isNotBlank() }
 
         if (artworkUrl == null) {
-            // Only clear when there truly is no artwork. During normal focus
-            // changes, keep the previous image visible until the next one is ready.
+            Glide.with(this).clear(detailsBackdrop)
             Glide.with(this).clear(detailsArtwork)
+
+            detailsBackdrop.setImageDrawable(null)
             detailsArtwork.setImageDrawable(null)
+
+            detailsBackdrop.visibility = View.INVISIBLE
             detailsArtwork.visibility = View.INVISIBLE
         } else {
+            detailsBackdrop.visibility = View.VISIBLE
             detailsArtwork.visibility = View.VISIBLE
 
+            // Large cinematic background. Glide reuses the same downloaded
+            // source as the poster, so this does not require another network
+            // download after the image enters cache.
             Glide.with(this)
                 .load(artworkUrl)
-                // Decode close to the guide panel size instead of processing
-                // the original full-resolution image.
-                .override(400, 264)
-                // Keep both the original download and resized resource cached.
+                // Small backdrop decode keeps navigation fast on Android TV.
+                .override(640, 360)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
-                // Avoid cross-fade delay while rapidly navigating with DPAD.
+                .dontAnimate()
+                .centerCrop()
+                .into(detailsBackdrop)
+
+            // Sharp foreground artwork. Keep this immediate while navigating.
+            Glide.with(this)
+                .load(artworkUrl)
+                .override(400, 264)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .dontAnimate()
                 .fitCenter()
                 .into(detailsArtwork)
