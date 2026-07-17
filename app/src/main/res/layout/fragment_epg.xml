@@ -4,64 +4,232 @@
     android:layout_height="match_parent"
     android:background="@color/bg_dark">
 
-    <ProgressBar android:id="@+id/loading"
-        android:layout_width="64dp" android:layout_height="64dp"
-        android:layout_gravity="center" android:visibility="gone"/>
-
-    <TextView android:id="@+id/error_text"
-        android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:layout_gravity="center" android:textColor="#FFAAAAAA"
-        android:textSize="18sp" android:gravity="center" android:visibility="gone"/>
-
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <!-- Time header row -->
+        <LinearLayout
+            android:id="@+id/epg_details_panel"
+            android:layout_width="match_parent"
+            android:layout_height="176dp"
+            android:background="#15152B"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="24dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="24dp"
+            android:paddingBottom="12dp">
+
+            <FrameLayout
+                android:layout_width="200dp"
+                android:layout_height="132dp"
+                android:layout_marginEnd="24dp"
+                android:background="#0D0D1A">
+
+                <ImageView
+                    android:id="@+id/epg_details_artwork"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:adjustViewBounds="true"
+                    android:background="#0D0D1A"
+                    android:contentDescription="Program artwork"
+                    android:padding="2dp"
+                    android:scaleType="fitCenter" />
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center_vertical"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/epg_details_channel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="#FFFFCC00"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/epg_details_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/epg_details_metadata"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="#FFD7D7E4"
+                    android:textSize="13sp"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/epg_details_time"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:textColor="#FFAFAFC0"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/epg_details_description"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_marginTop="5dp"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:maxLines="2"
+                    android:textColor="#FFE6E6EF"
+                    android:textSize="14sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ProgressBar
+                        android:id="@+id/epg_details_progress"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="220dp"
+                        android:layout_height="4dp"
+                        android:max="100"
+                        android:progress="0"
+                        android:progressTint="#FFFF3B30"
+                        android:progressBackgroundTint="#FF46465C"
+                        android:visibility="invisible" />
+
+                    <TextView
+                        android:id="@+id/epg_details_progress_text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:textColor="#FFFF6A61"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:visibility="invisible" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/epg_details_hint"
+                android:layout_width="170dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:gravity="center"
+                android:padding="10dp"
+                android:text="OK  Watch"
+                android:textColor="#FFFFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#34345C" />
+
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="36dp"
+            android:layout_height="40dp"
             android:orientation="horizontal">
 
-            <!-- Corner spacer (matches channel col width) -->
-            <View
-                android:layout_width="140dp"
+            <TextView
+                android:layout_width="160dp"
                 android:layout_height="match_parent"
-                android:background="#0A0A1A"/>
+                android:background="#101024"
+                android:gravity="center"
+                android:text="CHANNEL"
+                android:textColor="#FF77778F"
+                android:textSize="11sp"
+                android:textStyle="bold" />
 
             <View
                 android:layout_width="1dp"
                 android:layout_height="match_parent"
-                android:background="#2A2A4E"/>
+                android:background="#34345C" />
 
-            <!-- Time slot labels — scrolls horizontally in sync with rows -->
             <LinearLayout
                 android:id="@+id/epg_time_header"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:orientation="horizontal"
                 android:clipChildren="true"
-                android:clipToPadding="true"/>
-
+                android:clipToPadding="true"
+                android:orientation="horizontal" />
         </LinearLayout>
 
-        <!-- Divider -->
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="#2A2A4E"/>
+            android:background="#34345C" />
 
-        <!-- Channel rows — RecyclerView handles ALL channels, unlimited -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/epg_channel_list"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
             android:descendantFocusability="afterDescendants"
-            android:scrollbars="vertical"/>
-
+            android:scrollbars="vertical" />
     </LinearLayout>
+
+    <View
+        android:id="@+id/epg_now_playhead"
+        android:layout_width="2dp"
+        android:layout_height="match_parent"
+        android:layout_marginTop="217dp"
+        android:background="#E6FF3B30"
+        android:elevation="20dp"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/epg_now_playhead_label"
+        android:layout_width="44dp"
+        android:layout_height="24dp"
+        android:layout_marginTop="182dp"
+        android:background="@android:color/transparent"
+        android:gravity="center"
+        android:shadowColor="#CC000000"
+        android:shadowDx="0"
+        android:shadowDy="1"
+        android:shadowRadius="2"
+        android:text="NOW"
+        android:textColor="#FFFFFFFF"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:elevation="21dp"
+        android:visibility="gone" />
+
+    <ProgressBar
+        android:id="@+id/loading"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_gravity="center"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/error_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:textColor="#FFAAAAAA"
+        android:textSize="18sp"
+        android:visibility="gone" />
 
 </FrameLayout>

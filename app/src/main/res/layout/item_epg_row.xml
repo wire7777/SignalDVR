@@ -1,44 +1,76 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:background="#111122">
+    android:layout_height="72dp"
+    android:background="#111122"
+    android:orientation="horizontal">
 
-    <!-- Fixed channel label column -->
-    <TextView
-        android:id="@+id/epg_chan_label"
-        android:layout_width="140dp"
-        android:layout_height="60dp"
-        android:gravity="center"
-        android:textColor="#FFFFCC00"
-        android:textSize="13sp"
-        android:textStyle="bold"
-        android:background="#0D0D1A"
+    <!-- Fixed channel identity column -->
+    <LinearLayout
+        android:layout_width="160dp"
+        android:layout_height="72dp"
+        android:background="#101024"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
         android:paddingStart="8dp"
-        android:paddingEnd="8dp" />
+        android:paddingEnd="8dp">
 
-    <!-- Divider -->
+        <ImageView
+            android:id="@+id/epg_chan_logo"
+            android:layout_width="64dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="8dp"
+            android:adjustViewBounds="true"
+            android:contentDescription="Channel logo"
+            android:scaleType="fitCenter" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/epg_chan_number"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="#FFFFCC00"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/epg_chan_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="#FFF2F2F7"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
     <View
         android:layout_width="1dp"
         android:layout_height="match_parent"
-        android:background="#2A2A4E" />
+        android:background="#34345C" />
 
-    <!-- Horizontally scrollable program cells -->
     <HorizontalScrollView
         android:id="@+id/epg_row_scroll"
         android:layout_width="0dp"
-        android:layout_height="60dp"
+        android:layout_height="72dp"
         android:layout_weight="1"
-        android:scrollbars="none"
-        android:overScrollMode="never">
+        android:overScrollMode="never"
+        android:scrollbars="none">
 
         <LinearLayout
             android:id="@+id/epg_row_content"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:orientation="horizontal" />
-
     </HorizontalScrollView>
 
 </LinearLayout>

@@ -142,6 +142,11 @@ data class EpgProgram(
     @SerializedName("start") val start: String?,
     @SerializedName("stop") val stop: String?,
     @SerializedName("channel") val channel: String?,
+    @SerializedName("category") val category: String? = null,
+    @SerializedName("episode") val episode: String? = null,
+    @SerializedName("rating") val rating: String? = null,
+    @SerializedName("is_new") val isNew: Int? = null,
+    @SerializedName("artwork") val artwork: String? = null,
 )
 
 data class DirectStreamResponse(
