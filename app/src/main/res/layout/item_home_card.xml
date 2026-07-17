@@ -1,37 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="160dp"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:focusable="true"
+    android:layout_height="168dp"
+    android:layout_margin="10dp"
     android:background="@drawable/bg_channel_normal"
-    android:layout_margin="12dp"
-    android:padding="24dp">
+    android:focusable="true"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:paddingStart="18dp"
+    android:paddingTop="14dp"
+    android:paddingEnd="18dp"
+    android:paddingBottom="16dp">
 
     <TextView
         android:id="@+id/home_item_icon"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textSize="40sp"
-        android:layout_marginBottom="12dp" />
+        android:includeFontPadding="true"
+        android:textSize="36sp" />
 
     <TextView
         android:id="@+id/home_item_title"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:gravity="center"
+        android:includeFontPadding="true"
+        android:maxLines="1"
         android:textColor="#FFFFFFFF"
         android:textSize="20sp"
-        android:textStyle="bold"
-        android:gravity="center" />
+        android:textStyle="bold" />
 
     <TextView
         android:id="@+id/home_item_subtitle"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="#FFAAAAAA"
-        android:textSize="13sp"
+        android:layout_marginTop="4dp"
+        android:ellipsize="end"
         android:gravity="center"
-        android:layout_marginTop="6dp" />
+        android:includeFontPadding="true"
+        android:lineSpacingExtra="1dp"
+        android:maxLines="2"
+        android:minHeight="38dp"
+        android:paddingBottom="3dp"
+        android:textColor="#CCFFFFFF"
+        android:textSize="13sp" />
 
 </LinearLayout>
