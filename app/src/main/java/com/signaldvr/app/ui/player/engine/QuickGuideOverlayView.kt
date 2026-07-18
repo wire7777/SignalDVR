@@ -212,22 +212,7 @@ class QuickGuideOverlayView @JvmOverloads constructor(
                 current.runtime
                     .takeIf { it > 0 }
                     ?.let { runtimeSeconds ->
-                        val totalMinutes = runtimeSeconds / 60
-                        val hours = totalMinutes / 60
-                        val minutes = totalMinutes % 60
-
-                        add(
-                            when {
-                                hours > 0 && minutes > 0 ->
-                                    "${hours} hr ${minutes} min"
-
-                                hours > 0 ->
-                                    "${hours} hr"
-
-                                else ->
-                                    "${totalMinutes} min"
-                            }
-                        )
+                        add(formatRuntime(runtimeSeconds))
                     }
 
                 current.year
@@ -236,7 +221,7 @@ class QuickGuideOverlayView @JvmOverloads constructor(
 
                 current.originalAirDate
                     ?.takeIf { it.isNotBlank() }
-                    ?.let { add("Aired ${formatAirDate(it)}") }
+                    ?.let { add("Aired $it") }
             }.joinToString("  •  ")
 
             description.text = current.description
@@ -622,6 +607,20 @@ class QuickGuideOverlayView @JvmOverloads constructor(
         return result
     }
 
+
+    private fun formatRuntime(runtimeSeconds: Int): String {
+        val totalMinutes = runtimeSeconds / 60
+        val hours = totalMinutes / 60
+        val minutes = totalMinutes % 60
+
+        return when {
+            hours > 0 && minutes > 0 -> "${hours} hr ${minutes} min"
+            hours > 0 -> "${hours} hr"
+            totalMinutes > 0 -> "${totalMinutes} min"
+            else -> ""
+        }
+    }
+
     private fun shortenPeople(
         value: String,
         limit: Int,
@@ -641,40 +640,6 @@ class QuickGuideOverlayView @JvmOverloads constructor(
             " +${people.size - limit}"
     }
 
-    private fun formatAirDate(value: String): String {
-        val parts = value.trim().split("-")
-
-        if (parts.size != 3) {
-            return value
-        }
-
-        val year = parts[0].toIntOrNull()
-            ?: return value
-
-        val month = parts[1].toIntOrNull()
-            ?: return value
-
-        val day = parts[2].toIntOrNull()
-            ?: return value
-
-        val monthName = listOf(
-            "January",
-            "February",
-            "March",
-            "April",
-            "May",
-            "June",
-            "July",
-            "August",
-            "September",
-            "October",
-            "November",
-            "December",
-        ).getOrNull(month - 1)
-            ?: return value
-
-        return "$monthName $day, $year"
-    }
     private fun buildTimeRange(
         start: String?,
         stop: String?,

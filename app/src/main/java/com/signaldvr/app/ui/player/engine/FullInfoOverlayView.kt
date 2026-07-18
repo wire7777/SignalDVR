@@ -283,25 +283,12 @@ class FullInfoOverlayView @JvmOverloads constructor(
         details.text = buildList {
             current?.showType?.takeIf { it.isNotBlank() }?.let { add(it) }
             current?.runtime?.takeIf { it > 0 }?.let { runtimeSeconds ->
-                val totalMinutes = runtimeSeconds / 60
-                val hours = totalMinutes / 60
-                val minutes = totalMinutes % 60
-
-                add(
-                    when {
-                        hours > 0 && minutes > 0 ->
-                            "${hours} hr ${minutes} min"
-
-                        hours > 0 ->
-                            "${hours} hr"
-
-                        else ->
-                            "${totalMinutes} min"
-                    }
-                )
+                formatRuntime(runtimeSeconds)
+                    .takeIf { it.isNotBlank() }
+                    ?.let { add(it) }
             }
             current?.year?.takeIf { it > 0 }?.let { add(it.toString()) }
-            current?.originalAirDate?.takeIf { it.isNotBlank() }?.let { add("Aired ${formatAirDate(it)}") }
+            current?.originalAirDate?.takeIf { it.isNotBlank() }?.let { add("Aired $it") }
             current?.language?.takeIf { it.isNotBlank() }?.let { add(it) }
         }.joinToString("  •  ")
 
@@ -320,6 +307,19 @@ class FullInfoOverlayView @JvmOverloads constructor(
                 if (nextTime.isNotBlank()) "NEXT  $nextTime  •  $it" else "NEXT  $it"
             }
             ?: ""
+    }
+
+    private fun formatRuntime(runtimeSeconds: Int): String {
+        val totalMinutes = runtimeSeconds / 60
+        val hours = totalMinutes / 60
+        val minutes = totalMinutes % 60
+
+        return when {
+            hours > 0 && minutes > 0 -> "${hours} hr ${minutes} min"
+            hours > 0 -> "${hours} hr"
+            totalMinutes > 0 -> "${totalMinutes} min"
+            else -> ""
+        }
     }
 
     private fun labeledPeople(label: String, value: String?): String {
@@ -361,40 +361,6 @@ class FullInfoOverlayView @JvmOverloads constructor(
         return result
     }
 
-    private fun formatAirDate(value: String): String {
-        val parts = value.trim().split("-")
-
-        if (parts.size != 3) {
-            return value
-        }
-
-        val year = parts[0].toIntOrNull()
-            ?: return value
-
-        val month = parts[1].toIntOrNull()
-            ?: return value
-
-        val day = parts[2].toIntOrNull()
-            ?: return value
-
-        val monthName = listOf(
-            "January",
-            "February",
-            "March",
-            "April",
-            "May",
-            "June",
-            "July",
-            "August",
-            "September",
-            "October",
-            "November",
-            "December",
-        ).getOrNull(month - 1)
-            ?: return value
-
-        return "$monthName $day, $year"
-    }
     private fun buildTimeRange(start: String?, stop: String?): String {
         val startLabel = TimeUtil.formatDisplay(start)
         val stopLabel = TimeUtil.formatDisplay(stop)
