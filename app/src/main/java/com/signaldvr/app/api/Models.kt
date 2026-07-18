@@ -110,6 +110,9 @@ data class Program(
 
     @SerializedName("station_id")
     val stationId: String? = null,
+
+    @SerializedName("recording_status")
+    val recordingStatus: String? = null,
 )
 
 data class TimeshiftResponse(

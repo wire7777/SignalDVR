@@ -69,7 +69,7 @@ class EpgFragment : Fragment() {
 
     private val minuteWidthDp = 7
     private val rowHeightDp = 72
-    private val windowHours = 4
+    private val windowHours = 24
 
     private var channels: List<Channel> = emptyList()
     private var guide: Map<String, List<EpgProgram>> = emptyMap()

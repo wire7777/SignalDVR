@@ -1,6 +1,11 @@
 package com.signaldvr.app.ui.player
 
 import android.content.Context
+import android.graphics.Typeface
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
 import android.util.AttributeSet
 import android.view.LayoutInflater
 import android.view.View
@@ -176,9 +181,10 @@ class QuickGuideOverlayView @JvmOverloads constructor(
                 metadata += it
             }
 
-            badges.text = metadata
-                .distinct()
-                .joinToString("   ")
+            badges.text = buildBadgesText(
+                metadata.distinct(),
+                current.recordingStatus,
+            )
 
             timeRange.text = buildTimeRange(
                 current.start,
@@ -576,6 +582,45 @@ class QuickGuideOverlayView @JvmOverloads constructor(
         }.also {
             postDelayed(it, delayMs)
         }
+    }
+
+    private fun buildBadgesText(
+        metadata: List<String>,
+        recordingStatus: String?,
+    ): CharSequence {
+        val builder = SpannableStringBuilder()
+
+        val status = when (recordingStatus?.lowercase()) {
+            "recording" -> "REC" to 0xFFFF5252.toInt()
+            "recorded" -> "RECORDED" to 0xFF66BB6A.toInt()
+            "scheduled" -> "SCHEDULED" to 0xFF64B5F6.toInt()
+            else -> null
+        }
+
+        if (status != null) {
+            val start = builder.length
+            builder.append(status.first)
+            val end = builder.length
+            builder.setSpan(
+                ForegroundColorSpan(status.second),
+                start,
+                end,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+            builder.setSpan(
+                StyleSpan(Typeface.BOLD),
+                start,
+                end,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+        }
+
+        metadata.forEach { badge ->
+            if (builder.isNotEmpty()) builder.append("   ")
+            builder.append(badge)
+        }
+
+        return builder
     }
 
     private fun capabilityBadges(
