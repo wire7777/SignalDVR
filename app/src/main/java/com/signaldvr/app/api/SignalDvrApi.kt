@@ -1,5 +1,6 @@
 package com.signaldvr.app.api
 
+import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -33,6 +34,40 @@ interface SignalDvrApi {
     suspend fun getGuide(
         @Path("channel") channel: String,
     ): List<EpgProgram>
+
+
+    @GET("api/guide/program/{programId}/record-options")
+    suspend fun getGuideRecordOptions(
+        @Path("programId") programId: Int,
+    ): GuideRecordOptionsResponse
+
+    @POST("api/guide/program/{programId}/record-once")
+    suspend fun recordGuideProgramOnce(
+        @Path("programId") programId: Int,
+        @Body options: GuideRecordRequest,
+    ): GuideRecordActionResponse
+
+    @POST("api/guide/program/{programId}/record-series")
+    suspend fun recordGuideProgramSeries(
+        @Path("programId") programId: Int,
+        @Body options: GuideRecordRequest,
+    ): GuideRecordActionResponse
+
+    @POST("api/guide/program/{programId}/record-new")
+    suspend fun recordGuideProgramNewEpisodes(
+        @Path("programId") programId: Int,
+        @Body options: GuideRecordRequest,
+    ): GuideRecordActionResponse
+
+    @DELETE("api/guide/program/{programId}/record")
+    suspend fun cancelGuideProgramRecording(
+        @Path("programId") programId: Int,
+    ): GuideRecordActionResponse
+
+    @DELETE("api/series/{seriesId}")
+    suspend fun deleteSeriesRule(
+        @Path("seriesId") seriesId: Int,
+    ): GuideRecordActionResponse
 
     @POST("api/kodi/record/start/{channel}")
     suspend fun recordStart(

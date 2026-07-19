@@ -139,6 +139,7 @@ data class Recording(
 )
 
 data class EpgProgram(
+    @SerializedName("id") val id: Int? = null,
     @SerializedName("title") val title: String?,
     @SerializedName("subtitle") val subtitle: String?,
     @SerializedName("description") val description: String?,
@@ -150,6 +151,9 @@ data class EpgProgram(
     @SerializedName("rating") val rating: String? = null,
     @SerializedName("is_new") val isNew: Int? = null,
     @SerializedName("artwork") val artwork: String? = null,
+    @SerializedName("recording_status") val recordingStatus: String? = null,
+    @SerializedName("recording_series") val recordingSeries: Boolean = false,
+    @SerializedName("recording_series_id") val recordingSeriesId: Int? = null,
 )
 
 data class DirectStreamResponse(
@@ -205,6 +209,9 @@ data class SeekResponse(
     @SerializedName("playlist") val playlist: String?,
     @SerializedName("segment") val segment: String?,
     @SerializedName("seconds") val seconds: Int?,
+    @SerializedName("seconds_behind") val secondsBehind: Int?,
+    @SerializedName("live") val live: Boolean?,
+    @SerializedName("mode") val mode: String?,
     @SerializedName("error") val error: String?,
 )
 
@@ -419,4 +426,58 @@ data class RecordingVodResponse(
     @SerializedName("cached") val cached: Boolean? = null,
     @SerializedName("segment_count") val segmentCount: Int? = null,
     @SerializedName("error") val error: String? = null,
+)
+
+data class GuideRecordRequest(
+    @SerializedName("type")
+    val type: String? = null,
+)
+
+data class GuideRecordOptionsResponse(
+    @SerializedName("ok")
+    val ok: Boolean = false,
+
+    @SerializedName("program_id")
+    val programId: Int? = null,
+
+    @SerializedName("recording")
+    val recording: Boolean = false,
+
+    @SerializedName("series")
+    val series: Boolean = false,
+
+    @SerializedName("can_record")
+    val canRecord: Boolean = true,
+
+    @SerializedName("recording_status")
+    val recordingStatus: String? = null,
+
+    @SerializedName("schedule_id")
+    val scheduleId: Int? = null,
+
+    @SerializedName("series_id")
+    val seriesId: Int? = null,
+
+    @SerializedName("error")
+    val error: String? = null,
+)
+
+data class GuideRecordActionResponse(
+    @SerializedName("ok")
+    val ok: Boolean = false,
+
+    @SerializedName("message")
+    val message: String? = null,
+
+    @SerializedName("recording_status")
+    val recordingStatus: String? = null,
+
+    @SerializedName("schedule_id")
+    val scheduleId: Int? = null,
+
+    @SerializedName("series_id")
+    val seriesId: Int? = null,
+
+    @SerializedName("error")
+    val error: String? = null,
 )
