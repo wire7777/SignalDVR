@@ -28,6 +28,15 @@ interface PlayerEngine {
      */
     fun prepareUrl(url: String)
 
+    /**
+     * Refresh a live or delayed-live HLS playlist after a server-side DVR
+     * seek without stopping and clearing the entire ExoPlayer instance.
+     *
+     * Channel changes and recording playback continue to use playUrl() and
+     * prepareUrl().
+     */
+    fun refreshLivePlaylist(url: String)
+
     fun play()
 
     fun pause()

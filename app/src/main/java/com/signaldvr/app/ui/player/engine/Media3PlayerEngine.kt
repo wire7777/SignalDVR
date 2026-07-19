@@ -31,6 +31,7 @@ class Media3PlayerEngine(
     private var listener: PlayerEngine.Listener? = null
     private var listenerAttached = false
     private var muted = false
+    private var liveRefreshGeneration = 0L
 
     /*
      * Allow Media3 to try another decoder if the preferred hardware decoder
@@ -345,6 +346,57 @@ class Media3PlayerEngine(
 
         applyAudioSettings()
         player.prepare()
+    }
+
+    override fun refreshLivePlaylist(url: String) {
+        if (url.isBlank()) {
+            listener?.onError(
+                "Live playlist URL is empty"
+            )
+            return
+        }
+
+        /*
+         * The SignalDVR backend rewrites delayed_live.m3u8 after a DVR seek.
+         * Add a changing query value so Media3, HTTP caches, and proxies must
+         * request the updated playlist instead of reusing an older response.
+         */
+        val refreshUrl =
+            if (url.contains("?")) {
+                "$url&sdvr_refresh=${++liveRefreshGeneration}"
+            } else {
+                "$url?sdvr_refresh=${++liveRefreshGeneration}"
+            }
+
+        Log.d(
+            TAG,
+            "Refreshing live playlist: $refreshUrl"
+        )
+
+        /*
+         * Keep the same ExoPlayer instance. Do not call stop() and do not
+         * clearMediaItems(). Replacing the media source is enough to force a
+         * fresh HLS manifest request while avoiding the heaviest teardown
+         * path used for channel changes.
+         */
+        val shouldResume =
+            player.playWhenReady ||
+                    player.isPlaying
+
+        val mediaItem =
+            MediaItem.Builder()
+                .setUri(refreshUrl)
+                .setMimeType(MimeTypes.APPLICATION_M3U8)
+                .build()
+
+        player.setMediaItem(
+            mediaItem,
+            true,
+        )
+
+        applyAudioSettings()
+        player.prepare()
+        player.playWhenReady = shouldResume
     }
 
     override fun play() {

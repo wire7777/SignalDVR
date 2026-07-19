@@ -20,7 +20,7 @@ class PlaybackController(
     var state = PlaybackState()
         private set
 
-    private var pendingLiveBehindSeconds: Int? = null
+    private var pendingLiveDeltaSeconds = 0
     private var pendingLiveSeekRunnable: Runnable? = null
 
     fun updateState(newState: PlaybackState) {
@@ -297,97 +297,28 @@ class PlaybackController(
         return playerEngine.durationMs()
     }
 
-    fun rewind(
-        seconds: Int,
-        isRecordingPlayback: Boolean,
-        currentBehindLiveSeconds: Int,
-        onRecordingSeek: () -> Unit,
-        onSeekBehindLive: (Int) -> Unit
+    fun scheduleLiveRelativeSeek(
+        deltaSeconds: Int,
+        onRelativeSeek: (Int) -> Unit
     ) {
-        if (isRecordingPlayback) {
-            cancelPendingLiveSeek()
-            seekRecordingRelative(-seconds)
-            onRecordingSeek()
-            return
-        }
-
-        val baseBehindSeconds =
-            pendingLiveBehindSeconds
-                ?: currentBehindLiveSeconds
-
-        val newBehindLiveSeconds =
-            baseBehindSeconds + seconds
-
-        scheduleLiveSeek(
-            secondsBehindLive = newBehindLiveSeconds,
-            onJumpLive = {},
-            onSeekBehindLive = onSeekBehindLive
-        )
-    }
-
-    fun fastForward(
-        seconds: Int,
-        isRecordingPlayback: Boolean,
-        currentBehindLiveSeconds: Int,
-        onRecordingSeek: () -> Unit,
-        onJumpLive: () -> Unit,
-        onSeekBehindLive: (Int) -> Unit
-    ) {
-        if (isRecordingPlayback) {
-            cancelPendingLiveSeek()
-            seekRecordingRelative(seconds)
-            onRecordingSeek()
-            return
-        }
-
-        val baseBehindSeconds =
-            pendingLiveBehindSeconds
-                ?: currentBehindLiveSeconds
-
-        val newBehindLiveSeconds =
-            kotlin.math.max(
-                0,
-                baseBehindSeconds - seconds
-            )
-
-        scheduleLiveSeek(
-            secondsBehindLive = newBehindLiveSeconds,
-            onJumpLive = onJumpLive,
-            onSeekBehindLive = onSeekBehindLive
-        )
-    }
-
-    private fun scheduleLiveSeek(
-        secondsBehindLive: Int,
-        onJumpLive: () -> Unit,
-        onSeekBehindLive: (Int) -> Unit
-    ) {
-        pendingLiveBehindSeconds =
-            kotlin.math.max(0, secondsBehindLive)
+        pendingLiveDeltaSeconds += deltaSeconds
 
         pendingLiveSeekRunnable?.let {
             handler.removeCallbacks(it)
         }
 
         val runnable = Runnable {
-            val targetBehindSeconds =
-                pendingLiveBehindSeconds ?: return@Runnable
-
-            pendingLiveBehindSeconds = null
+            val delta = pendingLiveDeltaSeconds
+            pendingLiveDeltaSeconds = 0
             pendingLiveSeekRunnable = null
 
-            if (targetBehindSeconds <= 0) {
-                onJumpLive()
-            } else {
-                onSeekBehindLive(targetBehindSeconds)
+            if (delta != 0) {
+                onRelativeSeek(delta)
             }
         }
 
         pendingLiveSeekRunnable = runnable
-        handler.postDelayed(
-            runnable,
-            LIVE_SEEK_DEBOUNCE_MS
-        )
+        handler.postDelayed(runnable, LIVE_SEEK_DEBOUNCE_MS)
     }
 
     fun cancelPendingLiveSeek() {
@@ -396,8 +327,9 @@ class PlaybackController(
         }
 
         pendingLiveSeekRunnable = null
-        pendingLiveBehindSeconds = null
+        pendingLiveDeltaSeconds = 0
     }
+
 
     suspend fun toggleRecording(
         channelNum: String,
@@ -577,7 +509,7 @@ class PlaybackController(
             )
 
             handler.post {
-                reloadStream(url)
+                playerEngine.refreshLivePlaylist(url)
                 onLive(url)
             }
         } catch (e: Exception) {
@@ -589,56 +521,45 @@ class PlaybackController(
         }
     }
 
-    suspend fun seekBehindLive(
-        secondsBehindLive: Int,
+    suspend fun seekLiveRelative(
+        deltaSeconds: Int,
         onError: (String) -> Unit,
-        onSeek: (String, Int) -> Unit
+        onSeek: (String, Int, Boolean) -> Unit
     ) {
         try {
             val resp = ApiClient
                 .getApi(context)
-                .playbackSeek(
-                    -secondsBehindLive
-                )
+                .playbackSeek(deltaSeconds)
 
-            if (
-                !resp.ok ||
-                resp.playlistUrl.isNullOrBlank()
-            ) {
+            if (!resp.ok || resp.playlistUrl.isNullOrBlank()) {
                 handler.post {
-                    onError(
-                        resp.error
-                            ?: "Seek failed"
-                    )
+                    onError(resp.error ?: "Seek failed")
                 }
                 return
             }
 
             val url = resp.playlistUrl
+            val live = resp.live == true
+            val secondsBehind = (resp.secondsBehind ?: 0).coerceAtLeast(0)
 
             state = state.copy(
-                isLive = false,
+                isLive = live,
                 currentUrl = url,
-                behindLiveSeconds =
-                    secondsBehindLive
+                liveUrl = if (live) url else state.liveUrl,
+                behindLiveSeconds = secondsBehind
             )
 
             handler.post {
-                reloadStream(url)
-
-                onSeek(
-                    url,
-                    secondsBehindLive
-                )
+                playerEngine.refreshLivePlaylist(url)
+                onSeek(url, secondsBehind, live)
             }
         } catch (e: Exception) {
             handler.post {
-                onError(
-                    "Seek failed: ${e.message}"
-                )
+                onError("Seek failed: ${e.message}")
             }
         }
     }
+
 
     fun release() {
         playerEngine.release()
