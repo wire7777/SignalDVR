@@ -1,5 +1,7 @@
 package com.signaldvr.app.ui.guide
 
+import android.animation.ValueAnimator
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -19,6 +21,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -29,6 +32,7 @@ import com.signaldvr.app.R
 import com.signaldvr.app.api.ApiClient
 import com.signaldvr.app.api.Channel
 import com.signaldvr.app.api.EpgProgram
+import com.signaldvr.app.api.GuideRecordRequest
 import com.signaldvr.app.ui.player.PlayerActivity
 import com.signaldvr.app.util.TimeUtil
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +63,7 @@ class EpgFragment : Fragment() {
     private lateinit var detailsProgressText: TextView
 
     private val playheadHandler = Handler(Looper.getMainLooper())
+    private var playheadAnimator: ValueAnimator? = null
     private val playheadUpdater = object : Runnable {
         override fun run() {
             updateNowPlayhead(animate = true)
@@ -68,13 +73,18 @@ class EpgFragment : Fragment() {
     }
 
     private val minuteWidthDp = 7
-    private val rowHeightDp = 72
+    private val rowHeightDp = 42
     private val windowHours = 24
 
     private var channels: List<Channel> = emptyList()
     private var guide: Map<String, List<EpgProgram>> = emptyMap()
     private var sharedScrollX = 0
     private var guideWindowStartMs = 0L
+    private var epgAdapter: EpgAdapter? = null
+
+    // Preserve the original guide entrance: on the first valid playhead update,
+    // the line, NOW label, and red dot animate in from their old top-left origin.
+    private var firstPlayheadArrivalPending = true
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -109,6 +119,7 @@ class EpgFragment : Fragment() {
         detailsProgress = view.findViewById(R.id.epg_details_progress)
         detailsProgressText = view.findViewById(R.id.epg_details_progress_text)
 
+        firstPlayheadArrivalPending = true
         configureNowPlayhead()
 
         channelList.layoutManager = LinearLayoutManager(requireContext())
@@ -128,12 +139,17 @@ class EpgFragment : Fragment() {
 
     override fun onDestroyView() {
         playheadHandler.removeCallbacks(playheadUpdater)
+        playheadAnimator?.cancel()
+        playheadAnimator = null
 
+        // Do not request a Fragment-scoped Glide manager while the Fragment is
+        // being destroyed. Glide follows the lifecycle automatically; clearing
+        // the local drawables is safe and avoids a destroyed-Activity crash.
         if (::detailsBackdrop.isInitialized) {
-            Glide.with(this).clear(detailsBackdrop)
+            detailsBackdrop.setImageDrawable(null)
         }
         if (::detailsArtwork.isInitialized) {
-            Glide.with(this).clear(detailsArtwork)
+            detailsArtwork.setImageDrawable(null)
         }
 
         super.onDestroyView()
@@ -213,6 +229,14 @@ class EpgFragment : Fragment() {
 
                 buildTimeHeader()
                 buildGrid()
+
+                // Start the entrance only after the guide window and views exist.
+                // This makes the fly-in deterministic instead of depending on
+                // whether the one-second updater happens to run after loading.
+                view?.post {
+                    updateNowPlayhead(animate = true)
+                    updateCurrentTimeHeader()
+                }
             } catch (e: Exception) {
                 loading.visibility = View.GONE
                 errorText.visibility = View.VISIBLE
@@ -297,11 +321,11 @@ class EpgFragment : Fragment() {
         val density = resources.displayMetrics.density
         val channelColumnWidthPx = 161f * density
         val minuteOffsetPx = elapsedMinutes * minuteWidthDp * density
-        val playheadX = channelColumnWidthPx + minuteOffsetPx - sharedScrollX
+        val playheadCenterX = channelColumnWidthPx + minuteOffsetPx - sharedScrollX
 
         val gridLeft = channelColumnWidthPx
         val gridRight = timeHeader.width.toFloat() + channelColumnWidthPx
-        val visible = playheadX in gridLeft..gridRight
+        val visible = playheadCenterX in gridLeft..gridRight
 
         nowPlayhead.visibility = if (visible) View.VISIBLE else View.GONE
         nowPlayheadLabel.visibility = if (visible) View.VISIBLE else View.GONE
@@ -310,9 +334,8 @@ class EpgFragment : Fragment() {
         }
 
         if (!visible) {
-            nowPlayhead.animate().cancel()
-            nowPlayheadLabel.animate().cancel()
-            if (::nowPlayheadDot.isInitialized) nowPlayheadDot.animate().cancel()
+            playheadAnimator?.cancel()
+            playheadAnimator = null
             return
         }
 
@@ -321,10 +344,12 @@ class EpgFragment : Fragment() {
             nowPlayheadLabel.measuredWidth > 0 -> nowPlayheadLabel.measuredWidth.toFloat()
             else -> 44f * density
         }
-        val labelTargetX = (playheadX - labelWidth / 2f).coerceIn(
-            gridLeft,
-            (gridRight - labelWidth).coerceAtLeast(gridLeft)
-        )
+
+        val lineWidth = when {
+            nowPlayhead.width > 0 -> nowPlayhead.width.toFloat()
+            nowPlayhead.measuredWidth > 0 -> nowPlayhead.measuredWidth.toFloat()
+            else -> 2f * density
+        }
 
         val dotWidth = if (::nowPlayheadDot.isInitialized) {
             when {
@@ -346,51 +371,50 @@ class EpgFragment : Fragment() {
             0f
         }
 
-        // Treat playheadX as the shared CENTER point for the red line and dot.
-        // Use absolute x/y coordinates instead of translation values so their
-        // different XML/layout origins can never cause them to drift apart.
-        val lineWidth = when {
-            nowPlayhead.width > 0 -> nowPlayhead.width.toFloat()
-            nowPlayhead.measuredWidth > 0 -> nowPlayhead.measuredWidth.toFloat()
-            else -> 2f * density
-        }
-
-        val lineTargetX = playheadX - lineWidth / 2f
-        val dotTargetX = playheadX - dotWidth / 2f
         val dotTargetY = nowPlayhead.top.toFloat() - dotHeight / 2f
 
-        if (animate) {
-            nowPlayhead.animate()
-                .x(lineTargetX)
-                .setDuration(950L)
-                .setInterpolator(LinearInterpolator())
-                .start()
+        fun placeAllAt(centerX: Float) {
+            // One shared center coordinate is used for every element on every
+            // animation frame, so the red dot can never chase the red line.
+            nowPlayhead.x = centerX - lineWidth / 2f
 
-            nowPlayheadLabel.animate()
-                .x(labelTargetX)
-                .setDuration(950L)
-                .setInterpolator(LinearInterpolator())
-                .start()
+            nowPlayheadLabel.x = (centerX - labelWidth / 2f).coerceIn(
+                gridLeft,
+                (gridRight - labelWidth).coerceAtLeast(gridLeft)
+            )
 
             if (::nowPlayheadDot.isInitialized) {
-                nowPlayheadDot.animate()
-                    .x(dotTargetX)
-                    .y(dotTargetY)
-                    .setDuration(950L)
-                    .setInterpolator(LinearInterpolator())
-                    .start()
-            }
-        } else {
-            nowPlayhead.animate().cancel()
-            nowPlayheadLabel.animate().cancel()
-            nowPlayhead.x = lineTargetX
-            nowPlayheadLabel.x = labelTargetX
-
-            if (::nowPlayheadDot.isInitialized) {
-                nowPlayheadDot.animate().cancel()
-                nowPlayheadDot.x = dotTargetX
+                nowPlayheadDot.x = centerX - dotWidth / 2f
                 nowPlayheadDot.y = dotTargetY
             }
+        }
+
+        if (!animate) {
+            playheadAnimator?.cancel()
+            playheadAnimator = null
+            placeAllAt(playheadCenterX)
+            return
+        }
+
+        val isFirstArrival = firstPlayheadArrivalPending
+        val currentCenterX = if (isFirstArrival) {
+            0f
+        } else {
+            nowPlayhead.x + lineWidth / 2f
+        }
+
+        playheadAnimator?.cancel()
+        playheadAnimator = ValueAnimator.ofFloat(currentCenterX, playheadCenterX).apply {
+            duration = if (isFirstArrival) 950L else 900L
+            interpolator = LinearInterpolator()
+            addUpdateListener { animator ->
+                placeAllAt(animator.animatedValue as Float)
+            }
+            start()
+        }
+
+        if (isFirstArrival) {
+            firstPlayheadArrivalPending = false
         }
     }
 
@@ -509,8 +533,118 @@ class EpgFragment : Fragment() {
         }
     }
 
+    private fun showGuideActions(channel: Channel, program: EpgProgram) {
+        val programId = program.id
+        if (programId == null) {
+            Toast.makeText(requireContext(), "This guide item cannot be recorded", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        lifecycleScope.launch {
+            try {
+                val api = ApiClient.getApi(requireContext())
+                val options = api.getGuideRecordOptions(programId)
+
+                val labels = mutableListOf<String>()
+                val actions = mutableListOf<suspend () -> Unit>()
+
+                labels += "Watch"
+                actions += { onTuneFromGuide(channel) }
+
+                if (!options.recording) {
+                    labels += "Record Once"
+                    actions += {
+                        api.recordGuideProgramOnce(programId, GuideRecordRequest("once"))
+                    }
+                }
+
+                if (!options.series) {
+                    labels += "Record Series"
+                    actions += {
+                        api.recordGuideProgramSeries(programId, GuideRecordRequest("series"))
+                    }
+                    labels += "Record New Episodes Only"
+                    actions += {
+                        api.recordGuideProgramNewEpisodes(programId, GuideRecordRequest("new"))
+                    }
+                }
+
+                if (options.recording) {
+                    labels += "Cancel Recording"
+                    actions += {
+                        api.cancelGuideProgramRecording(programId)
+                    }
+                }
+
+                val seriesId = options.seriesId
+                if (options.series && seriesId != null) {
+                    labels += "Cancel Series"
+                    actions += {
+                        api.deleteSeriesRule(seriesId)
+                    }
+                }
+
+                AlertDialog.Builder(requireContext())
+                    .setTitle(program.title.orEmpty().ifBlank { "Program" })
+                    .setItems(labels.toTypedArray()) { dialog, which ->
+                        dialog.dismiss()
+                        if (labels[which] == "Watch") {
+                            onTuneFromGuide(channel)
+                            return@setItems
+                        }
+                        lifecycleScope.launch {
+                            try {
+                                actions[which].invoke()
+                                val refreshed = api.getGuideRecordOptions(programId)
+                                epgAdapter?.updateRecordingState(
+                                    programId = programId,
+                                    status = refreshed.recordingStatus ?: "none",
+                                    series = refreshed.series,
+                                    seriesId = refreshed.seriesId,
+                                )
+                                Toast.makeText(
+                                    requireContext(),
+                                    when {
+                                        refreshed.recordingStatus == "recording" -> "Recording now"
+                                        refreshed.recording -> "Recording scheduled"
+                                        refreshed.series -> "Series rule saved"
+                                        else -> "Recording cancelled"
+                                    },
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            } catch (e: Exception) {
+                                Toast.makeText(
+                                    requireContext(),
+                                    "Recording action failed: ${e.message}",
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                            }
+                        }
+                    }
+                    .setNegativeButton("Close", null)
+                    .show()
+            } catch (e: Exception) {
+                Toast.makeText(
+                    requireContext(),
+                    "Could not load recording options: ${e.message}",
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
+        }
+    }
+
+    private fun onTuneFromGuide(channel: Channel) {
+        startActivity(
+            Intent(requireContext(), PlayerActivity::class.java).apply {
+                putExtra(PlayerActivity.EXTRA_CHANNEL_NUM, channel.number)
+                putExtra(PlayerActivity.EXTRA_CHANNEL_NAME, channel.name)
+                putExtra(PlayerActivity.EXTRA_IS_LIVE, true)
+            }
+        )
+    }
+
     private fun buildGrid() {
-        channelList.adapter = EpgAdapter(
+        epgAdapter = EpgAdapter(
             ctx = requireContext(),
             channels = channels,
             guide = guide,
@@ -544,8 +678,12 @@ class EpgFragment : Fragment() {
             windowStartMs = guideWindowStartMs,
             onProgramFocused = { channel, program ->
                 updateDetails(channel, program)
+            },
+            onProgramSelected = { channel, program ->
+                showGuideActions(channel, program)
             }
         )
+        channelList.adapter = epgAdapter
 
         channels.firstNotNullOfOrNull { channel ->
             guide[channel.number]
@@ -570,7 +708,8 @@ class EpgAdapter(
     private val onHScroll: (Int) -> Unit,
     private val getScrollX: () -> Int,
     private val windowStartMs: Long,
-    private val onProgramFocused: (Channel, EpgProgram) -> Unit
+    private val onProgramFocused: (Channel, EpgProgram) -> Unit,
+    private val onProgramSelected: (Channel, EpgProgram) -> Unit
 ) : RecyclerView.Adapter<EpgAdapter.VH>() {
 
     private val density = ctx.resources.displayMetrics.density
@@ -591,6 +730,27 @@ class EpgAdapter(
     // the guide. The active row stays fully visible while surrounding rows
     // are dimmed slightly.
     private var activeRowPosition = RecyclerView.NO_POSITION
+
+    private data class RecordingState(
+        val status: String,
+        val series: Boolean,
+        val seriesId: Int?,
+    )
+
+    private val recordingStateOverrides = mutableMapOf<Int, RecordingState>()
+
+    fun updateRecordingState(
+        programId: Int,
+        status: String,
+        series: Boolean,
+        seriesId: Int?,
+    ) {
+        recordingStateOverrides[programId] = RecordingState(status, series, seriesId)
+        val row = channels.indexOfFirst { channel ->
+            guide[channel.number].orEmpty().any { it.id == programId }
+        }
+        if (row >= 0) notifyItemChanged(row)
+    }
 
     private data class ProgramCellInfo(
         val startMinute: Int,
@@ -795,8 +955,8 @@ class EpgAdapter(
         adapterPosition: Int
     ): View {
         val height = dp(rowHeightDp)
-        val contentWidth = (width - 4).coerceAtLeast(1)
-        val contentHeight = (height - 4).coerceAtLeast(1)
+        val contentWidth = width
+        val contentHeight = height
 
         val titleView = TextView(ctx).apply {
             text = program.title ?: ""
@@ -847,14 +1007,15 @@ class EpgAdapter(
                     .start()
 
                 if (hasFocus) {
-                    focusedView.bringToFront()
+                    // Do not reorder the program cells when focus changes.
+                    // Reordering breaks Android TV's left/right focus path.
                     setActiveRow(focusedView, adapterPosition)
                     onProgramFocused(channel, program)
                 }
             }
 
             setOnClickListener {
-                onTune(channel)
+                onProgramSelected(channel, program)
             }
 
             setOnKeyListener { _, keyCode, event ->
@@ -896,15 +1057,50 @@ class EpgAdapter(
             }
         }
 
+        val override = program.id?.let { recordingStateOverrides[it] }
+        val recordingStatus = (override?.status ?: program.recordingStatus ?: "none").lowercase()
+        val isSeriesRecording = override?.series ?: program.recordingSeries
+
+        val badgeText = when {
+            recordingStatus == "recording" -> "● REC"
+            recordingStatus == "scheduled" && isSeriesRecording -> "⦿"
+            recordingStatus == "scheduled" -> "●"
+            else -> ""
+        }
+
+        val badgeView = TextView(ctx).apply {
+            text = badgeText
+            setTextColor(Color.WHITE)
+            textSize = if (recordingStatus == "recording") 9f else 13f
+            gravity = Gravity.CENTER
+            setPadding(dp(4), 0, dp(4), 0)
+            setBackgroundColor(
+                if (recordingStatus == "recording") {
+                    Color.parseColor("#CCB00020")
+                } else {
+                    Color.parseColor("#AA5A1A1A")
+                }
+            )
+            visibility = if (badgeText.isBlank()) View.GONE else View.VISIBLE
+            isFocusable = false
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+
+            // Keep the recording badge above the focused title without
+            // changing child order. The title uses translationZ while focused,
+            // so the badge needs a higher Z value to remain visible.
+            elevation = dp(20).toFloat()
+            translationZ = dp(20).toFloat()
+        }
+
         return FrameLayout(ctx).apply {
             clipChildren = false
             clipToPadding = false
 
             layoutParams = LinearLayout.LayoutParams(
                 width,
-                height
+                dp(rowHeightDp)
             ).apply {
-                setMargins(2, 2, 2, 2)
+                setMargins(0, 0, 0, 0)
             }
 
             addView(
@@ -913,6 +1109,18 @@ class EpgAdapter(
                     contentWidth,
                     contentHeight
                 )
+            )
+
+            addView(
+                badgeView,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    dp(18),
+                    Gravity.TOP or Gravity.END,
+                ).apply {
+                    topMargin = dp(2)
+                    marginEnd = dp(4)
+                }
             )
 
             tag = ProgramCellInfo(
