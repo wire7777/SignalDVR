@@ -1,0 +1,140 @@
+package com.signaldvr.app.ui.player
+
+import android.content.Context
+import android.util.AttributeSet
+import android.view.LayoutInflater
+import android.view.View
+import android.widget.FrameLayout
+import android.widget.ProgressBar
+import android.widget.TextView
+import com.signaldvr.app.R
+import com.signaldvr.app.api.NowPlaying
+import com.signaldvr.app.util.TimeUtil
+import java.util.Date
+
+class GuideOverlayView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyle: Int = 0,
+) : FrameLayout(context, attrs, defStyle) {
+
+    private val tvChannelNum:   TextView
+    private val tvChannelName:  TextView
+    private val tvCurrentTitle: TextView
+    private val tvTimeRange:    TextView
+    private val progressBar:    ProgressBar
+
+    private val tvRemaining:    TextView
+    private val tvNext:         TextView
+    private val tvClock:        TextView
+    private val tvStatus:       TextView
+
+    private var dismissRunnable: Runnable? = null
+
+    init {
+        LayoutInflater.from(context).inflate(R.layout.view_guide_overlay, this, true)
+        tvChannelNum   = findViewById(R.id.overlay_channel_num)
+        tvChannelName  = findViewById(R.id.overlay_channel_name)
+        tvCurrentTitle = findViewById(R.id.overlay_current_title)
+        tvTimeRange    = findViewById(R.id.overlay_current_time)
+        progressBar    = findViewById(R.id.overlay_progress)
+        tvRemaining    = findViewById(R.id.overlay_time_remaining)
+        tvNext         = findViewById(R.id.overlay_next_title)
+        tvClock        = findViewById(R.id.overlay_clock)
+        tvStatus       = findViewById(R.id.overlay_status_icon)
+        visibility     = View.GONE
+    }
+
+    // ── Public show methods ───────────────────────────────────────────────────
+
+    fun show(data: NowPlaying, autoDismissMs: Long = 7000) {
+        tvChannelNum.text  = data.channel
+        tvChannelName.text = data.name
+
+        val cur = data.current
+        if (cur != null) {
+            tvCurrentTitle.text = cur.title ?: "No guide data"
+            tvTimeRange.text    = buildTimeRange(cur.start, cur.stop)
+            progressBar.progress = TimeUtil.progressPercent(cur.start, cur.stop)
+
+            val rem = TimeUtil.minutesRemaining(cur.stop)
+            tvRemaining.text = if (rem >= 60) "${rem/60}h ${rem%60}m left"
+                               else "$rem min left"
+        } else {
+            tvCurrentTitle.text  = "No guide data"
+            tvTimeRange.text     = ""
+            progressBar.progress = 0
+            tvRemaining.text     = ""
+        }
+
+        val nxt = data.next
+        tvNext.text = if (nxt?.title != null)
+            "NEXT  ${nxt.title}  •  ${TimeUtil.formatDisplay(nxt.start)}"
+        else ""
+
+        tvClock.text  = TimeUtil.formatDisplay(Date())
+        tvStatus.text = "▶"
+
+        present(autoDismissMs)
+    }
+
+    fun showBasic(chNum: String, chName: String, autoDismissMs: Long = 7000) {
+        tvChannelNum.text    = chNum
+        tvChannelName.text   = chName
+        tvCurrentTitle.text  = "Live"
+        tvTimeRange.text     = ""
+        progressBar.progress = 0
+        tvRemaining.text     = ""
+        tvNext.text          = ""
+        tvClock.text         = TimeUtil.formatDisplay(Date())
+        tvStatus.text        = "▶"
+        present(autoDismissMs)
+    }
+
+    fun showPlayState(playing: Boolean) {
+        tvStatus.text = if (playing) "▶" else "⏸"
+        cancelDismiss()
+        present(3000)
+    }
+
+    fun showSeek(seconds: Int) {
+        tvStatus.text = if (seconds < 0) "⏪  ${-seconds}s" else "⏩  ${seconds}s"
+        cancelDismiss()
+        present(2000)
+    }
+
+    // ── Internal ──────────────────────────────────────────────────────────────
+
+    private fun present(dismissAfterMs: Long) {
+        cancelDismiss()
+        visibility = View.VISIBLE
+        alpha      = 1f
+
+        dismissRunnable = Runnable {
+            animate()
+                .alpha(0f)
+                .setDuration(500)
+                .withEndAction { visibility = View.GONE }
+                .start()
+        }
+        postDelayed(dismissRunnable, dismissAfterMs)
+    }
+
+    private fun cancelDismiss() {
+        dismissRunnable?.let { removeCallbacks(it) }
+        dismissRunnable = null
+        animate().cancel()
+        alpha = 1f
+    }
+
+    private fun buildTimeRange(start: String?, stop: String?): String {
+        val s = TimeUtil.formatDisplay(start)
+        val e = TimeUtil.formatDisplay(stop)
+        return if (s.isNotEmpty() && e.isNotEmpty()) "$s – $e" else ""
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        cancelDismiss()
+    }
+}

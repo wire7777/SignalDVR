@@ -1,14 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="72dp"
+    android:layout_height="42dp"
     android:background="#111122"
     android:orientation="horizontal">
 
-    <!-- Fixed channel identity column -->
     <LinearLayout
         android:layout_width="160dp"
-        android:layout_height="72dp"
+        android:layout_height="42dp"
         android:background="#101024"
         android:gravity="center_vertical"
         android:orientation="horizontal"
@@ -17,8 +16,8 @@
 
         <ImageView
             android:id="@+id/epg_chan_logo"
-            android:layout_width="64dp"
-            android:layout_height="48dp"
+            android:layout_width="56dp"
+            android:layout_height="42dp"
             android:layout_marginEnd="8dp"
             android:adjustViewBounds="true"
             android:contentDescription="Channel logo"
@@ -38,7 +37,7 @@
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:textColor="#FFFFCC00"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -48,7 +47,7 @@
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:textColor="#FFF2F2F7"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
@@ -61,7 +60,7 @@
     <HorizontalScrollView
         android:id="@+id/epg_row_scroll"
         android:layout_width="0dp"
-        android:layout_height="72dp"
+        android:layout_height="42dp"
         android:layout_weight="1"
         android:overScrollMode="never"
         android:scrollbars="none">

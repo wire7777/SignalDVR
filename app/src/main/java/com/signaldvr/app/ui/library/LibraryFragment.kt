@@ -2,6 +2,7 @@ package com.signaldvr.app.ui.library
 
 import android.app.AlertDialog
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -91,7 +92,8 @@ class LibraryFragment : Fragment() {
             adapter?.restoreFocus(
                 sectionKind = lastFocusedSectionKind,
                 programId = lastFocusedProgramId,
-                filename = lastFocusedFilename
+                filename = lastFocusedFilename,
+                alignToStart = true
             )
         }
 
@@ -134,12 +136,24 @@ class LibraryFragment : Fragment() {
 
                 adapter?.submitSections(sections)
 
+                /*
+                 * DiffUtil and stable IDs preserve the currently focused card.
+                 * Do not force focus restoration after every five-second refresh:
+                 * the old restore path aligned the selected card to offset 0,
+                 * making the row jump left while the user was browsing.
+                 *
+                 * Only restore when focus was genuinely lost during an update,
+                 * and preserve the row's existing horizontal position.
+                 */
                 rowsRecycler.post {
-                    adapter?.restoreFocus(
-                        sectionKind = lastFocusedSectionKind,
-                        programId = lastFocusedProgramId,
-                        filename = lastFocusedFilename
-                    )
+                    if (!rowsRecycler.hasFocus()) {
+                        adapter?.restoreFocus(
+                            sectionKind = lastFocusedSectionKind,
+                            programId = lastFocusedProgramId,
+                            filename = lastFocusedFilename,
+                            alignToStart = false
+                        )
+                    }
                 }
 
                 if (firstLoad) {
@@ -166,6 +180,47 @@ class LibraryFragment : Fragment() {
 
                 val isRecording =
                     program.type.equals("recording", ignoreCase = true)
+
+                /*
+                 * The Library status is informational and does not alter the
+                 * playback engine. While a newly completed recording is still
+                 * being prepared, avoid starting the existing on-demand VOD
+                 * request a second time. Legacy recordings continue through
+                 * the original playback fallback below.
+                 */
+                if (isRecording) {
+                    when (program.processingStatus?.lowercase()) {
+                        "pending", "processing" -> {
+                            val step = program.processingStep
+                                ?.takeIf { it.isNotBlank() }
+                                ?: "Preparing playback"
+                            val percent = program.processingPercent
+                                .coerceIn(0, 100)
+
+                            Toast.makeText(
+                                requireContext(),
+                                if (percent > 0) {
+                                    "$step — $percent%"
+                                } else {
+                                    step
+                                },
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            return@launch
+                        }
+
+                        "failed" -> {
+                            Toast.makeText(
+                                requireContext(),
+                                program.processingError
+                                    ?.takeIf { it.isNotBlank() }
+                                    ?: "Recording preparation failed",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            return@launch
+                        }
+                    }
+                }
 
                 /*
                  * Live Now must bypass program-playlist and recording-resume
@@ -350,7 +405,7 @@ class LibraryFragment : Fragment() {
             actions.add("Save")
         }
 
-        actions.add("Delete")
+        actions.add(if (program.type == "recording") "Delete Recording" else "Delete")
 
         AlertDialog.Builder(requireContext())
             .setTitle(title)
@@ -358,16 +413,23 @@ class LibraryFragment : Fragment() {
                 when (actions[which]) {
                     "Watch" -> watchProgram(program)
                     "Save" -> saveProgram(program)
-                    "Delete" -> confirmDelete(program)
+                    "Delete", "Delete Recording" -> confirmDelete(program)
                 }
             }
             .show()
     }
 
     private fun confirmDelete(program: LibraryProgram) {
+        val isRecording = program.type.equals("recording", ignoreCase = true)
         AlertDialog.Builder(requireContext())
-            .setTitle("Delete?")
-            .setMessage(program.title ?: "Delete this item?")
+            .setTitle(if (isRecording) "Delete recording?" else "Delete item?")
+            .setMessage(
+                if (isRecording) {
+                    "Permanently delete ${program.title ?: "this recording"} and its video files?"
+                } else {
+                    program.title ?: "Delete this item?"
+                }
+            )
             .setPositiveButton("Delete") { _, _ -> deleteProgram(program) }
             .setNegativeButton("Cancel", null)
             .show()
@@ -498,7 +560,8 @@ class LibrarySectionAdapter(
     fun restoreFocus(
         sectionKind: String?,
         programId: Int?,
-        filename: String?
+        filename: String?,
+        alignToStart: Boolean
     ): Boolean {
         if (sectionKind.isNullOrBlank()) {
             return false
@@ -511,7 +574,8 @@ class LibrarySectionAdapter(
         return programAdapter.restoreFocus(
             recyclerView = row,
             programId = programId,
-            filename = filename
+            filename = filename,
+            alignToStart = alignToStart
         )
     }
 
@@ -699,7 +763,8 @@ class LibraryProgramAdapter(
     fun restoreFocus(
         recyclerView: RecyclerView,
         programId: Int?,
-        filename: String?
+        filename: String?,
+        alignToStart: Boolean
     ): Boolean {
         val position = programs.indexOfFirst { program ->
             when {
@@ -721,22 +786,28 @@ class LibraryProgramAdapter(
             recyclerView.layoutManager as? LinearLayoutManager
                 ?: return false
 
-        layoutManager.scrollToPositionWithOffset(position, 0)
+        val currentHolder =
+            recyclerView.findViewHolderForAdapterPosition(position)
+
+        if (currentHolder != null) {
+            if (!currentHolder.itemView.hasFocus()) {
+                currentHolder.itemView.requestFocus()
+            }
+            return true
+        }
+
+        if (alignToStart) {
+            layoutManager.scrollToPositionWithOffset(position, 0)
+        } else {
+            // Bring the card into view only when needed; do not snap it left.
+            layoutManager.scrollToPosition(position)
+        }
 
         recyclerView.post {
-            val holder =
-                recyclerView.findViewHolderForAdapterPosition(position)
-
-            if (holder != null) {
-                holder.itemView.requestFocus()
-            } else {
-                recyclerView.post {
-                    recyclerView
-                        .findViewHolderForAdapterPosition(position)
-                        ?.itemView
-                        ?.requestFocus()
-                }
-            }
+            recyclerView
+                .findViewHolderForAdapterPosition(position)
+                ?.itemView
+                ?.requestFocus()
         }
 
         return true
@@ -812,12 +883,11 @@ class LibraryProgramAdapter(
             }
 
             view.setOnFocusChangeListener { focusedView, hasFocus ->
+                // Draw focus inside the card bounds. Do not scale the card,
+                // because scaling can clip its border and bottom action text.
                 focusedView.setBackgroundResource(
-                    if (hasFocus) {
-                        R.drawable.bg_channel_focused
-                    } else {
-                        R.drawable.bg_channel_normal
-                    }
+                    if (hasFocus) R.drawable.bg_channel_focused
+                    else R.drawable.bg_channel_normal
                 )
 
                 if (hasFocus) {
@@ -837,11 +907,52 @@ class LibraryProgramAdapter(
             icon.setImageResource(iconFor(program))
             icon.contentDescription = program.category ?: program.type ?: "Program"
 
+            val processingStatus =
+                program.processingStatus?.lowercase()
+
             badge.text = when {
+                program.type.equals("recording", ignoreCase = true) &&
+                        processingStatus == "ready" ->
+                    "● READY"
+
+                program.type.equals("recording", ignoreCase = true) &&
+                        processingStatus in setOf("pending", "processing") -> {
+                    val percent = program.processingPercent.coerceIn(0, 100)
+                    if (percent > 0) "● PROCESSING $percent%" else "● PROCESSING"
+                }
+
+                program.type.equals("recording", ignoreCase = true) &&
+                        processingStatus == "failed" ->
+                    "● FAILED"
+
+                program.status.equals("recording", ignoreCase = true) ->
+                    "● RECORDING"
+
                 program.isNew -> "NEW"
                 program.isRepeat -> "REPEAT"
                 else -> kind.uppercase()
             }
+
+            badge.setTextColor(
+                when {
+                    program.type.equals("recording", ignoreCase = true) &&
+                            processingStatus == "ready" ->
+                        Color.rgb(76, 217, 100)
+
+                    program.type.equals("recording", ignoreCase = true) &&
+                            processingStatus in setOf("pending", "processing") ->
+                        Color.rgb(255, 204, 0)
+
+                    program.type.equals("recording", ignoreCase = true) &&
+                            processingStatus == "failed" ->
+                        Color.rgb(255, 69, 58)
+
+                    program.status.equals("recording", ignoreCase = true) ->
+                        Color.rgb(255, 69, 58)
+
+                    else -> Color.rgb(255, 204, 0)
+                }
+            )
 
             title.text = program.title ?: "Unknown Program"
 
@@ -915,6 +1026,25 @@ class LibraryProgramAdapter(
                 }
             }
 
+            if (program.type.equals("recording", ignoreCase = true)) {
+                when (processingStatus) {
+                    "pending", "processing" -> {
+                        val step = program.processingStep
+                            ?.takeIf { it.isNotBlank() }
+                            ?: "Preparing playback"
+                        val percent = program.processingPercent.coerceIn(0, 100)
+                        metadata += if (percent > 0) {
+                            "$step $percent%"
+                        } else {
+                            step
+                        }
+                    }
+
+                    "ready" -> metadata += "Ready to play"
+                    "failed" -> metadata += "Preparation failed"
+                }
+            }
+
             if (program.segmentCount > 0) {
                 metadata += "${program.segmentCount} segments"
             }
@@ -933,7 +1063,17 @@ class LibraryProgramAdapter(
                         ""
                 }
 
-            hint.text = "OK: Watch\nHold OK: Options"
+            hint.text = when {
+                program.type.equals("recording", ignoreCase = true) &&
+                        processingStatus in setOf("pending", "processing") ->
+                    "Preparing playback…\nHold OK: Options"
+
+                program.type.equals("recording", ignoreCase = true) &&
+                        processingStatus == "failed" ->
+                    "Not ready\nHold OK: Options"
+
+                else -> "OK: Watch\nHold OK: Options"
+            }
         }
 
         @DrawableRes

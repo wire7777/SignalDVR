@@ -5,14 +5,14 @@
     android:background="@color/bg_dark"
     android:orientation="vertical"
     android:paddingStart="40dp"
-    android:paddingTop="28dp"
+    android:paddingTop="16dp"
     android:paddingEnd="40dp"
-    android:paddingBottom="28dp">
+    android:paddingBottom="16dp">
 
     <ImageView
         android:id="@+id/home_logo"
-        android:layout_width="230dp"
-        android:layout_height="92dp"
+        android:layout_width="210dp"
+        android:layout_height="76dp"
         android:adjustViewBounds="true"
         android:contentDescription="SignalDVR"
         android:scaleType="centerInside"
@@ -23,7 +23,7 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
         android:layout_marginTop="2dp"
-        android:layout_marginBottom="24dp"
+        android:layout_marginBottom="10dp"
         android:text="Watch • Pause • Rewind • Record"
         android:textColor="#CCFFFFFF"
         android:textSize="16sp" />
@@ -33,8 +33,12 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
+        android:clipChildren="false"
         android:clipToPadding="false"
         android:descendantFocusability="afterDescendants"
-        android:padding="4dp" />
+        android:paddingStart="12dp"
+        android:paddingTop="2dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="6dp" />
 
 </LinearLayout>

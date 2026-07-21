@@ -314,6 +314,26 @@ data class LibraryProgram(
     @SerializedName("thumbnail")
     val thumbnail: String? = null,
 
+    // Recording post-processing state. These fields affect only
+    // Library presentation; playback APIs and PlayerActivity are unchanged.
+    @SerializedName("processing_status")
+    val processingStatus: String? = null,
+
+    @SerializedName("processing_percent")
+    val processingPercent: Int = 0,
+
+    @SerializedName("processing_step")
+    val processingStep: String? = null,
+
+    @SerializedName("processing_error")
+    val processingError: String? = null,
+
+    @SerializedName("vod_ready")
+    val vodReady: Boolean = false,
+
+    @SerializedName("processed_at")
+    val processedAt: String? = null,
+
     // =========================================================
     // Guide Metadata (Metadata 2.0)
     // =========================================================

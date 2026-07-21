@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Dark background -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#E6000000" />
+
+    <!-- Blue top accent line -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="3dp"
+        android:background="#FF0077CC" />
+
+    <!-- Left column: channel number + name -->
+    <LinearLayout
+        android:layout_width="110dp"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="8dp">
+
+        <TextView
+            android:id="@+id/overlay_channel_num"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFCC00"
+            android:textSize="30sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/overlay_channel_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#FFAAAAAA"
+            android:textSize="12sp" />
+
+    </LinearLayout>
+
+    <!-- Vertical divider -->
+    <View
+        android:layout_width="1dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="118dp"
+        android:background="#44FFFFFF" />
+
+    <!-- Right column -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginStart="126dp"
+        android:orientation="vertical"
+        android:paddingStart="12dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="8dp">
+
+        <!-- Row 1: title + status + clock -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/overlay_current_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="#FFFFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/overlay_status_icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:textColor="#FF00AAFF"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/overlay_clock"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:textColor="#FFAAAAAA"
+                android:textSize="13sp" />
+
+        </LinearLayout>
+
+        <!-- Row 2: time range -->
+        <TextView
+            android:id="@+id/overlay_current_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="#FFAAAAAA"
+            android:textSize="12sp" />
+
+        <!-- Row 3: progress bar — static, set once, does NOT animate -->
+        <ProgressBar
+            android:id="@+id/overlay_progress"
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="6dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="8dp"
+            android:max="100"
+            android:progress="0"
+            android:progressTint="#FF0077CC"
+            android:progressBackgroundTint="#33FFFFFF" />
+
+        <!-- Row 4: time remaining -->
+        <TextView
+            android:id="@+id/overlay_time_remaining"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="#FFAAAAAA"
+            android:textSize="12sp" />
+
+        <!-- Row 5: next program -->
+        <TextView
+            android:id="@+id/overlay_next_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textColor="#FF00AAFF"
+            android:textSize="12sp"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+    </LinearLayout>
+
+</merge>

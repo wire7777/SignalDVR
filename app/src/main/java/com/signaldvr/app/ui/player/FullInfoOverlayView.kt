@@ -1,11 +1,6 @@
 package com.signaldvr.app.ui.player
 
 import android.content.Context
-import android.graphics.Typeface
-import android.text.SpannableStringBuilder
-import android.text.Spanned
-import android.text.style.ForegroundColorSpan
-import android.text.style.StyleSpan
 import android.util.AttributeSet
 import android.view.KeyEvent
 import android.view.LayoutInflater
@@ -18,6 +13,7 @@ import com.bumptech.glide.Glide
 import com.signaldvr.app.R
 import com.signaldvr.app.api.ApiClient
 import com.signaldvr.app.api.NowPlaying
+import com.signaldvr.app.ui.RecordingStatusUi
 import com.signaldvr.app.util.TimeUtil
 import java.util.Date
 
@@ -163,6 +159,9 @@ class FullInfoOverlayView @JvmOverloads constructor(
             ?.takeIf { it.isNotBlank() }
             ?: current?.subtitle.orEmpty()
 
+        val recordingStyle = RecordingStatusUi.style(current?.recordingStatus)
+        recordButton.text = recordingStyle?.buttonText ?: "RECORD"
+
         if (!logoUrl.isNullOrBlank()) {
             Glide.with(this).load(logoUrl).fitCenter().into(logo)
             logo.visibility = View.VISIBLE
@@ -271,9 +270,9 @@ class FullInfoOverlayView @JvmOverloads constructor(
             ?.forEach { metadata += it.uppercase() }
         capabilityBadges(current?.videoProperties, current?.audioProperties)
             .forEach { metadata += it }
-        badges.text = buildBadgesText(
-            metadata.distinct(),
+        badges.text = RecordingStatusUi.buildBadges(
             current?.recordingStatus,
+            metadata.distinct(),
         )
 
         time.text = buildTimeRange(current?.start, current?.stop)
@@ -351,44 +350,6 @@ class FullInfoOverlayView @JvmOverloads constructor(
         }
     }
 
-    private fun buildBadgesText(
-        metadata: List<String>,
-        recordingStatus: String?,
-    ): CharSequence {
-        val builder = SpannableStringBuilder()
-
-        val status = when (recordingStatus?.lowercase()) {
-            "recording" -> "REC" to 0xFFFF5252.toInt()
-            "recorded" -> "RECORDED" to 0xFF66BB6A.toInt()
-            "scheduled" -> "SCHEDULED" to 0xFF64B5F6.toInt()
-            else -> null
-        }
-
-        if (status != null) {
-            val start = builder.length
-            builder.append(status.first)
-            val end = builder.length
-            builder.setSpan(
-                ForegroundColorSpan(status.second),
-                start,
-                end,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
-            )
-            builder.setSpan(
-                StyleSpan(Typeface.BOLD),
-                start,
-                end,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
-            )
-        }
-
-        metadata.forEach { badge ->
-            if (builder.isNotEmpty()) builder.append("   ")
-            builder.append(badge)
-        }
-
-        return builder
-    }
 
     private fun capabilityBadges(videoProperties: String?, audioProperties: String?): List<String> {
         val video = videoProperties.orEmpty().lowercase()

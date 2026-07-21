@@ -10,12 +10,9 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import com.bumptech.glide.Glide
-import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.signaldvr.app.R
-import com.signaldvr.app.api.ApiClient
 import com.signaldvr.app.api.Channel
 import com.signaldvr.app.api.NowPlaying
-import com.signaldvr.app.ui.RecordingStatusUi
 import com.signaldvr.app.util.TimeUtil
 import java.util.Date
 
@@ -32,14 +29,11 @@ class QuickGuideOverlayView @JvmOverloads constructor(
     private val badges: TextView
     private val timeRange: TextView
     private val remaining: TextView
-    private val details: TextView
     private val description: TextView
-    private val credits: TextView
     private val nextProgram: TextView
     private val clock: TextView
     private val progress: ProgressBar
     private val channelList: LinearLayout
-    private val artwork: ImageView
 
     private var channels: List<Channel> = emptyList()
     private var selectedIndex = 0
@@ -58,14 +52,11 @@ class QuickGuideOverlayView @JvmOverloads constructor(
         badges = findViewById(R.id.quick_guide_badges)
         timeRange = findViewById(R.id.quick_guide_time)
         remaining = findViewById(R.id.quick_guide_remaining)
-        details = findViewById(R.id.quick_guide_details)
         description = findViewById(R.id.quick_guide_description)
-        credits = findViewById(R.id.quick_guide_credits)
         nextProgram = findViewById(R.id.quick_guide_next)
         clock = findViewById(R.id.quick_guide_clock)
         progress = findViewById(R.id.quick_guide_progress)
         channelList = findViewById(R.id.quick_guide_channel_list)
-        artwork = findViewById(R.id.quick_guide_artwork)
 
         visibility = View.GONE
         isFocusable = true
@@ -92,7 +83,6 @@ class QuickGuideOverlayView @JvmOverloads constructor(
         visibility = View.VISIBLE
         alpha = 0f
         translationX = width.coerceAtLeast(1).toFloat()
-
         animate()
             .alpha(1f)
             .translationX(0f)
@@ -111,8 +101,9 @@ class QuickGuideOverlayView @JvmOverloads constructor(
     fun moveSelection(delta: Int) {
         if (channels.isEmpty()) return
 
-        selectedIndex = (selectedIndex + delta)
-            .coerceIn(0, channels.lastIndex)
+        selectedIndex =
+            (selectedIndex + delta)
+                .coerceIn(0, channels.lastIndex)
 
         renderChannelList()
         updateHeaderFromChannel(channels[selectedIndex])
@@ -132,18 +123,16 @@ class QuickGuideOverlayView @JvmOverloads constructor(
             badges.text = ""
             timeRange.text = ""
             remaining.text = ""
-            details.text = ""
             description.text = ""
-            credits.text = ""
             progress.progress = 0
         } else {
-            title.text = current.title
-                ?.takeIf { it.isNotBlank() }
-                ?: "No guide data"
+            title.text =
+                current.title ?: "No guide data"
 
-            subtitle.text = current.episodeTitle
-                ?.takeIf { it.isNotBlank() }
-                ?: current.subtitle.orEmpty()
+            subtitle.text =
+                current.episodeTitle
+                    ?.takeIf { it.isNotBlank() }
+                    ?: current.subtitle.orEmpty()
 
             val metadata = mutableListOf<String>()
 
@@ -157,145 +146,104 @@ class QuickGuideOverlayView @JvmOverloads constructor(
                 current.season > 0 &&
                 !current.episode.isNullOrBlank()
             ) {
-                metadata += "S${current.season} E${current.episode}"
+                metadata += "S${current.season}E${current.episode}"
             }
 
-            current.rating
+            current.showType
                 ?.takeIf { it.isNotBlank() }
                 ?.let { metadata += it.uppercase() }
 
+            current.rating
+                ?.takeIf { it.isNotBlank() }
+                ?.let { metadata += it }
+
+            current.year
+                .takeIf { it > 0 }
+                ?.let { metadata += it.toString() }
+
             current.genres
-                ?.split(",", "|")
-                ?.map { it.trim() }
-                ?.firstOrNull { it.isNotBlank() }
-                ?.let { metadata += it.uppercase() }
+                ?.takeIf { it.isNotBlank() }
+                ?.let { metadata += it }
 
-            capabilityBadges(
-                current.videoProperties,
-                current.audioProperties,
-            ).forEach {
-                metadata += it
-            }
+            badges.text = metadata.joinToString("  •  ")
 
-            badges.text = RecordingStatusUi.buildBadges(
-                current.recordingStatus,
-                metadata.distinct(),
-            )
+            timeRange.text =
+                buildTimeRange(
+                    current.start,
+                    current.stop
+                )
 
-            timeRange.text = buildTimeRange(
-                current.start,
-                current.stop,
-            )
-
-            progress.progress = TimeUtil.progressPercent(
-                current.start,
-                current.stop,
-            )
+            progress.progress =
+                TimeUtil.progressPercent(
+                    current.start,
+                    current.stop
+                )
 
             val minutesLeft =
                 TimeUtil.minutesRemaining(current.stop)
 
-            remaining.text = when {
-                minutesLeft < 0 -> ""
+            remaining.text =
+                when {
+                    minutesLeft < 0 -> ""
+                    minutesLeft >= 60 ->
+                        "${minutesLeft / 60}h ${minutesLeft % 60}m left"
+                    else ->
+                        "$minutesLeft min left"
+                }
 
-                minutesLeft >= 60 ->
-                    "${minutesLeft / 60}h " +
-                        "${minutesLeft % 60}m left"
-
-                else ->
-                    "$minutesLeft min left"
-            }
-
-            details.text = buildList {
-                current.showType
+            description.text = buildString {
+                current.description
                     ?.takeIf { it.isNotBlank() }
-                    ?.let { add(it) }
-
-                current.runtime
-                    .takeIf { it > 0 }
-                    ?.let { runtimeSeconds ->
-                        val totalMinutes = runtimeSeconds / 60
-                        val hours = totalMinutes / 60
-                        val minutes = totalMinutes % 60
-
-                        add(
-                            when {
-                                hours > 0 && minutes > 0 ->
-                                    "${hours} hr ${minutes} min"
-
-                                hours > 0 ->
-                                    "${hours} hr"
-
-                                else ->
-                                    "${totalMinutes} min"
-                            }
-                        )
-                    }
-
-                current.year
-                    .takeIf { it > 0 }
-                    ?.let { add(it.toString()) }
+                    ?.let { append(it) }
 
                 current.originalAirDate
                     ?.takeIf { it.isNotBlank() }
-                    ?.let { add("Aired ${formatAirDate(it)}") }
-            }.joinToString("  •  ")
+                    ?.let {
+                        if (isNotEmpty()) append("\n\n")
+                        append("Originally aired: ")
+                        append(it)
+                    }
 
-            description.text = current.description
-                ?.takeIf { it.isNotBlank() }
-                ?: "No description available."
-
-            credits.text = buildList {
                 current.cast
                     ?.takeIf { it.isNotBlank() }
                     ?.let {
-                        add(
-                            "Starring ${shortenPeople(it, 3)}"
-                        )
+                        if (isNotEmpty()) append("\n")
+                        append("Cast: ")
+                        append(it)
                     }
 
-                current.directors
+                current.videoProperties
                     ?.takeIf { it.isNotBlank() }
                     ?.let {
-                        add(
-                            "Directed by ${shortenPeople(it, 2)}"
-                        )
+                        if (isNotEmpty()) append("\n")
+                        append("Video: ")
+                        append(it)
                     }
 
-                current.writers
+                current.audioProperties
                     ?.takeIf { it.isNotBlank() }
                     ?.let {
-                        add(
-                            "Written by ${shortenPeople(it, 2)}"
-                        )
+                        if (isNotEmpty()) append("\n")
+                        append("Audio: ")
+                        append(it)
                     }
-            }.joinToString("\n")
+            }
         }
 
-        nextProgram.text = data.next?.title
-            ?.takeIf { it.isNotBlank() }
-            ?.let {
-                val nextTime =
-                    TimeUtil.formatDisplay(data.next.start)
-
-                if (nextTime.isNotBlank()) {
-                    "NEXT  $nextTime  •  $it"
-                } else {
-                    "NEXT  $it"
+        nextProgram.text =
+            data.next?.title
+                ?.takeIf { it.isNotBlank() }
+                ?.let {
+                    "NEXT  $it  •  ${
+                        TimeUtil.formatDisplay(data.next.start)
+                    }"
                 }
-            }
-            ?: ""
+                ?: ""
 
         clock.text = TimeUtil.formatDisplay(Date())
-
-        loadArtwork(data)
     }
 
     fun showLoading(channel: Channel) {
-        Glide.with(this).clear(artwork)
-        artwork.setImageDrawable(null)
-        artwork.visibility = View.GONE
-
         channelNumber.text = channel.number
         channelName.text = channel.name
         title.text = channel.nowTitle ?: "Loading guide…"
@@ -303,31 +251,23 @@ class QuickGuideOverlayView @JvmOverloads constructor(
         badges.text = ""
         timeRange.text = ""
         remaining.text = ""
-        details.text = ""
         description.text = ""
-        credits.text = ""
-
-        nextProgram.text = channel.nextTitle
-            ?.takeIf { it.isNotBlank() }
-            ?.let { "NEXT  $it" }
-            ?: ""
-
+        nextProgram.text =
+            channel.nextTitle
+                ?.takeIf { it.isNotBlank() }
+                ?.let { "NEXT  $it" }
+                ?: ""
         progress.progress = 0
         clock.text = TimeUtil.formatDisplay(Date())
     }
 
     fun hide() {
-        dismissRunnable?.let {
-            removeCallbacks(it)
-        }
-
+        dismissRunnable?.let { removeCallbacks(it) }
         dismissRunnable = null
 
         animate()
             .alpha(0f)
-            .translationX(
-                width.coerceAtLeast(1).toFloat()
-            )
+            .translationX(width.coerceAtLeast(1).toFloat())
             .setDuration(160L)
             .withEndAction {
                 visibility = View.GONE
@@ -343,17 +283,19 @@ class QuickGuideOverlayView @JvmOverloads constructor(
         }
     }
 
-    private fun updateHeaderFromChannel(
-        channel: Channel?,
-    ) {
+    private fun updateHeaderFromChannel(channel: Channel?) {
         if (channel == null) return
-
         channelNumber.text = channel.number
         channelName.text = channel.name
         clock.text = TimeUtil.formatDisplay(Date())
     }
 
     private fun renderChannelList() {
+        /*
+         * The metadata area above the channel list changes height depending
+         * on the selected program. Wait until Android has measured the
+         * remaining channel-list space, then render only the rows that fit.
+         */
         channelList.post {
             renderMeasuredChannelList()
         }
@@ -367,9 +309,7 @@ class QuickGuideOverlayView @JvmOverloads constructor(
                 text = "No channels"
                 textSize = 16f
                 setTextColor(0xFFBBBBBB.toInt())
-                gravity =
-                    android.view.Gravity.CENTER_VERTICAL
-
+                gravity = android.view.Gravity.CENTER_VERTICAL
                 setPadding(
                     dpToPx(16),
                     dpToPx(10),
@@ -383,12 +323,16 @@ class QuickGuideOverlayView @JvmOverloads constructor(
         }
 
         val rowHeight = dpToPx(30)
+
+        /*
+         * Always show exactly three channels when possible:
+         * previous, selected, and next.
+         */
         val visibleRows = minOf(3, channels.size)
         val halfWindow = 1
 
         val maxFirstIndex =
-            (channels.size - visibleRows)
-                .coerceAtLeast(0)
+            (channels.size - visibleRows).coerceAtLeast(0)
 
         val firstIndex =
             (selectedIndex - halfWindow)
@@ -401,13 +345,11 @@ class QuickGuideOverlayView @JvmOverloads constructor(
         for (index in firstIndex..lastIndex) {
             val channel = channels[index]
             val selected = index == selectedIndex
-            val playing =
-                channel.number == playingChannel
+            val playing = channel.number == playingChannel
 
             val row = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
-                gravity =
-                    android.view.Gravity.CENTER_VERTICAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
 
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
@@ -441,14 +383,10 @@ class QuickGuideOverlayView @JvmOverloads constructor(
                     marginEnd = dpToPx(7)
                 }
 
-                scaleType =
-                    ImageView.ScaleType.FIT_CENTER
-
+                scaleType = ImageView.ScaleType.FIT_CENTER
                 adjustViewBounds = true
-
                 contentDescription =
-                    "${channel.number} " +
-                        "${channel.name} logo"
+                    "${channel.number} ${channel.name} logo"
             }
 
             val label = TextView(context).apply {
@@ -472,8 +410,7 @@ class QuickGuideOverlayView @JvmOverloads constructor(
                     }
                 }
 
-                textSize =
-                    if (selected) 14.5f else 13.5f
+                textSize = if (selected) 14.5f else 13.5f
 
                 setTextColor(
                     if (selected) {
@@ -485,7 +422,6 @@ class QuickGuideOverlayView @JvmOverloads constructor(
 
                 maxLines = 1
                 isSingleLine = true
-
                 ellipsize =
                     android.text.TextUtils.TruncateAt.END
 
@@ -508,70 +444,14 @@ class QuickGuideOverlayView @JvmOverloads constructor(
         }
     }
 
-    private fun loadArtwork(data: NowPlaying) {
-        val rawArtwork = data.current?.artwork
-            ?.trim()
-            ?.takeIf {
-                it.isNotBlank() &&
-                    !it.equals(
-                        "true",
-                        ignoreCase = true,
-                    ) &&
-                    !it.equals(
-                        "false",
-                        ignoreCase = true,
-                    )
-            }
-
-        val baseUrl = ApiClient
-            .getBaseUrl(context)
-            .trimEnd('/')
-
-        val artworkUrl = when {
-            rawArtwork == null ->
-                null
-
-            rawArtwork.startsWith("http://") ||
-                rawArtwork.startsWith("https://") ->
-                rawArtwork
-
-            rawArtwork.startsWith("/") ->
-                baseUrl + rawArtwork
-
-            else ->
-                "$baseUrl/${rawArtwork.trimStart('/')}"
-        }
-
-        Glide.with(this).clear(artwork)
-
-        if (artworkUrl == null) {
-            artwork.setImageDrawable(null)
-            artwork.visibility = View.GONE
-            return
-        }
-
-        artwork.visibility = View.VISIBLE
-
-        Glide.with(this)
-            .load(artworkUrl)
-            .diskCacheStrategy(
-                DiskCacheStrategy.ALL
-            )
-            .skipMemoryCache(false)
-            .fitCenter()
-            .into(artwork)
-    }
-
     private fun dpToPx(dp: Int): Int {
         return (
-            dp * resources.displayMetrics.density
-        ).toInt()
+                dp * resources.displayMetrics.density
+                ).toInt()
     }
 
     private fun scheduleDismiss(delayMs: Long) {
-        dismissRunnable?.let {
-            removeCallbacks(it)
-        }
+        dismissRunnable?.let { removeCallbacks(it) }
 
         dismissRunnable = Runnable {
             hide()
@@ -580,122 +460,18 @@ class QuickGuideOverlayView @JvmOverloads constructor(
         }
     }
 
-
-    private fun capabilityBadges(
-        videoProperties: String?,
-        audioProperties: String?,
-    ): List<String> {
-        val video =
-            videoProperties.orEmpty().lowercase()
-
-        val audio =
-            audioProperties.orEmpty().lowercase()
-
-        val result = mutableListOf<String>()
-
-        when {
-            "2160" in video ||
-                "uhd" in video ||
-                "4k" in video ->
-                result += "4K"
-
-            "1080" in video ||
-                "720" in video ||
-                "hd" in video ->
-                result += "HD"
-        }
-
-        if (
-            "5.1" in audio ||
-            "surround" in audio ||
-            "dolby" in audio ||
-            "ac3" in audio
-        ) {
-            result += "5.1"
-        }
-
-        if (
-            "cc" in video ||
-            "caption" in video ||
-            "closed" in video
-        ) {
-            result += "CC"
-        }
-
-        return result
-    }
-
-    private fun shortenPeople(
-        value: String,
-        limit: Int,
-    ): String {
-        val people = value
-            .split(",", "|", ";")
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
-
-        if (people.size <= limit) {
-            return people.joinToString(", ")
-        }
-
-        return people
-            .take(limit)
-            .joinToString(", ") +
-            " +${people.size - limit}"
-    }
-
-    private fun formatAirDate(value: String): String {
-        val parts = value.trim().split("-")
-
-        if (parts.size != 3) {
-            return value
-        }
-
-        val year = parts[0].toIntOrNull()
-            ?: return value
-
-        val month = parts[1].toIntOrNull()
-            ?: return value
-
-        val day = parts[2].toIntOrNull()
-            ?: return value
-
-        val monthName = listOf(
-            "January",
-            "February",
-            "March",
-            "April",
-            "May",
-            "June",
-            "July",
-            "August",
-            "September",
-            "October",
-            "November",
-            "December",
-        ).getOrNull(month - 1)
-            ?: return value
-
-        return "$monthName $day, $year"
-    }
     private fun buildTimeRange(
         start: String?,
         stop: String?,
     ): String {
-        val startLabel =
-            TimeUtil.formatDisplay(start)
-
-        val stopLabel =
-            TimeUtil.formatDisplay(stop)
+        val startLabel = TimeUtil.formatDisplay(start)
+        val stopLabel = TimeUtil.formatDisplay(stop)
 
         return when {
-            startLabel.isNotBlank() &&
-                stopLabel.isNotBlank() ->
+            startLabel.isNotBlank() && stopLabel.isNotBlank() ->
                 "$startLabel – $stopLabel"
-
             startLabel.isNotBlank() ->
                 startLabel
-
             else ->
                 ""
         }

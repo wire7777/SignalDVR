@@ -1,6 +1,7 @@
 package com.signaldvr.app.ui.player.controller
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.os.Handler
 import android.view.View
 import android.widget.ProgressBar
@@ -159,6 +160,18 @@ class PlayerUiController(
         timelineView.setProgramInfo(title, subtitle)
     }
 
+    fun setTimelineChannel(
+        logo: Bitmap?,
+        channelName: String,
+        channelNumber: String
+    ) {
+        timelineView.setChannelIdentity(
+            logo = logo,
+            name = channelName,
+            number = channelNumber
+        )
+    }
+
     fun updateTimeline(
         isLive: Boolean,
         behindLiveSeconds: Int,
@@ -171,6 +184,10 @@ class PlayerUiController(
         )
     }
 
+
+    fun setTimelinePaused(paused: Boolean) {
+        timelineView.setPaused(paused)
+    }
 
     fun updateMediaTimeline(positionMs: Long, durationMs: Long) {
         timelineView.setMediaProgress(positionMs, durationMs)

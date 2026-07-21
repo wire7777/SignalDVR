@@ -2,6 +2,7 @@ package com.signaldvr.app.ui.player
 
 import android.animation.ValueAnimator
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
@@ -65,6 +66,13 @@ class TimelineView @JvmOverloads constructor(
         isFakeBoldText = true
     }
 
+    private val watchingTimePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFFFFFFFF.toInt()
+        textSize = 22f
+        textAlign = Paint.Align.CENTER
+        isFakeBoldText = true
+    }
+
     private val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = 0x2BFFFFFF
         strokeCap = Paint.Cap.ROUND
@@ -123,6 +131,10 @@ class TimelineView @JvmOverloads constructor(
     private var programTitle = "Now Playing"
     private var programSubtitle = ""
 
+    private var channelLogo: Bitmap? = null
+    private var channelName = ""
+    private var channelNumber = ""
+
     private var isLive = true
     private var behindLiveSeconds = 0
     private var isRecordingPlayback = false
@@ -133,15 +145,30 @@ class TimelineView @JvmOverloads constructor(
     private var isPreviewing = false
     private var previewBehindLiveSeconds = 0
 
+    private var isPaused = false
+    private var pausedWatchingEpochMs: Long? = null
+
     private var displayedFraction = 1f
     private var targetFraction = 1f
     private var animator: ValueAnimator? = null
 
     private val timeFormatter = SimpleDateFormat("h:mm a", Locale.getDefault())
+    private val clockFormatter = SimpleDateFormat("h:mm:ss a", Locale.getDefault())
 
     fun setProgramInfo(title: String, subtitle: String = "") {
         programTitle = title.ifBlank { "Now Playing" }
         programSubtitle = subtitle
+        invalidate()
+    }
+
+    fun setChannelIdentity(
+        logo: Bitmap?,
+        name: String,
+        number: String
+    ) {
+        channelLogo = logo
+        channelName = name
+        channelNumber = number
         invalidate()
     }
 
@@ -159,6 +186,34 @@ class TimelineView @JvmOverloads constructor(
         } else {
             animateTo(playbackPositionFraction())
         }
+    }
+
+    fun setPaused(paused: Boolean) {
+        if (isRecordingPlayback) {
+            isPaused = paused
+            invalidate()
+            return
+        }
+
+        if (paused == isPaused) {
+            return
+        }
+
+        if (paused) {
+            pausedWatchingEpochMs = watchingEpochMs()
+            isPaused = true
+        } else {
+            val frozenWatching = pausedWatchingEpochMs
+            if (frozenWatching != null) {
+                behindLiveSeconds = ((System.currentTimeMillis() - frozenWatching) / 1000L)
+                    .coerceAtLeast(0L)
+                    .toInt()
+            }
+            pausedWatchingEpochMs = null
+            isPaused = false
+        }
+
+        invalidate()
     }
 
     fun setMediaProgress(positionMs: Long, durationMs: Long) {
@@ -234,6 +289,7 @@ class TimelineView @JvmOverloads constructor(
         drawLabels(canvas, startX, endX, labelY, pulse)
         drawStatus(canvas, startX, endX, labelY)
         drawTimeline(canvas, startX, endX, trackY, playheadX, pulse)
+        drawWatchingClock(canvas, startX, endX, trackY, playheadX)
 
         // Keep live pulse alive. Playback mode is updated by PlayerActivity from VLC time.
         if (!isRecordingPlayback) {
@@ -241,10 +297,40 @@ class TimelineView @JvmOverloads constructor(
         }
     }
 
-    private fun drawProgramInfo(canvas: Canvas, startX: Float, titleY: Float, subtitleY: Float) {
-        canvas.drawText(programTitle, startX, titleY, titlePaint)
-        if (programSubtitle.isNotBlank()) {
-            canvas.drawText(programSubtitle, startX, subtitleY, subtitlePaint)
+    private fun drawProgramInfo(
+        canvas: Canvas,
+        startX: Float,
+        titleY: Float,
+        subtitleY: Float
+    ) {
+        val logo = channelLogo
+        val logoSize = 44f
+        var textStartX = startX
+
+        if (logo != null && !logo.isRecycled) {
+            val scale = min(
+                logoSize / logo.width.toFloat(),
+                logoSize / logo.height.toFloat()
+            )
+            val drawWidth = logo.width * scale
+            val drawHeight = logo.height * scale
+            val top = 7f
+            val dst = RectF(
+                startX,
+                top,
+                startX + drawWidth,
+                top + drawHeight
+            )
+            canvas.drawBitmap(logo, null, dst, null)
+            textStartX = startX + logoSize + 14f
+        }
+
+        val station = channelName.ifBlank { programTitle }
+        canvas.drawText(station, textStartX, titleY, titlePaint)
+
+        val channelText = channelNumber.ifBlank { programSubtitle }
+        if (channelText.isNotBlank()) {
+            canvas.drawText(channelText, textStartX, subtitleY, subtitlePaint)
         }
     }
 
@@ -263,10 +349,15 @@ class TimelineView @JvmOverloads constructor(
                 rightLabelPaint
             )
         } else {
-            canvas.drawText(leftTimeLabel(), startX, labelY, labelPaint)
             liveLabelPaint.color = 0xFF00E676.toInt()
-            canvas.drawCircle(endX - 58f, labelY - 7f, 5f + (pulse * 2f), liveDotPaint)
-            canvas.drawText("LIVE", endX, labelY, liveLabelPaint)
+            val liveText = "${clockFormatter.format(Date(System.currentTimeMillis()))}  •  LIVE"
+            canvas.drawCircle(
+                endX - liveLabelPaint.measureText(liveText) - 14f,
+                labelY - 7f,
+                5f + (pulse * 2f),
+                liveDotPaint
+            )
+            canvas.drawText(liveText, endX, labelY, liveLabelPaint)
         }
     }
 
@@ -276,8 +367,9 @@ class TimelineView @JvmOverloads constructor(
         } else {
             when {
                 isPreviewing -> "PREVIEW • ${behindLabel(previewBehindLiveSeconds)} BEHIND LIVE"
-                isLive || behindLiveSeconds <= 0 -> "● LIVE"
-                else -> "● ${behindLabel(behindLiveSeconds)} BEHIND LIVE"
+                isPaused -> "PAUSED • ${behindLabel(effectiveBehindLiveSeconds())} BEHIND LIVE"
+                isLive || effectiveBehindLiveSeconds() <= 0 -> "● LIVE"
+                else -> "● ${behindLabel(effectiveBehindLiveSeconds())} BEHIND LIVE"
             }
         }
 
@@ -351,6 +443,42 @@ class TimelineView @JvmOverloads constructor(
         canvas.drawOval(headRect, playheadPaint)
     }
 
+
+    private fun drawWatchingClock(
+        canvas: Canvas,
+        startX: Float,
+        endX: Float,
+        trackY: Float,
+        playheadX: Float
+    ) {
+        if (isRecordingPlayback) return
+
+        val text = if (isPreviewing) {
+            "SEEK  ${clockFormatter.format(Date(System.currentTimeMillis() - previewBehindLiveSeconds * 1000L))}"
+        } else {
+            "WATCHING  ${clockFormatter.format(Date(watchingEpochMs()))}"
+        }
+
+        val halfWidth = watchingTimePaint.measureText(text) / 2f
+        val safeX = playheadX.coerceIn(startX + halfWidth, endX - halfWidth)
+        canvas.drawText(text, safeX, trackY - 24f, watchingTimePaint)
+    }
+
+    private fun watchingEpochMs(): Long {
+        pausedWatchingEpochMs?.let { return it }
+        return System.currentTimeMillis() - (effectiveBehindLiveSeconds().toLong() * 1000L)
+    }
+
+    private fun effectiveBehindLiveSeconds(): Int {
+        val frozenWatching = pausedWatchingEpochMs
+        if (isPaused && frozenWatching != null) {
+            return ((System.currentTimeMillis() - frozenWatching) / 1000L)
+                .coerceAtLeast(0L)
+                .toInt()
+        }
+        return max(0, behindLiveSeconds)
+    }
+
     private fun animateTo(newFraction: Float) {
         val clamped = newFraction.coerceIn(0f, 1f)
         if (targetFraction == clamped) {
@@ -374,7 +502,7 @@ class TimelineView @JvmOverloads constructor(
     private fun livePositionFraction(): Float {
         if (isLive || behindLiveSeconds <= 0) return 1f
 
-        val fractionBehind = behindLiveSeconds / VISIBLE_WINDOW_SECONDS.toFloat()
+        val fractionBehind = effectiveBehindLiveSeconds() / VISIBLE_WINDOW_SECONDS.toFloat()
         return min(1f, max(0f, 1f - fractionBehind))
     }
 
@@ -390,11 +518,6 @@ class TimelineView @JvmOverloads constructor(
         return min(1f, max(0f, 1f - fractionBehind))
     }
 
-    private fun leftTimeLabel(): String {
-        val now = System.currentTimeMillis()
-        val bufferStart = now - (VISIBLE_WINDOW_SECONDS.toLong() * 1000L)
-        return timeFormatter.format(Date(bufferStart))
-    }
 
     private fun behindLabel(secondsBehind: Int): String {
         val safeSeconds = max(0, secondsBehind)

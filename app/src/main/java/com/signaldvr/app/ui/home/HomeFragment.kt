@@ -107,11 +107,11 @@ class HomeAdapter(
                     else R.drawable.bg_channel_normal
                 )
 
-                itemView.animate()
-                    .scaleX(if (hasFocus) 1.025f else 1f)
-                    .scaleY(if (hasFocus) 1.025f else 1f)
-                    .setDuration(120L)
-                    .start()
+                // Keep the focused border fully inside the TV-safe area.
+                // Scaling the whole card caused its edges to be clipped.
+                itemView.animate().cancel()
+                itemView.scaleX = 1f
+                itemView.scaleY = 1f
 
                 icon.animate()
                     .scaleX(if (hasFocus) 1.10f else 1f)

@@ -27,7 +27,7 @@ object RecordingStatusUi {
             "recorded" -> Style(
                 badgeText = "RECORDED",
                 buttonText = "RECORDED",
-                guideText = "✓",
+                guideText = "● DONE",
                 color = 0xFF66BB6A.toInt(),
             )
 
@@ -36,6 +36,20 @@ object RecordingStatusUi {
                 buttonText = "SCHEDULED",
                 guideText = "● SCH",
                 color = 0xFF64B5F6.toInt(),
+            )
+
+            "series" -> Style(
+                badgeText = "SERIES",
+                buttonText = "RECORD SERIES",
+                guideText = "● SER",
+                color = 0xFFBA68C8.toInt(),
+            )
+
+            "series_new" -> Style(
+                badgeText = "NEW EPISODES",
+                buttonText = "RECORD NEW",
+                guideText = "● NEW",
+                color = 0xFFFFB74D.toInt(),
             )
 
             else -> null
