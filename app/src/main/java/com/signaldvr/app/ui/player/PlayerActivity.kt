@@ -20,10 +20,16 @@ import com.signaldvr.app.MainActivity
 import com.signaldvr.app.api.ApiClient
 import com.signaldvr.app.api.Channel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.media3.ui.PlayerView
+import com.bumptech.glide.Glide
+import com.bumptech.glide.request.target.CustomTarget
+import com.bumptech.glide.request.transition.Transition
+import android.graphics.Bitmap
+import android.graphics.drawable.Drawable
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -69,6 +75,14 @@ class PlayerActivity : AppCompatActivity() {
     private var reconnecting = false
     private var userPaused = false
     private var playbackControllerReady = false
+
+    /*
+     * Every live DVR seek/jump receives a new generation number.
+     * A response from an older request is ignored so an earlier rewind
+     * cannot arrive after a newer fast-forward or Jump Live operation.
+     */
+    private var liveSeekGeneration = 0L
+    private var liveSeekJob: Job? = null
 
     private var quickGuideChannels: List<Channel> = emptyList()
     private var quickGuideRequestToken = 0
@@ -129,8 +143,8 @@ class PlayerActivity : AppCompatActivity() {
                 onTogglePlayPause = { togglePlayPause() },
                 onPlay = { if (playbackControllerReady) playbackController.play() },
                 onPause = { if (playbackControllerReady) playbackController.pause() },
-                onRewind10 = { rewindSeconds(10) },
-                onFastForward10 = { fastForwardSeconds(10) },
+                onRewind = { seconds -> rewindSeconds(seconds) },
+                onFastForward = { seconds -> fastForwardSeconds(seconds) },
                 onShowGuide = { showGuideOverlay() },
                 onFinish = { exitPlayer() }
             )
@@ -276,12 +290,16 @@ class PlayerActivity : AppCompatActivity() {
                 ?: "Live TV"
 
         val timelineSubtitle =
-            if (channelNum.isNotBlank()) "Channel $channelNum" else ""
+            if (channelNum.isNotBlank()) channelNum else ""
 
         playerUiController.setTimelineInfo(
             timelineTitle,
             timelineSubtitle
         )
+
+        if (requestedIsLive) {
+            updateTimelineChannelIdentity()
+        }
 
         val directUrl = intent.getStringExtra(EXTRA_PLAY_URL)
 
@@ -331,6 +349,56 @@ class PlayerActivity : AppCompatActivity() {
         tvPosition = findViewById(R.id.tv_position)
         timelineView = findViewById(R.id.timelineView)
     }
+
+    private fun updateTimelineChannelIdentity() {
+        playerUiController.setTimelineChannel(
+            logo = null,
+            channelName = channelName,
+            channelNumber = channelNum
+        )
+
+        lifecycleScope.launch {
+            try {
+                if (quickGuideChannels.isEmpty()) {
+                    quickGuideChannels = ApiClient
+                        .getApi(this@PlayerActivity)
+                        .getLiveChannels()
+                }
+
+                val channel = quickGuideChannels.firstOrNull {
+                    it.number == channelNum
+                } ?: return@launch
+
+                val logoUrl = channel.logo
+                if (logoUrl.isNullOrBlank()) {
+                    return@launch
+                }
+
+                Glide.with(this@PlayerActivity)
+                    .asBitmap()
+                    .load(logoUrl)
+                    .into(object : CustomTarget<Bitmap>() {
+                        override fun onResourceReady(
+                            resource: Bitmap,
+                            transition: Transition<in Bitmap>?
+                        ) {
+                            if (!isFinishing && !isDestroyed && channelNum == channel.number) {
+                                playerUiController.setTimelineChannel(
+                                    logo = resource,
+                                    channelName = channel.name,
+                                    channelNumber = channel.number
+                                )
+                            }
+                        }
+
+                        override fun onLoadCleared(placeholder: Drawable?) = Unit
+                    })
+            } catch (_: Exception) {
+                // Keep the clean text-only identity if logo loading fails.
+            }
+        }
+    }
+
 
     private fun startLiveStream() {
         playerEngine.setMuted(false)
@@ -455,55 +523,119 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun rewindSeconds(seconds: Int) {
-        playbackController.rewind(
-            seconds = seconds,
-            isRecordingPlayback = isRecordingPlayback,
-            currentBehindLiveSeconds = behindLiveSeconds,
-            onRecordingSeek = {
-                updateMediaProgress()
-                playerUiController.scheduleDvrDismiss()
-            },
-            onSeekBehindLive = { newBehindLiveSeconds ->
-                behindLiveSeconds = newBehindLiveSeconds
-                seekBehindLive(newBehindLiveSeconds)
+        showSeekMovementIndicator(direction = "REW", deltaSeconds = -seconds)
+
+        if (isRecordingPlayback) {
+            playbackController.seekRecordingRelative(-seconds)
+            updateMediaProgress()
+            playerUiController.scheduleDvrDismiss()
+            return
+        }
+
+        playbackController.scheduleLiveRelativeSeek(
+            deltaSeconds = -seconds,
+            onRelativeSeek = { deltaSeconds ->
+                performLiveRelativeSeek(deltaSeconds)
             }
         )
+
+        playerUiController.scheduleDvrDismiss()
     }
 
     private fun fastForwardSeconds(seconds: Int) {
-        playbackController.fastForward(
-            seconds = seconds,
-            isRecordingPlayback = isRecordingPlayback,
-            currentBehindLiveSeconds = behindLiveSeconds,
-            onRecordingSeek = {
-                updateMediaProgress()
-                playerUiController.scheduleDvrDismiss()
-            },
-            onJumpLive = {
-                jumpLive()
-            },
-            onSeekBehindLive = { newBehindLiveSeconds ->
-                behindLiveSeconds = newBehindLiveSeconds
-                seekBehindLive(newBehindLiveSeconds)
+        showSeekMovementIndicator(direction = "FF", deltaSeconds = seconds)
+
+        if (isRecordingPlayback) {
+            playbackController.seekRecordingRelative(seconds)
+            updateMediaProgress()
+            playerUiController.scheduleDvrDismiss()
+            return
+        }
+
+        playbackController.scheduleLiveRelativeSeek(
+            deltaSeconds = seconds,
+            onRelativeSeek = { deltaSeconds ->
+                performLiveRelativeSeek(deltaSeconds)
             }
         )
+
+        playerUiController.scheduleDvrDismiss()
     }
 
-    private fun seekBehindLive(secondsBehindLive: Int) {
+    private fun showSeekMovementIndicator(direction: String, deltaSeconds: Int) {
+        playerUiController.showDvrBar()
+
+        val stepSeconds = kotlin.math.abs(deltaSeconds)
+        val location = if (isRecordingPlayback) {
+            val durationMs = playbackController.durationMs().coerceAtLeast(0L)
+            val projectedMs = (
+                    playbackController.currentPositionMs() + (deltaSeconds * 1000L)
+                    ).coerceIn(0L, if (durationMs > 0L) durationMs else Long.MAX_VALUE)
+
+            formatSeekPosition(projectedMs)
+        } else {
+            val projectedBehind = (behindLiveSeconds - deltaSeconds).coerceAtLeast(0)
+            if (projectedBehind == 0) "LIVE" else "${formatSeekSeconds(projectedBehind)} behind"
+        }
+
+        playerUiController.updatePositionLabel("$direction ${stepSeconds}s  •  $location")
+        playerUiController.scheduleDvrDismiss()
+    }
+
+    private fun formatSeekPosition(positionMs: Long): String {
+        return formatSeekSeconds((positionMs / 1000L).coerceAtLeast(0L).toInt())
+    }
+
+    private fun formatSeekSeconds(totalSeconds: Int): String {
+        val safeSeconds = totalSeconds.coerceAtLeast(0)
+        val hours = safeSeconds / 3600
+        val minutes = (safeSeconds % 3600) / 60
+        val seconds = safeSeconds % 60
+
+        return if (hours > 0) {
+            "%d:%02d:%02d".format(hours, minutes, seconds)
+        } else {
+            "%d:%02d".format(minutes, seconds)
+        }
+    }
+
+    private fun performLiveRelativeSeek(deltaSeconds: Int) {
+        val generation = ++liveSeekGeneration
+
+        /*
+         * Rapid remote presses are combined by PlaybackController.
+         * Only the newest server response may update playback.
+         */
+        liveSeekJob?.cancel()
         playerUiController.showLoadingDelayed("Seeking...")
 
-        lifecycleScope.launch {
-            playbackController.seekBehindLive(
-                secondsBehindLive = secondsBehindLive,
-                onError = { message ->
+        liveSeekJob = lifecycleScope.launch {
+            playbackController.seekLiveRelative(
+                deltaSeconds = deltaSeconds,
+                onError = seekError@ { message ->
+                    if (generation != liveSeekGeneration) {
+                        return@seekError
+                    }
+
+                    liveSeekJob = null
                     playerUiController.hideLoading()
                     playerUiController.showLongToast(message)
                 },
-                onSeek = { url, behindSeconds ->
+                onSeek = seekSuccess@ { url, behindSeconds, live ->
+                    if (generation != liveSeekGeneration) {
+                        return@seekSuccess
+                    }
+
+                    liveSeekJob = null
                     playerUiController.hideLoading()
-                    isLiveMode = false
+
+                    isLiveMode = live
                     behindLiveSeconds = behindSeconds
                     currentUrl = url
+
+                    if (live) {
+                        liveUrl = url
+                    }
 
                     updatePositionLabel()
                     playerUiController.scheduleDvrDismiss()
@@ -540,10 +672,12 @@ class PlayerActivity : AppCompatActivity() {
                 reconnecting = false
                 playerUiController.hideLoading()
                 playerUiController.showPlayIcon()
+                playerUiController.setTimelinePaused(true)
             },
             onPlaying = {
                 userPaused = false
                 playerUiController.showPauseIcon()
+                playerUiController.setTimelinePaused(false)
             },
             onError = { message ->
                 playerUiController.showLongToast(message)
@@ -554,20 +688,46 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun jumpLive() {
+        /*
+         * Invalidate both a queued debounce seek and any network request that
+         * is still returning. This prevents an old rewind response from
+         * switching the player back to delayed_live.m3u8 after Fast Forward
+         * has already reached LIVE.
+         */
+        playbackController.cancelPendingLiveSeek()
+
+        val generation = ++liveSeekGeneration
+        liveSeekJob?.cancel()
+
         playerUiController.showLoadingDelayed("Jumping Live...")
 
-        lifecycleScope.launch {
+        liveSeekJob = lifecycleScope.launch {
             playbackController.jumpLive(
                 isRecordingPlayback = isRecordingPlayback,
-                onNotAvailable = {
+                onNotAvailable = liveUnavailable@ {
+                    if (generation != liveSeekGeneration) {
+                        return@liveUnavailable
+                    }
+
+                    liveSeekJob = null
                     playerUiController.hideLoading()
                     playerUiController.showShortToast("Live only while watching TV")
                 },
-                onError = { message ->
+                onError = liveError@ { message ->
+                    if (generation != liveSeekGeneration) {
+                        return@liveError
+                    }
+
+                    liveSeekJob = null
                     playerUiController.hideLoading()
                     playerUiController.showLongToast(message)
                 },
-                onLive = { url ->
+                onLive = liveSuccess@ { url ->
+                    if (generation != liveSeekGeneration) {
+                        return@liveSuccess
+                    }
+
+                    liveSeekJob = null
                     playerUiController.hideLoading()
                     liveUrl = url
                     currentUrl = liveUrl
@@ -886,8 +1046,9 @@ class PlayerActivity : AppCompatActivity() {
 
         playerUiController.setTimelineInfo(
             selected.nowTitle?.takeIf { it.isNotBlank() } ?: selected.name,
-            "Channel ${selected.number}",
+            selected.number,
         )
+        updateTimelineChannelIdentity()
 
         playerEngine.stop()
         startLiveStream()
@@ -921,8 +1082,9 @@ class PlayerActivity : AppCompatActivity() {
             selected.nowTitle
                 ?.takeIf { it.isNotBlank() }
                 ?: selected.name,
-            "Channel ${selected.number}",
+            selected.number,
         )
+        updateTimelineChannelIdentity()
 
         playerEngine.stop()
         startLiveStream()
@@ -1002,6 +1164,7 @@ class PlayerActivity : AppCompatActivity() {
 
         return remoteControlController.handleKeyDown(
             keyCode = keyCode,
+            repeatCount = event?.repeatCount ?: 0,
             isDvrBarVisible = dvrBar.visibility == View.VISIBLE,
         ) ?: super.onKeyDown(keyCode, event)
     }
@@ -1041,6 +1204,8 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        liveSeekJob?.cancel()
+        liveSeekJob = null
         quickGuide.hide()
         super.onDestroy()
 
