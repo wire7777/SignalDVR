@@ -438,6 +438,138 @@ class PlaybackController(
         }
     }
 
+
+    suspend fun getGuideRecordOptions(
+        programId: Int,
+        onLoaded: (com.signaldvr.app.api.GuideRecordOptionsResponse) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        try {
+            val response = ApiClient
+                .getApi(context)
+                .getGuideRecordOptions(programId)
+
+            handler.post {
+                if (response.ok) {
+                    onLoaded(response)
+                } else {
+                    onError(response.error ?: "Could not load recording options")
+                }
+            }
+        } catch (e: Exception) {
+            handler.post {
+                onError("Recording options failed: ${e.message}")
+            }
+        }
+    }
+
+    suspend fun recordGuideEpisode(
+        programId: Int,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        runGuideRecordAction(
+            action = {
+                ApiClient.getApi(context).recordGuideProgramOnce(
+                    programId,
+                    com.signaldvr.app.api.GuideRecordRequest("once")
+                )
+            },
+            defaultSuccess = "Episode scheduled",
+            onSuccess = onSuccess,
+            onError = onError
+        )
+    }
+
+    suspend fun recordGuideSeries(
+        programId: Int,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        runGuideRecordAction(
+            action = {
+                ApiClient.getApi(context).recordGuideProgramSeries(
+                    programId,
+                    com.signaldvr.app.api.GuideRecordRequest("series")
+                )
+            },
+            defaultSuccess = "Series recording scheduled",
+            onSuccess = onSuccess,
+            onError = onError
+        )
+    }
+
+    suspend fun recordGuideNewEpisodes(
+        programId: Int,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        runGuideRecordAction(
+            action = {
+                ApiClient.getApi(context).recordGuideProgramNewEpisodes(
+                    programId,
+                    com.signaldvr.app.api.GuideRecordRequest("new")
+                )
+            },
+            defaultSuccess = "New episodes will be recorded",
+            onSuccess = onSuccess,
+            onError = onError
+        )
+    }
+
+    suspend fun cancelGuideEpisode(
+        programId: Int,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        runGuideRecordAction(
+            action = {
+                ApiClient.getApi(context).cancelGuideProgramRecording(programId)
+            },
+            defaultSuccess = "Episode recording cancelled",
+            onSuccess = onSuccess,
+            onError = onError
+        )
+    }
+
+    suspend fun cancelGuideSeries(
+        seriesId: Int,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        runGuideRecordAction(
+            action = {
+                ApiClient.getApi(context).deleteSeriesRule(seriesId)
+            },
+            defaultSuccess = "Series recording cancelled",
+            onSuccess = onSuccess,
+            onError = onError
+        )
+    }
+
+    private suspend fun runGuideRecordAction(
+        action: suspend () -> com.signaldvr.app.api.GuideRecordActionResponse,
+        defaultSuccess: String,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        try {
+            val response = action()
+
+            handler.post {
+                if (response.ok) {
+                    onSuccess(response.message ?: defaultSuccess)
+                } else {
+                    onError(response.error ?: "Recording action failed")
+                }
+            }
+        } catch (e: Exception) {
+            handler.post {
+                onError("Recording action failed: ${e.message}")
+            }
+        }
+    }
+
     suspend fun refreshRecordingStatus(
         onRecording: () -> Unit,
         onNotRecording: () -> Unit,

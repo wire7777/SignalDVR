@@ -35,7 +35,6 @@ interface SignalDvrApi {
         @Path("channel") channel: String,
     ): List<EpgProgram>
 
-
     @GET("api/guide/program/{programId}/record-options")
     suspend fun getGuideRecordOptions(
         @Path("programId") programId: Int,
@@ -64,20 +63,30 @@ interface SignalDvrApi {
         @Path("programId") programId: Int,
     ): GuideRecordActionResponse
 
+
+    @GET("api/series")
+    suspend fun getSeriesRecordingRules(): SeriesRecordingListResponse
+
+    @POST("api/series/{seriesId}")
+    suspend fun updateSeriesRecordingRule(
+        @Path("seriesId") seriesId: Int,
+        @Body request: SeriesRecordingUpdateRequest,
+    ): SeriesRecordingUpdateResponse
+
     @DELETE("api/series/{seriesId}")
     suspend fun deleteSeriesRule(
         @Path("seriesId") seriesId: Int,
     ): GuideRecordActionResponse
 
-    @POST("api/kodi/record/start/{channel}")
+    @POST("api/recordings/start/{channel}")
     suspend fun recordStart(
         @Path("channel") channel: String,
     ): RecordStatus
 
-    @POST("api/kodi/record/stop")
+    @POST("api/recordings/stop")
     suspend fun recordStop(): RecordStatus
 
-    @GET("api/kodi/record/status")
+    @GET("api/recordings/status")
     suspend fun recordStatus(): RecordStatus
 
     @GET("api/record/options/{channel}")

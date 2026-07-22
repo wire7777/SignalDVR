@@ -501,3 +501,95 @@ data class GuideRecordActionResponse(
     @SerializedName("error")
     val error: String? = null,
 )
+
+data class SeriesRecordingRule(
+    @SerializedName("id")
+    val id: Int,
+
+    @SerializedName("seriesid")
+    val seriesId: String? = null,
+
+    @SerializedName("title")
+    val title: String? = null,
+
+    @SerializedName("channel")
+    val channel: String? = null,
+
+    @SerializedName("only_new")
+    val onlyNew: Int = 0,
+
+    @SerializedName("enabled")
+    val enabled: Int = 1,
+
+    @SerializedName("priority")
+    val priority: Int = 50,
+
+    @SerializedName("start_padding")
+    val startPadding: Int = 2,
+
+    @SerializedName("end_padding")
+    val endPadding: Int = 5,
+
+    @SerializedName("keep_last")
+    val keepLast: Int = 0,
+
+    @SerializedName("any_channel")
+    val anyChannel: Int = 0,
+)
+
+data class SeriesRecordingListResponse(
+    @SerializedName("ok")
+    val ok: Boolean = false,
+
+    @SerializedName("count")
+    val count: Int = 0,
+
+    @SerializedName("series")
+    val series: List<SeriesRecordingRule> = emptyList(),
+
+    @SerializedName("error")
+    val error: String? = null,
+)
+
+data class SeriesRecordingUpdateRequest(
+    @SerializedName("title")
+    val title: String? = null,
+
+    @SerializedName("channel")
+    val channel: String? = null,
+
+    @SerializedName("only_new")
+    val onlyNew: Int? = null,
+
+    @SerializedName("enabled")
+    val enabled: Int? = null,
+
+    @SerializedName("priority")
+    val priority: Int? = null,
+
+    @SerializedName("start_padding")
+    val startPadding: Int? = null,
+
+    @SerializedName("end_padding")
+    val endPadding: Int? = null,
+
+    @SerializedName("keep_last")
+    val keepLast: Int? = null,
+
+    @SerializedName("any_channel")
+    val anyChannel: Int? = null,
+)
+
+data class SeriesRecordingUpdateResponse(
+    @SerializedName("ok")
+    val ok: Boolean = false,
+
+    @SerializedName("message")
+    val message: String? = null,
+
+    @SerializedName("series")
+    val series: SeriesRecordingRule? = null,
+
+    @SerializedName("error")
+    val error: String? = null,
+)

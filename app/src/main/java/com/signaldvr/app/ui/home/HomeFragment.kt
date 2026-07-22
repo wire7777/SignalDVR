@@ -14,6 +14,7 @@ import com.signaldvr.app.R
 import com.signaldvr.app.ui.guide.EpgFragment
 import com.signaldvr.app.ui.library.LibraryFragment
 import com.signaldvr.app.ui.live.LiveTvFragment
+import com.signaldvr.app.ui.manager.DvrManagerFragment
 import com.signaldvr.app.ui.recordings.RecordingsFragment
 
 data class HomeItem(
@@ -49,6 +50,12 @@ class HomeFragment : Fragment() {
             "Recordings",
             "Watch your saved recordings",
             4
+        ),
+        HomeItem(
+            R.drawable.ic_home_recordings,
+            "DVR Manager",
+            "Manage series rules and recording options",
+            5
         )
     )
 
@@ -68,6 +75,7 @@ class HomeFragment : Fragment() {
                 2 -> LibraryFragment()
                 3 -> EpgFragment()
                 4 -> RecordingsFragment()
+                5 -> DvrManagerFragment()
                 else -> return@HomeAdapter
             }
 

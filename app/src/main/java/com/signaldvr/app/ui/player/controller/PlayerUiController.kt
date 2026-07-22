@@ -84,9 +84,24 @@ class PlayerUiController(
         btnRecord.setOnClickListener { onRecord() }
     }
 
-    fun showDvrBar() {
+    fun showDvrBar(preferredFocusView: View? = null) {
+        val wasHidden = dvrBar.visibility != View.VISIBLE
         dvrBar.visibility = View.VISIBLE
-        defaultFocusView.requestFocus()
+
+        /*
+         * Never steal focus from a transport button while the DVR bar is
+         * already open. This is important after FF/REW: the seek action
+         * refreshes the bar, but the selected transport button must remain
+         * focused instead of jumping back to Play/Pause.
+         *
+         * When the bar is opened from a hidden state, focus the control that
+         * initiated the action when one was supplied. Otherwise use the
+         * normal Play/Pause default.
+         */
+        if (wasHidden || dvrBar.findFocus() == null) {
+            (preferredFocusView ?: defaultFocusView).requestFocus()
+        }
+
         scheduleDvrDismiss()
     }
 
