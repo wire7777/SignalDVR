@@ -317,6 +317,21 @@ data class LibraryProgram(
     @SerializedName("resume_url")
     val resumeUrl: String? = null,
 
+    @SerializedName("resume_position_seconds")
+    val resumePositionSeconds: Double = 0.0,
+
+    @SerializedName("resume_duration_seconds")
+    val resumeDurationSeconds: Double = 0.0,
+
+    @SerializedName("resume_completed")
+    val resumeCompleted: Boolean = false,
+
+    @SerializedName("resume_updated_at")
+    val resumeUpdatedAt: String? = null,
+
+    @SerializedName("has_resume")
+    val hasResume: Boolean = false,
+
     @SerializedName("thumbnail")
     val thumbnail: String? = null,
 
@@ -393,9 +408,64 @@ data class LibraryProgram(
     val artwork: String? = null,
 )
 
+data class BackgroundDvrStatusResponse(
+    @SerializedName("ok")
+    val ok: Boolean = false,
+
+    @SerializedName("phase")
+    val phase: Int = 0,
+
+    @SerializedName("active_program")
+    val activeProgram: BackgroundDvrProgram? = null,
+
+    @SerializedName("error")
+    val error: String? = null,
+)
+
+data class BackgroundDvrProgram(
+    @SerializedName("id") val id: Int? = null,
+    @SerializedName("title") val title: String? = null,
+    @SerializedName("subtitle") val subtitle: String? = null,
+    @SerializedName("episode_title") val episodeTitle: String? = null,
+    @SerializedName("description") val description: String? = null,
+    @SerializedName("category") val category: String? = null,
+    @SerializedName("channel") val channel: String? = null,
+    @SerializedName("guide_name") val guideName: String? = null,
+    @SerializedName("status") val status: String? = null,
+    @SerializedName("saved") val saved: Int = 0,
+    @SerializedName("auto_expire") val autoExpire: Int = 0,
+    @SerializedName("start_time") val startTime: String? = null,
+    @SerializedName("stop_time") val stopTime: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
+    @SerializedName("updated_at") val updatedAt: String? = null,
+    @SerializedName("ended_at") val endedAt: String? = null,
+    @SerializedName("first_segment") val firstSegment: String? = null,
+    @SerializedName("last_segment") val lastSegment: String? = null,
+    @SerializedName("segment_count") val segmentCount: Int = 0,
+    @SerializedName("file_path") val filePath: String? = null,
+    @SerializedName("program_id") val programId: String? = null,
+    @SerializedName("season") val season: Int = 0,
+    @SerializedName("episode") val episode: String? = null,
+    @SerializedName("is_new") val isNew: Int = 0,
+    @SerializedName("originalairdate") val originalAirDate: String? = null,
+    @SerializedName("show_type") val showType: String? = null,
+    @SerializedName("entity_type") val entityType: String? = null,
+    @SerializedName("genres") val genres: String? = null,
+    @SerializedName("rating") val rating: String? = null,
+    @SerializedName("runtime") val runtime: Int = 0,
+    @SerializedName("year") val year: Int = 0,
+    @SerializedName("language") val language: String? = null,
+    @SerializedName("video_properties") val videoProperties: String? = null,
+    @SerializedName("audio_properties") val audioProperties: String? = null,
+    @SerializedName("artwork") val artwork: String? = null,
+)
+
 data class LibraryResponse(
     @SerializedName("ok")
     val ok: Boolean? = null,
+
+    @SerializedName("continue_watching")
+    val continueWatching: List<LibraryProgram>? = null,
 
     @SerializedName("live")
     val live: List<LibraryProgram>? = null,

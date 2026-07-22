@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/library_item_root"
     android:layout_width="390dp"
-    android:layout_height="220dp"
+    android:layout_height="244dp"
     android:layout_marginEnd="14dp"
     android:background="@drawable/bg_channel_normal"
     android:focusable="true"
@@ -75,6 +75,26 @@
         android:maxLines="3"
         android:textColor="#FFDDDDDD"
         android:textSize="12sp" />
+
+    <ProgressBar
+        android:id="@+id/library_item_resume_progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="5dp"
+        android:layout_marginTop="4dp"
+        android:max="100"
+        android:progress="0"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/library_item_resume_text"
+        android:layout_width="match_parent"
+        android:layout_height="18dp"
+        android:gravity="start|center_vertical"
+        android:includeFontPadding="false"
+        android:textColor="#FFCCCCCC"
+        android:textSize="11sp"
+        android:visibility="gone" />
 
     <TextView
         android:id="@+id/library_item_hint"

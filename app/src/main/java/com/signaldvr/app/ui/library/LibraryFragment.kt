@@ -10,6 +10,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.DrawableRes
@@ -20,6 +21,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.signaldvr.app.R
 import com.signaldvr.app.api.ApiClient
+import com.signaldvr.app.api.BackgroundDvrProgram
 import com.signaldvr.app.api.LibraryProgram
 import com.signaldvr.app.ui.player.PlayerActivity
 import kotlinx.coroutines.launch
@@ -123,25 +125,60 @@ class LibraryFragment : Fragment() {
 
         lifecycleScope.launch {
             try {
-                val data = ApiClient.getApi(requireContext()).getLibrary()
+                val api = ApiClient.getApi(requireContext())
+                val data = api.getLibrary()
+
+                // Background DVR status is supplemental. A temporary status
+                // failure must not prevent the rest of the Library loading.
+                val activeProgram = try {
+                    api.getBackgroundDvrStatus()
+                        .activeProgram
+                        ?.takeIf { it.status.equals("active", ignoreCase = true) }
+                        ?.toLibraryProgram()
+                } catch (_: Exception) {
+                    null
+                }
 
                 loading.visibility = View.GONE
                 errorText.visibility = View.GONE
 
+                val continueWatching = data.continueWatching.orEmpty()
                 val live = data.live.orEmpty()
                 val buffered = data.buffered.orEmpty()
                 val saved = data.saved.orEmpty()
                 val recorded = data.recorded.orEmpty()
 
                 summaryText.text =
-                    "Live ${live.size}  ·  Buffered ${buffered.size}  ·  Saved ${saved.size}  ·  Recorded ${recorded.size}"
+                    "Continue ${continueWatching.size}  ·  Recording ${if (activeProgram != null) 1 else 0}  ·  Background DVR ${buffered.size}  ·  Saved ${saved.size}  ·  Recorded ${recorded.size}"
 
-                val sections = listOf(
-                    LibrarySection("LIVE NOW", "live", R.drawable.ic_home_live_tv, live),
-                    LibrarySection("BUFFERED", "buffered", R.drawable.ic_library_buffered, buffered),
-                    LibrarySection("SAVED", "saved", R.drawable.ic_library_saved, saved),
-                    LibrarySection("RECORDED", "recorded", R.drawable.ic_home_recordings, recorded)
-                )
+                val sections = buildList {
+                    if (continueWatching.isNotEmpty()) {
+                        add(
+                            LibrarySection(
+                                "CONTINUE WATCHING",
+                                "continue_watching",
+                                R.drawable.ic_home_library,
+                                continueWatching
+                            )
+                        )
+                    }
+
+                    if (activeProgram != null) {
+                        add(
+                            LibrarySection(
+                                "CURRENTLY RECORDING",
+                                "currently_recording",
+                                R.drawable.ic_library_buffered,
+                                listOf(activeProgram)
+                            )
+                        )
+                    }
+
+                    add(LibrarySection("BACKGROUND DVR", "buffered", R.drawable.ic_library_buffered, buffered))
+                    add(LibrarySection("LIVE NOW", "live", R.drawable.ic_home_live_tv, live))
+                    add(LibrarySection("SAVED", "saved", R.drawable.ic_library_saved, saved))
+                    add(LibrarySection("RECORDED", "recorded", R.drawable.ic_home_recordings, recorded))
+                }
 
                 adapter?.submitSections(sections)
 
@@ -498,6 +535,49 @@ class LibraryFragment : Fragment() {
                 ).show()
             }
         }
+    }
+
+    private fun BackgroundDvrProgram.toLibraryProgram(): LibraryProgram {
+        return LibraryProgram(
+            id = id,
+            title = title,
+            subtitle = subtitle,
+            description = description,
+            category = category,
+            channel = channel,
+            channelName = guideName,
+            guideName = guideName,
+            type = "program",
+            status = status,
+            saved = saved != 0,
+            playable = id != null && segmentCount > 0,
+            autoExpire = autoExpire != 0,
+            startTime = startTime,
+            stopTime = stopTime,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            endedAt = endedAt,
+            firstSegment = firstSegment,
+            lastSegment = lastSegment,
+            segmentCount = segmentCount,
+            filePath = filePath,
+            programId = programId,
+            season = season,
+            episode = episode,
+            episodeTitle = episodeTitle,
+            isNew = isNew != 0,
+            originalAirDate = originalAirDate,
+            showType = showType,
+            entityType = entityType,
+            genres = genres,
+            rating = rating,
+            runtime = runtime,
+            year = year,
+            language = language,
+            videoProperties = videoProperties,
+            audioProperties = audioProperties,
+            artwork = artwork,
+        )
     }
 }
 
@@ -928,6 +1008,12 @@ class LibraryProgramAdapter(
         private val description: TextView =
             view.findViewById(R.id.library_item_description)
 
+        private val resumeProgress: ProgressBar =
+            view.findViewById(R.id.library_item_resume_progress)
+
+        private val resumeText: TextView =
+            view.findViewById(R.id.library_item_resume_text)
+
         private val hint: TextView =
             view.findViewById(R.id.library_item_hint)
 
@@ -1136,6 +1222,42 @@ class LibraryProgramAdapter(
                         ""
                 }
 
+            val showResume =
+                kind == "continue_watching" &&
+                        program.hasResume &&
+                        !program.resumeCompleted &&
+                        program.resumePositionSeconds > 0.0
+
+            if (showResume) {
+                val duration = program.resumeDurationSeconds
+                val position = program.resumePositionSeconds
+                val percent = if (duration > 0.0) {
+                    ((position / duration) * 100.0)
+                        .toInt()
+                        .coerceIn(1, 99)
+                } else {
+                    0
+                }
+
+                resumeProgress.visibility = View.VISIBLE
+                resumeProgress.progress = percent
+                resumeText.visibility = View.VISIBLE
+                resumeText.text = buildString {
+                    append("Resume at ")
+                    append(formatDuration(position))
+                    if (percent > 0) {
+                        append("  ·  ")
+                        append(percent)
+                        append('%')
+                    }
+                }
+            } else {
+                resumeProgress.visibility = View.GONE
+                resumeProgress.progress = 0
+                resumeText.visibility = View.GONE
+                resumeText.text = ""
+            }
+
             hint.text = when {
                 program.type.equals("recording", ignoreCase = true) &&
                         processingStatus in setOf("pending", "processing") ->
@@ -1174,6 +1296,19 @@ class LibraryProgramAdapter(
                 "weather" in category -> R.drawable.ic_library_weather
                 program.type == "recording" -> R.drawable.ic_home_recordings
                 else -> R.drawable.ic_home_live_tv
+            }
+        }
+
+        private fun formatDuration(secondsValue: Double): String {
+            val totalSeconds = secondsValue.toLong().coerceAtLeast(0L)
+            val hours = totalSeconds / 3600L
+            val minutes = (totalSeconds % 3600L) / 60L
+            val seconds = totalSeconds % 60L
+
+            return if (hours > 0L) {
+                "%d:%02d:%02d".format(hours, minutes, seconds)
+            } else {
+                "%d:%02d".format(minutes, seconds)
             }
         }
 

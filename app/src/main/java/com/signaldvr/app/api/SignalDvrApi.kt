@@ -78,6 +78,19 @@ interface SignalDvrApi {
         @Path("seriesId") seriesId: Int,
     ): GuideRecordActionResponse
 
+    @GET("api/scheduled")
+    suspend fun getScheduledRecordings(): ScheduledRecordingListResponse
+
+    @GET("api/scheduled/{scheduleId}")
+    suspend fun getScheduledRecording(
+        @Path("scheduleId") scheduleId: Int,
+    ): ScheduledRecordingItemResponse
+
+    @DELETE("api/scheduled/{scheduleId}")
+    suspend fun deleteScheduledRecording(
+        @Path("scheduleId") scheduleId: Int,
+    ): ScheduledRecordingActionResponse
+
     @POST("api/recordings/start/{channel}")
     suspend fun recordStart(
         @Path("channel") channel: String,
@@ -139,6 +152,9 @@ interface SignalDvrApi {
 
     @GET("api/library")
     suspend fun getLibrary(): LibraryResponse
+
+    @GET("api/background-dvr/status")
+    suspend fun getBackgroundDvrStatus(): BackgroundDvrStatusResponse
 
     @GET("api/program_catalog/{programId}/playlist")
     suspend fun getProgramPlaylist(
