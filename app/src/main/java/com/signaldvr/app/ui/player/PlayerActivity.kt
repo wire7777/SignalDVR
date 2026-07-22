@@ -563,7 +563,14 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun showSeekMovementIndicator(direction: String, deltaSeconds: Int) {
-        playerUiController.showDvrBar()
+        /*
+         * Do not call showDvrBar() when the controls are already visible.
+         * showDvrBar() always requests focus on the center Play/Pause button,
+         * which caused focus to jump away from REW/FF after every OK press.
+         */
+        if (dvrBar.visibility != View.VISIBLE) {
+            playerUiController.showDvrBar()
+        }
 
         val stepSeconds = kotlin.math.abs(deltaSeconds)
         val location = if (isRecordingPlayback) {
