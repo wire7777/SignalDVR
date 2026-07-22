@@ -13,6 +13,9 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.annotation.DrawableRes
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -439,25 +442,88 @@ class LibraryFragment : Fragment() {
 
     private fun showProgramOptions(program: LibraryProgram) {
         val title = program.title ?: "Program"
+        val isActive = program.status.equals("active", ignoreCase = true)
         val actions = mutableListOf<String>()
 
-        actions.add("Watch")
+        actions.add(if (isActive) "Watch from Beginning" else "Watch")
+
+        if (isActive && !program.channel.isNullOrBlank()) {
+            actions.add("Join Live")
+        }
 
         if (program.saved != true && program.id != null && program.type != "recording") {
             actions.add("Save")
         }
 
+        actions.add("Details")
         actions.add(if (program.type == "recording") "Delete Recording" else "Delete")
 
         AlertDialog.Builder(requireContext())
             .setTitle(title)
             .setItems(actions.toTypedArray()) { _, which ->
                 when (actions[which]) {
-                    "Watch" -> watchProgram(program)
+                    "Watch", "Watch from Beginning" -> watchProgram(program)
+                    "Join Live" -> joinLive(program)
                     "Save" -> saveProgram(program)
+                    "Details" -> showProgramDetails(program)
                     "Delete", "Delete Recording" -> confirmDelete(program)
                 }
             }
+            .show()
+    }
+
+    private fun joinLive(program: LibraryProgram) {
+        val channel = program.channel.orEmpty()
+        if (channel.isBlank()) {
+            Toast.makeText(requireContext(), "Live channel is missing", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val intent = Intent(requireContext(), PlayerActivity::class.java).apply {
+            putExtra(PlayerActivity.EXTRA_CHANNEL_NUM, channel)
+            putExtra(
+                PlayerActivity.EXTRA_CHANNEL_NAME,
+                program.channelName ?: program.guideName ?: channel
+            )
+            putExtra(PlayerActivity.EXTRA_TITLE, program.title ?: "Live TV")
+            putExtra(PlayerActivity.EXTRA_IS_LIVE, true)
+            putExtra(PlayerActivity.EXTRA_RECORDING_ID, -1)
+            putExtra(PlayerActivity.EXTRA_RESUME_URL, "")
+        }
+        startActivity(intent)
+    }
+
+    private fun showProgramDetails(program: LibraryProgram) {
+        val details = buildList {
+            val channel = program.channelName ?: program.guideName ?: program.channel
+            if (!channel.isNullOrBlank()) add(channel)
+
+            if (!program.episodeTitle.isNullOrBlank()) add(program.episodeTitle!!)
+
+            if (program.season > 0 && !program.episode.isNullOrBlank()) {
+                add("Season ${program.season}, Episode ${program.episode}")
+            } else if (!program.episode.isNullOrBlank()) {
+                add("Episode ${program.episode}")
+            }
+
+            if (!program.genres.isNullOrBlank()) add(program.genres!!)
+            if (!program.rating.isNullOrBlank()) add("Rating: ${program.rating}")
+            if (!program.originalAirDate.isNullOrBlank()) {
+                add("Original air date: ${program.originalAirDate}")
+            }
+            if (program.runtime > 0) add("Runtime: ${program.runtime / 60} min")
+            if (program.segmentCount > 0) add("Segments: ${program.segmentCount}")
+
+            if (!program.description.isNullOrBlank()) {
+                add("")
+                add(program.description!!)
+            }
+        }.joinToString("\n")
+
+        AlertDialog.Builder(requireContext())
+            .setTitle(program.title ?: "Program Details")
+            .setMessage(details.ifBlank { "No additional information is available." })
+            .setPositiveButton("Close", null)
             .show()
     }
 
@@ -989,6 +1055,12 @@ class LibraryProgramAdapter(
 
     override fun getItemCount(): Int = programs.size
 
+    private data class ActiveProgress(
+        val percent: Int,
+        val elapsedMinutes: Int,
+        val totalMinutes: Int,
+    )
+
     inner class ProgramVH(
         view: View
     ) : RecyclerView.ViewHolder(view) {
@@ -1084,7 +1156,8 @@ class LibraryProgramAdapter(
                         processingStatus == "failed" ->
                     "● FAILED"
 
-                program.status.equals("recording", ignoreCase = true) ->
+                program.status.equals("recording", ignoreCase = true) ||
+                        program.status.equals("active", ignoreCase = true) ->
                     "● RECORDING"
 
                 program.isNew -> "NEW"
@@ -1106,7 +1179,8 @@ class LibraryProgramAdapter(
                             processingStatus == "failed" ->
                         Color.rgb(255, 69, 58)
 
-                    program.status.equals("recording", ignoreCase = true) ->
+                    program.status.equals("recording", ignoreCase = true) ||
+                            program.status.equals("active", ignoreCase = true) ->
                         Color.rgb(255, 69, 58)
 
                     else -> Color.rgb(255, 204, 0)
@@ -1222,40 +1296,62 @@ class LibraryProgramAdapter(
                         ""
                 }
 
+            val isActiveRecording =
+                kind == "currently_recording" ||
+                        program.status.equals("active", ignoreCase = true)
+
+            val activeProgress = if (isActiveRecording) {
+                calculateActiveProgress(program.startTime, program.stopTime)
+            } else {
+                null
+            }
+
             val showResume =
                 kind == "continue_watching" &&
                         program.hasResume &&
                         !program.resumeCompleted &&
                         program.resumePositionSeconds > 0.0
 
-            if (showResume) {
-                val duration = program.resumeDurationSeconds
-                val position = program.resumePositionSeconds
-                val percent = if (duration > 0.0) {
-                    ((position / duration) * 100.0)
-                        .toInt()
-                        .coerceIn(1, 99)
-                } else {
-                    0
+            when {
+                activeProgress != null -> {
+                    resumeProgress.visibility = View.VISIBLE
+                    resumeProgress.progress = activeProgress.percent
+                    resumeText.visibility = View.VISIBLE
+                    resumeText.text =
+                        "Recording ${activeProgress.elapsedMinutes} min of ${activeProgress.totalMinutes} min"
                 }
 
-                resumeProgress.visibility = View.VISIBLE
-                resumeProgress.progress = percent
-                resumeText.visibility = View.VISIBLE
-                resumeText.text = buildString {
-                    append("Resume at ")
-                    append(formatDuration(position))
-                    if (percent > 0) {
-                        append("  ·  ")
-                        append(percent)
-                        append('%')
+                showResume -> {
+                    val duration = program.resumeDurationSeconds
+                    val position = program.resumePositionSeconds
+                    val percent = if (duration > 0.0) {
+                        ((position / duration) * 100.0)
+                            .toInt()
+                            .coerceIn(1, 99)
+                    } else {
+                        0
+                    }
+
+                    resumeProgress.visibility = View.VISIBLE
+                    resumeProgress.progress = percent
+                    resumeText.visibility = View.VISIBLE
+                    resumeText.text = buildString {
+                        append("Resume at ")
+                        append(formatDuration(position))
+                        if (percent > 0) {
+                            append("  ·  ")
+                            append(percent)
+                            append('%')
+                        }
                     }
                 }
-            } else {
-                resumeProgress.visibility = View.GONE
-                resumeProgress.progress = 0
-                resumeText.visibility = View.GONE
-                resumeText.text = ""
+
+                else -> {
+                    resumeProgress.visibility = View.GONE
+                    resumeProgress.progress = 0
+                    resumeText.visibility = View.GONE
+                    resumeText.text = ""
+                }
             }
 
             hint.text = when {
@@ -1296,6 +1392,32 @@ class LibraryProgramAdapter(
                 "weather" in category -> R.drawable.ic_library_weather
                 program.type == "recording" -> R.drawable.ic_home_recordings
                 else -> R.drawable.ic_home_live_tv
+            }
+        }
+
+        private fun calculateActiveProgress(
+            startValue: String?,
+            stopValue: String?,
+        ): ActiveProgress? {
+            if (startValue.isNullOrBlank() || stopValue.isNullOrBlank()) return null
+
+            return try {
+                val parser = SimpleDateFormat("yyyyMMddHHmmss", Locale.US)
+                parser.isLenient = false
+                val start = parser.parse(startValue)?.time ?: return null
+                val stop = parser.parse(stopValue)?.time ?: return null
+                val totalMs = (stop - start).coerceAtLeast(1L)
+                val elapsedMs = (Date().time - start).coerceIn(0L, totalMs)
+
+                ActiveProgress(
+                    percent = ((elapsedMs.toDouble() / totalMs.toDouble()) * 100.0)
+                        .toInt()
+                        .coerceIn(1, 100),
+                    elapsedMinutes = (elapsedMs / 60_000L).toInt(),
+                    totalMinutes = ((totalMs + 59_999L) / 60_000L).toInt(),
+                )
+            } catch (_: Exception) {
+                null
             }
         }
 
