@@ -49,7 +49,16 @@ class LibraryFragment : Fragment() {
 
     private val refreshRunnable = object : Runnable {
         override fun run() {
-            loadLibrary(showLoading = false)
+            /*
+             * Never mutate the nested RecyclerViews while the user is
+             * navigating the library. Even a correct DiffUtil update can make
+             * Android TV's focus search re-anchor a horizontal row to its
+             * start. Defer the refresh until focus is outside the library.
+             */
+            if (!rowsRecycler.hasFocus()) {
+                loadLibrary(showLoading = false)
+            }
+
             handler.postDelayed(this, 5000)
         }
     }
@@ -93,7 +102,7 @@ class LibraryFragment : Fragment() {
                 sectionKind = lastFocusedSectionKind,
                 programId = lastFocusedProgramId,
                 filename = lastFocusedFilename,
-                alignToStart = true
+                alignToStart = false
             )
         }
 
@@ -137,25 +146,12 @@ class LibraryFragment : Fragment() {
                 adapter?.submitSections(sections)
 
                 /*
-                 * DiffUtil and stable IDs preserve the currently focused card.
-                 * Do not force focus restoration after every five-second refresh:
-                 * the old restore path aligned the selected card to offset 0,
-                 * making the row jump left while the user was browsing.
-                 *
-                 * Only restore when focus was genuinely lost during an update,
-                 * and preserve the row's existing horizontal position.
+                 * Do not request or restore focus during the five-second
+                 * background refresh. RecyclerView stable IDs and DiffUtil
+                 * retain the focused card. Calling restoreFocus here can run
+                 * during a brief layout window where hasFocus() is false and
+                 * LinearLayoutManager.scrollToPosition() snaps the row left.
                  */
-                rowsRecycler.post {
-                    if (!rowsRecycler.hasFocus()) {
-                        adapter?.restoreFocus(
-                            sectionKind = lastFocusedSectionKind,
-                            programId = lastFocusedProgramId,
-                            filename = lastFocusedFilename,
-                            alignToStart = false
-                        )
-                    }
-                }
-
                 if (firstLoad) {
                     firstLoad = false
                     rowsRecycler.post {
@@ -380,6 +376,15 @@ class LibraryFragment : Fragment() {
                         } else {
                             -1
                         }
+                    )
+                    putExtra(
+                        PlayerActivity.EXTRA_RESUME_URL,
+                        program.resumeUrl
+                            ?.takeIf {
+                                program.canResume &&
+                                        it.isNotBlank()
+                            }
+                            ?: ""
                     )
                 }
 
@@ -684,14 +689,20 @@ class LibrarySectionAdapter(
                         onProgramFocused(section.kind, program)
                     }
                 ).also { childAdapter ->
-                    childAdapter.submitPrograms(section.programs)
+                    childAdapter.submitPrograms(
+                        recyclerView = recyclerView,
+                        newPrograms = section.programs
+                    )
                 }
             } else {
                 existing.kind = section.kind
                 existing.onFocused = { program ->
                     onProgramFocused(section.kind, program)
                 }
-                existing.submitPrograms(section.programs)
+                existing.submitPrograms(
+                    recyclerView = recyclerView,
+                    newPrograms = section.programs
+                )
             }
         }
     }
@@ -729,8 +740,46 @@ class LibraryProgramAdapter(
         }
     }
 
-    fun submitPrograms(newPrograms: List<LibraryProgram>) {
+    fun submitPrograms(
+        recyclerView: RecyclerView,
+        newPrograms: List<LibraryProgram>
+    ) {
         val oldPrograms = programs.toList()
+
+        /*
+         * A five-second API refresh can change metadata such as updated_at,
+         * processing percentage, or resume state. DiffUtil then rebinds the
+         * focused card. On Android TV, RecyclerView may use that layout pass
+         * to anchor the focused child at the beginning of the horizontal row,
+         * which looks like focus suddenly moving left.
+         *
+         * Save both the horizontal layout state and the exact focused item
+         * before dispatching the diff, then restore them after RecyclerView
+         * finishes the update.
+         */
+        val layoutManager =
+            recyclerView.layoutManager as? LinearLayoutManager
+
+        val savedLayoutState =
+            layoutManager?.onSaveInstanceState()
+
+        val focusedItemView =
+            recyclerView.findFocus()
+                ?.let { focused ->
+                    recyclerView.findContainingItemView(focused)
+                }
+
+        val focusedPosition =
+            focusedItemView?.let { itemView ->
+                recyclerView.getChildAdapterPosition(itemView)
+            } ?: RecyclerView.NO_POSITION
+
+        val focusedKey =
+            if (focusedPosition in oldPrograms.indices) {
+                stableKey(oldPrograms[focusedPosition])
+            } else {
+                null
+            }
 
         val diff = DiffUtil.calculateDiff(
             object : DiffUtil.Callback() {
@@ -758,6 +807,30 @@ class LibraryProgramAdapter(
         programs.clear()
         programs.addAll(newPrograms)
         diff.dispatchUpdatesTo(this)
+
+        recyclerView.post {
+            if (savedLayoutState != null) {
+                layoutManager?.onRestoreInstanceState(savedLayoutState)
+            }
+
+            val newFocusedPosition =
+                focusedKey?.let { key ->
+                    programs.indexOfFirst {
+                        stableKey(it) == key
+                    }
+                } ?: RecyclerView.NO_POSITION
+
+            if (newFocusedPosition != RecyclerView.NO_POSITION) {
+                recyclerView.post {
+                    recyclerView
+                        .findViewHolderForAdapterPosition(
+                            newFocusedPosition
+                        )
+                        ?.itemView
+                        ?.requestFocus()
+                }
+            }
+        }
     }
 
     fun restoreFocus(

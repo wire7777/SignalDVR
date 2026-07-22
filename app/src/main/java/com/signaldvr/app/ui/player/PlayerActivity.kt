@@ -88,6 +88,7 @@ class PlayerActivity : AppCompatActivity() {
     private var quickGuideRequestToken = 0
 
     private var recordingId = -1
+    private var resumeUrlPath = ""
     private var resumePositionMs = 0L
     private var resumeApplied = false
     private var playbackCompleted = false
@@ -119,6 +120,7 @@ class PlayerActivity : AppCompatActivity() {
         const val EXTRA_IS_LIVE = "is_live"
         const val EXTRA_TITLE = "title"
         const val EXTRA_RECORDING_ID = "recording_id"
+        const val EXTRA_RESUME_URL = "resume_url"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -280,6 +282,19 @@ class PlayerActivity : AppCompatActivity() {
         channelNum = intent.getStringExtra(EXTRA_CHANNEL_NUM) ?: ""
         channelName = intent.getStringExtra(EXTRA_CHANNEL_NAME) ?: ""
         recordingId = intent.getIntExtra(EXTRA_RECORDING_ID, -1)
+        resumeUrlPath =
+            intent.getStringExtra(EXTRA_RESUME_URL)
+                ?.trim()
+                .orEmpty()
+
+        /*
+         * Backward compatibility for recording launches that do not yet
+         * include EXTRA_RESUME_URL.
+         */
+        if (resumeUrlPath.isBlank() && recordingId > 0) {
+            resumeUrlPath =
+                "/api/recordings/$recordingId/resume"
+        }
 
         val requestedIsLive =
             intent.getBooleanExtra(EXTRA_IS_LIVE, false)
@@ -309,6 +324,7 @@ class PlayerActivity : AppCompatActivity() {
          */
         if (requestedIsLive) {
             recordingId = -1
+            resumeUrlPath = ""
             isRecordingPlayback = false
             isLiveMode = true
             updatePlaybackModeControls()
@@ -322,6 +338,7 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         recordingId = -1
+        resumeUrlPath = ""
         isRecordingPlayback = false
         isLiveMode = true
         updatePlaybackModeControls()
@@ -1035,6 +1052,7 @@ class PlayerActivity : AppCompatActivity() {
         channelName = selected.name
 
         recordingId = -1
+        resumeUrlPath = ""
         isRecordingPlayback = false
         isLiveMode = true
         updatePlaybackModeControls()
@@ -1242,7 +1260,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private suspend fun loadResumePositionMs(): Long {
-        if (recordingId <= 0) {
+        if (resumeUrlPath.isBlank()) {
             return 0L
         }
 
@@ -1250,8 +1268,7 @@ class PlayerActivity : AppCompatActivity() {
             var connection: HttpURLConnection? = null
 
             try {
-                val baseUrl = ApiClient.getBaseUrl(this@PlayerActivity).trimEnd('/')
-                val url = URL("$baseUrl/api/recordings/$recordingId/resume")
+                val url = URL(resolveResumeUrl())
 
                 connection = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "GET"
@@ -1293,7 +1310,7 @@ class PlayerActivity : AppCompatActivity() {
     private fun saveResumeProgress(completed: Boolean) {
         if (
             !isRecordingPlayback ||
-            recordingId <= 0 ||
+            resumeUrlPath.isBlank() ||
             !playbackControllerReady
         ) {
             return
@@ -1315,7 +1332,7 @@ class PlayerActivity : AppCompatActivity() {
     private suspend fun saveResumeProgressNow(completed: Boolean) {
         if (
             !isRecordingPlayback ||
-            recordingId <= 0 ||
+            resumeUrlPath.isBlank() ||
             !playbackControllerReady
         ) {
             return
@@ -1328,8 +1345,7 @@ class PlayerActivity : AppCompatActivity() {
             var connection: HttpURLConnection? = null
 
             try {
-                val baseUrl = ApiClient.getBaseUrl(this@PlayerActivity).trimEnd('/')
-                val url = URL("$baseUrl/api/recordings/$recordingId/resume")
+                val url = URL(resolveResumeUrl())
 
                 val json = JSONObject().apply {
                     put(
@@ -1364,6 +1380,28 @@ class PlayerActivity : AppCompatActivity() {
             } finally {
                 connection?.disconnect()
             }
+        }
+    }
+
+    private fun resolveResumeUrl(): String {
+        val path = resumeUrlPath.trim()
+
+        if (
+            path.startsWith("http://", ignoreCase = true) ||
+            path.startsWith("https://", ignoreCase = true)
+        ) {
+            return path
+        }
+
+        val baseUrl =
+            ApiClient
+                .getBaseUrl(this@PlayerActivity)
+                .trimEnd('/')
+
+        return if (path.startsWith("/")) {
+            "$baseUrl$path"
+        } else {
+            "$baseUrl/$path"
         }
     }
 

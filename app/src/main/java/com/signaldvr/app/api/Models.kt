@@ -311,6 +311,12 @@ data class LibraryProgram(
     @SerializedName("play_url")
     val playUrl: String? = null,
 
+    @SerializedName("can_resume")
+    val canResume: Boolean = false,
+
+    @SerializedName("resume_url")
+    val resumeUrl: String? = null,
+
     @SerializedName("thumbnail")
     val thumbnail: String? = null,
 
@@ -589,6 +595,101 @@ data class SeriesRecordingUpdateResponse(
 
     @SerializedName("series")
     val series: SeriesRecordingRule? = null,
+
+    @SerializedName("error")
+    val error: String? = null,
+)
+
+data class ScheduledRecording(
+    @SerializedName("id")
+    val id: Int,
+
+    @SerializedName("channel")
+    val channel: String? = null,
+
+    @SerializedName("title")
+    val title: String? = null,
+
+    @SerializedName("subtitle")
+    val subtitle: String? = null,
+
+    @SerializedName("start")
+    val start: String? = null,
+
+    @SerializedName("stop")
+    val stop: String? = null,
+
+    @SerializedName("status")
+    val status: String? = null,
+
+    @SerializedName("created_at")
+    val createdAt: String? = null,
+
+    @SerializedName("priority")
+    val priority: Int = 50,
+
+    @SerializedName("start_padding")
+    val startPadding: Int = 0,
+
+    @SerializedName("end_padding")
+    val endPadding: Int = 0,
+
+    @SerializedName("series_id")
+    val seriesId: Int = 0,
+
+    @SerializedName("description")
+    val description: String? = null,
+
+    @SerializedName("category")
+    val category: String? = null,
+
+    @SerializedName("episode")
+    val episode: String? = null,
+
+    @SerializedName("programid")
+    val programId: String? = null,
+
+    @SerializedName("seriesid")
+    val guideSeriesId: String? = null,
+
+    @SerializedName("originalairdate")
+    val originalAirDate: String? = null,
+)
+
+data class ScheduledRecordingListResponse(
+    @SerializedName("ok")
+    val ok: Boolean = false,
+
+    @SerializedName("count")
+    val count: Int = 0,
+
+    @SerializedName("scheduled")
+    val scheduled: List<ScheduledRecording> = emptyList(),
+
+    @SerializedName("error")
+    val error: String? = null,
+)
+
+data class ScheduledRecordingItemResponse(
+    @SerializedName("ok")
+    val ok: Boolean = false,
+
+    @SerializedName("scheduled")
+    val scheduled: ScheduledRecording? = null,
+
+    @SerializedName("error")
+    val error: String? = null,
+)
+
+data class ScheduledRecordingActionResponse(
+    @SerializedName("ok")
+    val ok: Boolean = false,
+
+    @SerializedName("schedule_id")
+    val scheduleId: Int? = null,
+
+    @SerializedName("message")
+    val message: String? = null,
 
     @SerializedName("error")
     val error: String? = null,
