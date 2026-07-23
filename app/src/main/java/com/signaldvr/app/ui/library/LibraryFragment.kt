@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.TypedValue
 import android.view.LayoutInflater
+import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
@@ -98,6 +99,7 @@ class LibraryFragment : Fragment() {
         rowsRecycler.layoutManager = LinearLayoutManager(requireContext())
 
         adapter = LibrarySectionAdapter(
+            rowsRecycler = rowsRecycler,
             onWatch = { program -> watchProgram(program) },
             onSave = { program -> saveProgram(program) },
             onOptions = { program -> showProgramOptions(program) },
@@ -884,6 +886,7 @@ data class LibrarySection(
 )
 
 class LibrarySectionAdapter(
+    private val rowsRecycler: RecyclerView,
     private val onWatch: (LibraryProgram) -> Unit,
     private val onSave: (LibraryProgram) -> Unit,
     private val onOptions: (LibraryProgram) -> Unit,
@@ -935,6 +938,109 @@ class LibrarySectionAdapter(
         sections.clear()
         sections.addAll(newSections)
         diff.dispatchUpdatesTo(this)
+    }
+
+    /**
+     * Move focus between library rows explicitly. Nested horizontal
+     * RecyclerViews are unreliable for vertical focus search on Android TV,
+     * especially when card sizes differ. Preserve the current horizontal
+     * column and focus the closest card in the next non-empty row.
+     */
+    private fun moveFocusVertically(
+        fromSectionKind: String,
+        fromProgramPosition: Int,
+        direction: Int
+    ): Boolean {
+        val fromSectionPosition =
+            sections.indexOfFirst { it.kind == fromSectionKind }
+
+        if (fromSectionPosition < 0) {
+            return false
+        }
+
+        val step = if (direction > 0) 1 else -1
+        var targetSectionPosition = fromSectionPosition + step
+
+        while (targetSectionPosition in sections.indices &&
+            sections[targetSectionPosition].programs.isEmpty()
+        ) {
+            targetSectionPosition += step
+        }
+
+        if (targetSectionPosition !in sections.indices) {
+            return false
+        }
+
+        val targetSection = sections[targetSectionPosition]
+        val targetProgramPosition = fromProgramPosition.coerceIn(
+            0,
+            targetSection.programs.lastIndex
+        )
+
+        val outerLayoutManager =
+            rowsRecycler.layoutManager as? LinearLayoutManager
+                ?: return false
+
+        outerLayoutManager.scrollToPosition(targetSectionPosition)
+
+        rowsRecycler.post {
+            val sectionHolder =
+                rowsRecycler.findViewHolderForAdapterPosition(
+                    targetSectionPosition
+                ) as? SectionVH
+
+            val targetRow = sectionHolder?.recyclerView
+
+            if (targetRow == null) {
+                rowsRecycler.post {
+                    moveFocusToCard(
+                        targetSectionPosition,
+                        targetProgramPosition
+                    )
+                }
+            } else {
+                focusCardInRow(targetRow, targetProgramPosition)
+            }
+        }
+
+        return true
+    }
+
+    private fun moveFocusToCard(
+        sectionPosition: Int,
+        programPosition: Int
+    ) {
+        val holder =
+            rowsRecycler.findViewHolderForAdapterPosition(sectionPosition)
+                    as? SectionVH ?: return
+
+        focusCardInRow(holder.recyclerView, programPosition)
+    }
+
+    private fun focusCardInRow(
+        row: RecyclerView,
+        programPosition: Int
+    ) {
+        val rowLayoutManager =
+            row.layoutManager as? LinearLayoutManager ?: return
+
+        rowLayoutManager.scrollToPosition(programPosition)
+
+        row.post {
+            val card = row.findViewHolderForAdapterPosition(
+                programPosition
+            )?.itemView
+
+            if (card != null) {
+                card.requestFocus()
+            } else {
+                row.post {
+                    row.findViewHolderForAdapterPosition(programPosition)
+                        ?.itemView
+                        ?.requestFocus()
+                }
+            }
+        }
     }
 
     fun restoreFocus(
@@ -1062,6 +1168,13 @@ class LibrarySectionAdapter(
                     onOptions = onOptions,
                     onFocused = { program ->
                         onProgramFocused(section.kind, program)
+                    },
+                    onVerticalNavigation = { programPosition, direction ->
+                        moveFocusVertically(
+                            fromSectionKind = section.kind,
+                            fromProgramPosition = programPosition,
+                            direction = direction
+                        )
                     }
                 ).also { childAdapter ->
                     childAdapter.submitPrograms(
@@ -1073,6 +1186,13 @@ class LibrarySectionAdapter(
                 existing.kind = section.kind
                 existing.onFocused = { program ->
                     onProgramFocused(section.kind, program)
+                }
+                existing.onVerticalNavigation = { programPosition, direction ->
+                    moveFocusVertically(
+                        fromSectionKind = section.kind,
+                        fromProgramPosition = programPosition,
+                        direction = direction
+                    )
                 }
                 existing.submitPrograms(
                     recyclerView = recyclerView,
@@ -1089,6 +1209,7 @@ class LibraryProgramAdapter(
     private val onSave: (LibraryProgram) -> Unit,
     private val onOptions: (LibraryProgram) -> Unit,
     var onFocused: (LibraryProgram) -> Unit,
+    var onVerticalNavigation: (programPosition: Int, direction: Int) -> Boolean,
 ) : RecyclerView.Adapter<LibraryProgramAdapter.ProgramVH>() {
 
     private val programs = mutableListOf<LibraryProgram>()
@@ -1353,6 +1474,28 @@ class LibraryProgramAdapter(
                 }
 
                 true
+            }
+
+            /*
+             * Explicit vertical navigation prevents Android TV focus search
+             * from getting trapped inside a horizontal row. The same column
+             * is selected in the next or previous non-empty section.
+             */
+            view.setOnKeyListener { _, keyCode, event ->
+                if (event.action != KeyEvent.ACTION_DOWN) {
+                    return@setOnKeyListener false
+                }
+
+                val direction = when (keyCode) {
+                    KeyEvent.KEYCODE_DPAD_DOWN -> 1
+                    KeyEvent.KEYCODE_DPAD_UP -> -1
+                    else -> return@setOnKeyListener false
+                }
+
+                val position = bindingAdapterPosition
+
+                position != RecyclerView.NO_POSITION &&
+                        onVerticalNavigation(position, direction)
             }
 
             view.setOnFocusChangeListener { focusedView, hasFocus ->
