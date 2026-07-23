@@ -1,5 +1,6 @@
 package com.signaldvr.app.ui.library
 
+import android.animation.ObjectAnimator
 import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
@@ -13,6 +14,7 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import android.view.animation.AccelerateDecelerateInterpolator
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -22,11 +24,13 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import com.signaldvr.app.R
 import com.signaldvr.app.api.ApiClient
 import com.signaldvr.app.api.BackgroundDvrProgram
 import com.signaldvr.app.api.LibraryProgram
 import com.signaldvr.app.ui.player.PlayerActivity
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 class LibraryFragment : Fragment() {
@@ -38,6 +42,14 @@ class LibraryFragment : Fragment() {
 
     private var adapter: LibrarySectionAdapter? = null
     private var firstLoad = true
+
+    /*
+     * Only one Library API request may run at a time. A queued refresh runs
+     * immediately after the active request finishes, preventing an older
+     * response from overwriting newer Library data.
+     */
+    private var loadJob: Job? = null
+    private var refreshQueued = false
 
     /*
      * Android TV focus restoration.
@@ -61,7 +73,10 @@ class LibraryFragment : Fragment() {
              * start. Defer the refresh until focus is outside the library.
              */
             if (!rowsRecycler.hasFocus()) {
-                loadLibrary(showLoading = false)
+                loadLibrary(
+                    showLoading = false,
+                    restoreFocusAfterLoad = false
+                )
             }
 
             handler.postDelayed(this, 5000)
@@ -92,24 +107,24 @@ class LibraryFragment : Fragment() {
         )
 
         rowsRecycler.adapter = adapter
-        loadLibrary(showLoading = true)
     }
 
     override fun onResume() {
         super.onResume()
 
         /*
-         * Restore focus after PlayerActivity closes. The adapter also restores
-         * focus after each background refresh.
+         * Refresh immediately whenever the Library becomes visible. This is
+         * especially important after returning from playback because a
+         * recording may have completed or changed processing state while
+         * PlayerActivity was open.
+         *
+         * Focus is restored only after the fresh data has been submitted,
+         * avoiding a race between focus restoration and RecyclerView layout.
          */
-        rowsRecycler.post {
-            adapter?.restoreFocus(
-                sectionKind = lastFocusedSectionKind,
-                programId = lastFocusedProgramId,
-                filename = lastFocusedFilename,
-                alignToStart = false
-            )
-        }
+        loadLibrary(
+            showLoading = firstLoad,
+            restoreFocusAfterLoad = !firstLoad
+        )
 
         handler.removeCallbacks(refreshRunnable)
         handler.postDelayed(refreshRunnable, 5000)
@@ -118,15 +133,30 @@ class LibraryFragment : Fragment() {
     override fun onPause() {
         super.onPause()
         handler.removeCallbacks(refreshRunnable)
+
+        /*
+         * Do not allow a response started for an invisible Library screen to
+         * arrive later and replace fresher data after the user returns.
+         */
+        loadJob?.cancel()
+        loadJob = null
+        refreshQueued = false
     }
 
-    private fun loadLibrary(showLoading: Boolean) {
+    private fun loadLibrary(
+        showLoading: Boolean,
+        restoreFocusAfterLoad: Boolean = false
+    ) {
+        if (loadJob?.isActive == true) {
+            refreshQueued = true
+            return
+        }
         if (showLoading) {
             loading.visibility = View.VISIBLE
             errorText.visibility = View.GONE
         }
 
-        lifecycleScope.launch {
+        loadJob = viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val api = ApiClient.getApi(requireContext())
                 val data = api.getLibrary()
@@ -185,17 +215,23 @@ class LibraryFragment : Fragment() {
 
                 adapter?.submitSections(sections)
 
-                /*
-                 * Do not request or restore focus during the five-second
-                 * background refresh. RecyclerView stable IDs and DiffUtil
-                 * retain the focused card. Calling restoreFocus here can run
-                 * during a brief layout window where hasFocus() is false and
-                 * LinearLayoutManager.scrollToPosition() snaps the row left.
-                 */
-                if (firstLoad) {
-                    firstLoad = false
-                    rowsRecycler.post {
-                        rowsRecycler.requestFocus()
+                when {
+                    firstLoad -> {
+                        firstLoad = false
+                        rowsRecycler.post {
+                            rowsRecycler.requestFocus()
+                        }
+                    }
+
+                    restoreFocusAfterLoad -> {
+                        rowsRecycler.post {
+                            adapter?.restoreFocus(
+                                sectionKind = lastFocusedSectionKind,
+                                programId = lastFocusedProgramId,
+                                filename = lastFocusedFilename,
+                                alignToStart = false
+                            )
+                        }
                     }
                 }
 
@@ -204,6 +240,18 @@ class LibraryFragment : Fragment() {
                 errorText.visibility = View.VISIBLE
                 errorText.text =
                     "Could not load DVR Library:\n${e.message}\n\nCheck Settings → Server URL"
+            } finally {
+                loadJob = null
+
+                if (refreshQueued && isResumed) {
+                    refreshQueued = false
+                    rowsRecycler.post {
+                        loadLibrary(
+                            showLoading = false,
+                            restoreFocusAfterLoad = false
+                        )
+                    }
+                }
             }
         }
     }
@@ -1055,6 +1103,11 @@ class LibraryProgramAdapter(
 
     override fun getItemCount(): Int = programs.size
 
+    override fun onViewRecycled(holder: ProgramVH) {
+        holder.recycle()
+        super.onViewRecycled(holder)
+    }
+
     private data class ActiveProgress(
         val percent: Int,
         val elapsedMinutes: Int,
@@ -1064,6 +1117,12 @@ class LibraryProgramAdapter(
     inner class ProgramVH(
         view: View
     ) : RecyclerView.ViewHolder(view) {
+
+        private val artwork: ImageView =
+            view.findViewById(R.id.library_item_artwork)
+
+        private val channelLogo: ImageView =
+            view.findViewById(R.id.library_item_channel_logo)
 
         private val icon: ImageView =
             view.findViewById(R.id.library_item_icon)
@@ -1088,6 +1147,8 @@ class LibraryProgramAdapter(
 
         private val hint: TextView =
             view.findViewById(R.id.library_item_hint)
+
+        private var recordingPulse: ObjectAnimator? = null
 
         init {
             view.isFocusable = true
@@ -1114,12 +1175,40 @@ class LibraryProgramAdapter(
             }
 
             view.setOnFocusChangeListener { focusedView, hasFocus ->
-                // Draw focus inside the card bounds. Do not scale the card,
-                // because scaling can clip its border and bottom action text.
                 focusedView.setBackgroundResource(
-                    if (hasFocus) R.drawable.bg_channel_focused
-                    else R.drawable.bg_channel_normal
+                    if (hasFocus) R.drawable.bg_library_card_focused
+                    else R.drawable.bg_library_card_normal
                 )
+
+                /*
+                 * Keep the card at its measured size. Scaling a focused child
+                 * inside a horizontal RecyclerView clipped the artwork and the
+                 * yellow selection border at the row edges. Selection is now
+                 * communicated by a thin outline, yellow title, subtle elevation,
+                 * and brightness without changing layout bounds.
+                 */
+                focusedView.animate()
+                    .scaleX(1.0f)
+                    .scaleY(1.0f)
+                    .translationZ(if (hasFocus) 6f else 0f)
+                    .alpha(if (hasFocus) 1.0f else 0.90f)
+                    .setDuration(110L)
+                    .start()
+
+                title.setTextColor(
+                    if (hasFocus) Color.rgb(255, 204, 0)
+                    else Color.WHITE
+                )
+                hint.setTextColor(
+                    if (hasFocus) Color.WHITE
+                    else Color.rgb(189, 189, 189)
+                )
+                hint.text = if (hasFocus) "▶ OK Watch   •   Hold OK Options" else "OK Watch"
+
+                artwork.animate()
+                    .alpha(if (hasFocus) 1.0f else 0.88f)
+                    .setDuration(110L)
+                    .start()
 
                 if (hasFocus) {
                     val position = bindingAdapterPosition
@@ -1135,8 +1224,10 @@ class LibraryProgramAdapter(
             program: LibraryProgram,
             kind: String
         ) {
-            icon.setImageResource(iconFor(program))
-            icon.contentDescription = program.category ?: program.type ?: "Program"
+            bindArtwork(program)
+            bindChannelLogo(program)
+
+            icon.visibility = View.GONE
 
             val processingStatus =
                 program.processingStatus?.lowercase()
@@ -1186,6 +1277,12 @@ class LibraryProgramAdapter(
                     else -> Color.rgb(255, 204, 0)
                 }
             )
+
+            val isActiveBadge =
+                kind == "currently_recording" ||
+                        program.status.equals("recording", ignoreCase = true) ||
+                        program.status.equals("active", ignoreCase = true)
+            updateRecordingPulse(isActiveBadge)
 
             title.text = program.title ?: "Unknown Program"
 
@@ -1317,8 +1414,11 @@ class LibraryProgramAdapter(
                     resumeProgress.visibility = View.VISIBLE
                     resumeProgress.progress = activeProgress.percent
                     resumeText.visibility = View.VISIBLE
+                    val remaining =
+                        (activeProgress.totalMinutes - activeProgress.elapsedMinutes)
+                            .coerceAtLeast(0)
                     resumeText.text =
-                        "Recording ${activeProgress.elapsedMinutes} min of ${activeProgress.totalMinutes} min"
+                        "${activeProgress.elapsedMinutes} min recorded  •  $remaining min remaining"
                 }
 
                 showResume -> {
@@ -1365,6 +1465,98 @@ class LibraryProgramAdapter(
 
                 else -> "OK: Watch\nHold OK: Options"
             }
+        }
+
+        fun recycle() {
+            recordingPulse?.cancel()
+            recordingPulse = null
+            badge.alpha = 1.0f
+            Glide.with(itemView).clear(artwork)
+            Glide.with(itemView).clear(channelLogo)
+        }
+
+        private fun updateRecordingPulse(active: Boolean) {
+            recordingPulse?.cancel()
+            recordingPulse = null
+            badge.alpha = 1.0f
+
+            if (!active) return
+
+            recordingPulse = ObjectAnimator.ofFloat(badge, View.ALPHA, 1.0f, 0.48f, 1.0f).apply {
+                duration = 1200L
+                repeatCount = ObjectAnimator.INFINITE
+                interpolator = AccelerateDecelerateInterpolator()
+                start()
+            }
+        }
+
+        private fun bindArtwork(program: LibraryProgram) {
+            /*
+             * Program artwork must be the show/episode image, never the
+             * station logo. The logo has its own ImageView on the card.
+             *
+             * Prefer SignalDVR's artwork endpoint because it already applies
+             * the Schedules Direct -> TVMaze fallback and cache. Older library
+             * rows may only contain thumbnail/artwork paths, so keep those as
+             * secondary fallbacks while explicitly rejecting logo paths.
+             */
+            val programArtworkUrl = program.programId
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?.let { absoluteUrl("/api/program-artwork/$it") }
+
+            val storedArtwork = sequenceOf(program.thumbnail, program.artwork)
+                .mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
+                .firstOrNull { path ->
+                    !path.contains("/static/logos/", ignoreCase = true) &&
+                            !path.contains("/logos/", ignoreCase = true)
+                }
+                ?.let(::absoluteUrl)
+
+            val fallbackRequest = storedArtwork?.let { fallbackUrl ->
+                Glide.with(itemView)
+                    .load(fallbackUrl)
+                    .fitCenter()
+            }
+
+            val request = Glide.with(itemView)
+                .load(programArtworkUrl ?: storedArtwork)
+                .fitCenter()
+                .placeholder(R.drawable.bg_library_artwork_placeholder)
+
+            if (programArtworkUrl != null && fallbackRequest != null) {
+                request.error(fallbackRequest)
+            } else {
+                request.error(R.drawable.bg_library_artwork_placeholder)
+            }
+
+            request.into(artwork)
+        }
+
+        private fun bindChannelLogo(program: LibraryProgram) {
+            val channel = program.channel?.trim().orEmpty()
+            if (channel.isBlank()) {
+                channelLogo.visibility = View.GONE
+                Glide.with(itemView).clear(channelLogo)
+                return
+            }
+
+            val logoPath = "/static/logos/${channel.replace('.', '_')}.png"
+            channelLogo.visibility = View.VISIBLE
+            Glide.with(itemView)
+                .load(absoluteUrl(logoPath))
+                .fitCenter()
+                .error(android.R.color.transparent)
+                .into(channelLogo)
+        }
+
+        private fun absoluteUrl(value: String?): String? {
+            val raw = value?.trim().orEmpty()
+            if (raw.isBlank()) return null
+            if (raw.startsWith("http://") || raw.startsWith("https://")) return raw
+
+            val base = ApiClient.getBaseUrl(itemView.context).trimEnd('/')
+            return if (raw.startsWith('/')) "$base$raw" else "$base/$raw"
         }
 
         @DrawableRes
