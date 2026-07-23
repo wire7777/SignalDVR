@@ -641,7 +641,10 @@ class PlaybackController(
             )
 
             handler.post {
-                playerEngine.refreshLivePlaylist(url)
+                playerEngine.refreshLivePlaylist(
+                    url = url,
+                    jumpToLiveEdge = true
+                )
                 onLive(url)
             }
         } catch (e: Exception) {

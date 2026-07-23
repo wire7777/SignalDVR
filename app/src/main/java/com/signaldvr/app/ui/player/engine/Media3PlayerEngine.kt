@@ -348,7 +348,7 @@ class Media3PlayerEngine(
         player.prepare()
     }
 
-    override fun refreshLivePlaylist(url: String) {
+    override fun refreshLivePlaylist(url: String, jumpToLiveEdge: Boolean) {
         if (url.isBlank()) {
             listener?.onError(
                 "Live playlist URL is empty"
@@ -396,6 +396,16 @@ class Media3PlayerEngine(
 
         applyAudioSettings()
         player.prepare()
+
+        /*
+         * Replacing a live MediaItem preserves ExoPlayer's previous window
+         * position. That is correct for delayed-live seeks, but Jump Live must
+         * explicitly move to the default position of the newest live window.
+         */
+        if (jumpToLiveEdge) {
+            player.seekToDefaultPosition()
+        }
+
         player.playWhenReady = shouldResume
     }
 

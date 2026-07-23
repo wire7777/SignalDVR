@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -16,6 +17,7 @@ import android.widget.TextView
 import android.widget.Toast
 import android.view.animation.AccelerateDecelerateInterpolator
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import androidx.annotation.DrawableRes
@@ -181,8 +183,74 @@ class LibraryFragment : Fragment() {
                 val saved = data.saved.orEmpty()
                 val recorded = data.recorded.orEmpty()
 
-                summaryText.text =
-                    "Continue ${continueWatching.size}  ·  Recording ${if (activeProgram != null) 1 else 0}  ·  Background DVR ${buffered.size}  ·  Saved ${saved.size}  ·  Recorded ${recorded.size}"
+                /*
+                 * Present Background DVR as a time-based DVR history.
+                 *
+                 * - Active programs are pinned in RECORDING NOW.
+                 * - Completed unsaved programs are grouped by their air date.
+                 * - Saved programs appear once in SAVED, never duplicated in
+                 *   Today or Yesterday.
+                 *
+                 * The backend recording, save, delete, resume and playback
+                 * behavior remains unchanged; this is presentation only.
+                 */
+                val allBackgroundPrograms = buildList {
+                    activeProgram?.let(::add)
+                    addAll(buffered)
+                    addAll(saved)
+                }
+                    .distinctBy { program ->
+                        program.id?.let { "id:$it" }
+                            ?: program.filePath?.let { "path:$it" }
+                            ?: "${program.title}|${program.startTime}"
+                    }
+                    .sortedByDescending { program ->
+                        program.startTime
+                            ?: program.start
+                            ?: program.createdAt
+                            ?: ""
+                    }
+
+                val recordingNow = allBackgroundPrograms.filter { program ->
+                    program.status.equals("active", ignoreCase = true)
+                }
+
+                val completedUnsaved = allBackgroundPrograms.filter { program ->
+                    !program.status.equals("active", ignoreCase = true) &&
+                            program.saved != true
+                }
+
+                val today = completedUnsaved.filter { program ->
+                    programDayBucket(program) == DayBucket.TODAY
+                }
+
+                val yesterday = completedUnsaved.filter { program ->
+                    programDayBucket(program) == DayBucket.YESTERDAY
+                }
+
+                /*
+                 * Keep older retained items visible instead of silently
+                 * dropping them when retention is configured beyond one day.
+                 */
+                val earlier = completedUnsaved.filter { program ->
+                    programDayBucket(program) == DayBucket.EARLIER
+                }
+
+                val savedPrograms = allBackgroundPrograms.filter { program ->
+                    program.saved == true ||
+                            program.status.equals("saved", ignoreCase = true)
+                }
+
+                summaryText.text = buildString {
+                    append("Recording ${recordingNow.size}")
+                    append("  ·  Today ${today.size}")
+                    append("  ·  Yesterday ${yesterday.size}")
+                    if (earlier.isNotEmpty()) {
+                        append("  ·  Earlier ${earlier.size}")
+                    }
+                    append("  ·  Saved ${savedPrograms.size}")
+                    append("  ·  Recorded ${recorded.size}")
+                }
 
                 val sections = buildList {
                     if (continueWatching.isNotEmpty()) {
@@ -196,21 +264,71 @@ class LibraryFragment : Fragment() {
                         )
                     }
 
-                    if (activeProgram != null) {
+                    if (recordingNow.isNotEmpty()) {
                         add(
                             LibrarySection(
-                                "CURRENTLY RECORDING",
+                                "RECORDING NOW",
                                 "currently_recording",
-                                R.drawable.ic_library_buffered,
-                                listOf(activeProgram)
+                                R.drawable.ic_home_live_tv,
+                                recordingNow
                             )
                         )
                     }
 
-                    add(LibrarySection("BACKGROUND DVR", "buffered", R.drawable.ic_library_buffered, buffered))
-                    add(LibrarySection("LIVE NOW", "live", R.drawable.ic_home_live_tv, live))
-                    add(LibrarySection("SAVED", "saved", R.drawable.ic_library_saved, saved))
-                    add(LibrarySection("RECORDED", "recorded", R.drawable.ic_home_recordings, recorded))
+                    if (today.isNotEmpty()) {
+                        add(
+                            LibrarySection(
+                                "TODAY",
+                                "background_today",
+                                R.drawable.ic_library_buffered,
+                                today
+                            )
+                        )
+                    }
+
+                    if (yesterday.isNotEmpty()) {
+                        add(
+                            LibrarySection(
+                                "YESTERDAY",
+                                "background_yesterday",
+                                R.drawable.ic_library_buffered,
+                                yesterday
+                            )
+                        )
+                    }
+
+                    if (earlier.isNotEmpty()) {
+                        add(
+                            LibrarySection(
+                                "EARLIER",
+                                "background_earlier",
+                                R.drawable.ic_library_buffered,
+                                earlier
+                            )
+                        )
+                    }
+
+                    if (savedPrograms.isNotEmpty()) {
+                        add(
+                            LibrarySection(
+                                "SAVED",
+                                "background_saved",
+                                R.drawable.ic_home_library,
+                                savedPrograms
+                            )
+                        )
+                    }
+
+                    if (recorded.isNotEmpty()) {
+                        add(
+                            LibrarySection(
+                                "RECORDED",
+                                "recorded",
+                                R.drawable.ic_home_recordings,
+                                recorded
+                            )
+                        )
+                    }
                 }
 
                 adapter?.submitSections(sections)
@@ -254,6 +372,69 @@ class LibraryFragment : Fragment() {
                 }
             }
         }
+    }
+
+    private enum class DayBucket {
+        TODAY,
+        YESTERDAY,
+        EARLIER,
+    }
+
+    private fun programDayBucket(program: LibraryProgram): DayBucket {
+        val value = sequenceOf(
+            program.startTime,
+            program.start,
+            program.createdAt,
+        ).firstOrNull { !it.isNullOrBlank() }
+
+        val programDate = parseProgramDate(value) ?: return DayBucket.EARLIER
+
+        val now = Calendar.getInstance()
+        val todayStart = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val yesterdayStart = (todayStart.clone() as Calendar).apply {
+            add(Calendar.DAY_OF_YEAR, -1)
+        }
+
+        return when {
+            !programDate.before(todayStart.time) && !programDate.after(now.time) ->
+                DayBucket.TODAY
+
+            !programDate.before(yesterdayStart.time) && programDate.before(todayStart.time) ->
+                DayBucket.YESTERDAY
+
+            else -> DayBucket.EARLIER
+        }
+    }
+
+    private fun parseProgramDate(value: String?): Date? {
+        val raw = value?.trim().orEmpty()
+        if (raw.isBlank()) return null
+
+        val patterns = listOf(
+            "yyyyMMddHHmmss",
+            "yyyy-MM-dd'T'HH:mm:ssXXX",
+            "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+            "yyyy-MM-dd'T'HH:mm:ss",
+            "yyyy-MM-dd HH:mm:ss",
+            "yyyy-MM-dd",
+        )
+
+        for (pattern in patterns) {
+            try {
+                return SimpleDateFormat(pattern, Locale.US).apply {
+                    isLenient = false
+                }.parse(raw)
+            } catch (_: Exception) {
+                // Try the next known SignalDVR timestamp format.
+            }
+        }
+
+        return null
     }
 
     private fun watchProgram(program: LibraryProgram) {
@@ -1224,6 +1405,11 @@ class LibraryProgramAdapter(
             program: LibraryProgram,
             kind: String
         ) {
+            val isActiveRecording =
+                kind == "currently_recording" ||
+                        program.status.equals("active", ignoreCase = true)
+
+            configureCardForState(isActiveRecording)
             bindArtwork(program)
             bindChannelLogo(program)
 
@@ -1249,7 +1435,7 @@ class LibraryProgramAdapter(
 
                 program.status.equals("recording", ignoreCase = true) ||
                         program.status.equals("active", ignoreCase = true) ->
-                    "● RECORDING"
+                    if (isActiveRecording) "● RECORDING NOW" else "● RECORDING"
 
                 program.isNew -> "NEW"
                 program.isRepeat -> "REPEAT"
@@ -1393,10 +1579,6 @@ class LibraryProgramAdapter(
                         ""
                 }
 
-            val isActiveRecording =
-                kind == "currently_recording" ||
-                        program.status.equals("active", ignoreCase = true)
-
             val activeProgress = if (isActiveRecording) {
                 calculateActiveProgress(program.startTime, program.stopTime)
             } else {
@@ -1417,8 +1599,14 @@ class LibraryProgramAdapter(
                     val remaining =
                         (activeProgress.totalMinutes - activeProgress.elapsedMinutes)
                             .coerceAtLeast(0)
-                    resumeText.text =
-                        "${activeProgress.elapsedMinutes} min recorded  •  $remaining min remaining"
+                    resumeText.text = buildString {
+                        append(activeProgress.elapsedMinutes)
+                        append(" min elapsed  •  ")
+                        append(remaining)
+                        append(" min remaining  •  ")
+                        append(activeProgress.percent)
+                        append('%')
+                    }
                 }
 
                 showResume -> {
@@ -1455,6 +1643,9 @@ class LibraryProgramAdapter(
             }
 
             hint.text = when {
+                isActiveRecording ->
+                    "OK: Watch from Beginning\nHold OK: Join Live / Options"
+
                 program.type.equals("recording", ignoreCase = true) &&
                         processingStatus in setOf("pending", "processing") ->
                     "Preparing playback…\nHold OK: Options"
@@ -1465,6 +1656,50 @@ class LibraryProgramAdapter(
 
                 else -> "OK: Watch\nHold OK: Options"
             }
+        }
+
+        private fun configureCardForState(isActiveRecording: Boolean) {
+            val density = itemView.resources.displayMetrics.density
+            val desiredWidthDp = if (isActiveRecording) 520 else 340
+            val desiredWidthPx = (desiredWidthDp * density).toInt()
+
+            itemView.layoutParams = itemView.layoutParams.apply {
+                width = desiredWidthPx
+            }
+
+            val artworkWidthDp = if (isActiveRecording) 164 else 108
+            artwork.parent?.let { parent ->
+                if (parent is View) {
+                    parent.layoutParams = parent.layoutParams.apply {
+                        width = (artworkWidthDp * density).toInt()
+                    }
+                }
+            }
+
+            title.setTextSize(
+                TypedValue.COMPLEX_UNIT_SP,
+                if (isActiveRecording) 22f else 18f
+            )
+            meta.setTextSize(
+                TypedValue.COMPLEX_UNIT_SP,
+                if (isActiveRecording) 13f else 11f
+            )
+            description.setTextSize(
+                TypedValue.COMPLEX_UNIT_SP,
+                if (isActiveRecording) 12f else 11f
+            )
+            description.maxLines = if (isActiveRecording) 3 else 2
+            resumeProgress.layoutParams = resumeProgress.layoutParams.apply {
+                height = ((if (isActiveRecording) 7 else 4) * density).toInt()
+            }
+            resumeText.setTextSize(
+                TypedValue.COMPLEX_UNIT_SP,
+                if (isActiveRecording) 12f else 10f
+            )
+            hint.setTextSize(
+                TypedValue.COMPLEX_UNIT_SP,
+                if (isActiveRecording) 11f else 10f
+            )
         }
 
         fun recycle() {
@@ -1594,10 +1829,8 @@ class LibraryProgramAdapter(
             if (startValue.isNullOrBlank() || stopValue.isNullOrBlank()) return null
 
             return try {
-                val parser = SimpleDateFormat("yyyyMMddHHmmss", Locale.US)
-                parser.isLenient = false
-                val start = parser.parse(startValue)?.time ?: return null
-                val stop = parser.parse(stopValue)?.time ?: return null
+                val start = parseDashboardTime(startValue) ?: return null
+                val stop = parseDashboardTime(stopValue) ?: return null
                 val totalMs = (stop - start).coerceAtLeast(1L)
                 val elapsedMs = (Date().time - start).coerceIn(0L, totalMs)
 
@@ -1611,6 +1844,28 @@ class LibraryProgramAdapter(
             } catch (_: Exception) {
                 null
             }
+        }
+
+        private fun parseDashboardTime(value: String): Long? {
+            val patterns = listOf(
+                "yyyyMMddHHmmss",
+                "yyyy-MM-dd'T'HH:mm:ssXXX",
+                "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+                "yyyy-MM-dd'T'HH:mm:ss",
+                "yyyy-MM-dd HH:mm:ss",
+            )
+
+            for (pattern in patterns) {
+                try {
+                    return SimpleDateFormat(pattern, Locale.US).apply {
+                        isLenient = false
+                    }.parse(value)?.time
+                } catch (_: Exception) {
+                    // Try the next known backend timestamp format.
+                }
+            }
+
+            return null
         }
 
         private fun formatDuration(secondsValue: Double): String {

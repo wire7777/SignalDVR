@@ -32,10 +32,16 @@ interface PlayerEngine {
      * Refresh a live or delayed-live HLS playlist after a server-side DVR
      * seek without stopping and clearing the entire ExoPlayer instance.
      *
+     * When jumpToLiveEdge is true, the player must explicitly move to the
+     * newest available position in the live playlist.
+     *
      * Channel changes and recording playback continue to use playUrl() and
      * prepareUrl().
      */
-    fun refreshLivePlaylist(url: String)
+    fun refreshLivePlaylist(
+        url: String,
+        jumpToLiveEdge: Boolean = false,
+    )
 
     fun play()
 

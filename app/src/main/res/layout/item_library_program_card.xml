@@ -1,110 +1,138 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/library_item_root"
-    android:layout_width="390dp"
-    android:layout_height="244dp"
-    android:layout_marginEnd="14dp"
-    android:background="@drawable/bg_channel_normal"
+    android:layout_width="340dp"
+    android:layout_height="202dp"
+    android:layout_marginEnd="12dp"
+    android:background="@drawable/bg_library_card_normal"
+    android:clipToOutline="false"
+    android:elevation="2dp"
     android:focusable="true"
     android:focusableInTouchMode="true"
-    android:orientation="vertical"
-    android:paddingStart="14dp"
-    android:paddingTop="12dp"
-    android:paddingEnd="14dp"
-    android:paddingBottom="10dp">
+    android:orientation="horizontal"
+    android:padding="8dp">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
+    <FrameLayout
+        android:layout_width="108dp"
+        android:layout_height="match_parent">
+
+        <ImageView
+            android:id="@+id/library_item_artwork"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_library_artwork_placeholder"
+            android:contentDescription="Program artwork"
+            android:scaleType="fitCenter" />
+
 
         <ImageView
             android:id="@+id/library_item_icon"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:contentDescription="Program type"
-            android:padding="3dp"
-            android:scaleType="fitCenter" />
+            android:layout_width="1dp"
+            android:layout_height="1dp"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="10dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
 
         <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:paddingStart="10dp">
+            android:layout_width="match_parent"
+            android:layout_height="26dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
             <TextView
                 android:id="@+id/library_item_badge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="LIVE"
+                android:background="@drawable/bg_library_badge"
+                android:includeFontPadding="false"
+                android:paddingStart="6dp"
+                android:paddingTop="2dp"
+                android:paddingEnd="6dp"
+                android:paddingBottom="2dp"
+                android:text="REC"
                 android:textColor="#FFFFCC00"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
 
-            <TextView
-                android:id="@+id/library_item_title"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:textColor="#FFFFFFFF"
-                android:textSize="18sp"
-                android:textStyle="bold" />
+            <ImageView
+                android:id="@+id/library_item_channel_logo"
+                android:layout_width="42dp"
+                android:layout_height="24dp"
+                android:layout_marginStart="6dp"
+                android:contentDescription="Channel logo"
+                android:scaleType="fitCenter"
+                android:visibility="gone" />
         </LinearLayout>
+
+        <TextView
+            android:id="@+id/library_item_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textColor="#FFFFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/library_item_meta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textColor="#FFC8C8C8"
+            android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/library_item_description"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="4dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textColor="#FFDDDDDD"
+            android:textSize="11sp" />
+
+        <ProgressBar
+            android:id="@+id/library_item_resume_progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:layout_marginTop="3dp"
+            android:max="100"
+            android:progress="0"
+            android:progressDrawable="@drawable/progress_library"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/library_item_resume_text"
+            android:layout_width="match_parent"
+            android:layout_height="17dp"
+            android:gravity="start|center_vertical"
+            android:includeFontPadding="false"
+            android:textColor="#FFD8D8D8"
+            android:textSize="10sp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/library_item_hint"
+            android:layout_width="match_parent"
+            android:layout_height="23dp"
+            android:gravity="end|center_vertical"
+            android:includeFontPadding="false"
+            android:text="OK Watch"
+            android:textColor="#FFBDBDBD"
+            android:textSize="10sp"
+            android:textStyle="bold" />
     </LinearLayout>
-
-    <TextView
-        android:id="@+id/library_item_meta"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:ellipsize="end"
-        android:maxLines="2"
-        android:textColor="#FFBBBBBB"
-        android:textSize="13sp" />
-
-    <TextView
-        android:id="@+id/library_item_description"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_marginTop="6dp"
-        android:layout_weight="1"
-        android:ellipsize="end"
-        android:maxLines="3"
-        android:textColor="#FFDDDDDD"
-        android:textSize="12sp" />
-
-    <ProgressBar
-        android:id="@+id/library_item_resume_progress"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="match_parent"
-        android:layout_height="5dp"
-        android:layout_marginTop="4dp"
-        android:max="100"
-        android:progress="0"
-        android:visibility="gone" />
-
-    <TextView
-        android:id="@+id/library_item_resume_text"
-        android:layout_width="match_parent"
-        android:layout_height="18dp"
-        android:gravity="start|center_vertical"
-        android:includeFontPadding="false"
-        android:textColor="#FFCCCCCC"
-        android:textSize="11sp"
-        android:visibility="gone" />
-
-    <TextView
-        android:id="@+id/library_item_hint"
-        android:layout_width="match_parent"
-        android:layout_height="34dp"
-        android:gravity="end|center_vertical"
-        android:includeFontPadding="false"
-        android:text="OK: Watch"
-        android:textColor="#FFFFFFFF"
-        android:textSize="12sp"
-        android:textStyle="bold" />
 
 </LinearLayout>
