@@ -32,6 +32,7 @@ class Media3PlayerEngine(
     private var listenerAttached = false
     private var muted = false
     private var liveRefreshGeneration = 0L
+    private var pendingJumpToLive = false
 
     /*
      * Allow Media3 to try another decoder if the preferred hardware decoder
@@ -113,6 +114,17 @@ class Media3PlayerEngine(
                         }
 
                         Player.STATE_READY -> {
+                            if (pendingJumpToLive) {
+                                pendingJumpToLive = false
+
+                                Log.d(
+                                    TAG,
+                                    "Jumping to live edge after playlist refresh"
+                                )
+
+                                player.seekToDefaultPosition()
+                            }
+
                             Log.d(
                                 TAG,
                                 "Playback ready; " +
@@ -389,6 +401,8 @@ class Media3PlayerEngine(
                 .setMimeType(MimeTypes.APPLICATION_M3U8)
                 .build()
 
+        pendingJumpToLive = jumpToLiveEdge
+
         player.setMediaItem(
             mediaItem,
             true,
@@ -396,16 +410,6 @@ class Media3PlayerEngine(
 
         applyAudioSettings()
         player.prepare()
-
-        /*
-         * Replacing a live MediaItem preserves ExoPlayer's previous window
-         * position. That is correct for delayed-live seeks, but Jump Live must
-         * explicitly move to the default position of the newest live window.
-         */
-        if (jumpToLiveEdge) {
-            player.seekToDefaultPosition()
-        }
-
         player.playWhenReady = shouldResume
     }
 

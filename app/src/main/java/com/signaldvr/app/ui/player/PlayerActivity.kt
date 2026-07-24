@@ -272,7 +272,6 @@ class PlayerActivity : AppCompatActivity() {
             )
 
             playbackControllerReady = true
-            playerUiController.showShortToast("Using Media3 / ExoPlayer")
 
             startRequestedPlayback()
         }
