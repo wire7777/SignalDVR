@@ -1,34 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <merge xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Dark translucent background -->
     <View
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#EE101010" />
 
-    <!-- Blue top accent -->
     <View
         android:layout_width="match_parent"
-        android:layout_height="4dp"
+        android:layout_height="3dp"
         android:background="#FF1688D4" />
 
-    <!-- Channel section -->
     <LinearLayout
-        android:layout_width="130dp"
+        android:layout_width="100dp"
         android:layout_height="match_parent"
         android:gravity="center"
         android:orientation="vertical"
-        android:paddingStart="14dp"
-        android:paddingTop="10dp"
-        android:paddingEnd="14dp"
-        android:paddingBottom="10dp">
+        android:paddingStart="8dp"
+        android:paddingTop="5dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="5dp">
 
         <ImageView
             android:id="@+id/overlay_channel_logo"
-            android:layout_width="82dp"
-            android:layout_height="46dp"
-            android:layout_marginBottom="4dp"
+            android:layout_width="60dp"
+            android:layout_height="30dp"
+            android:layout_marginBottom="1dp"
             android:adjustViewBounds="true"
             android:contentDescription="Channel logo"
             android:scaleType="fitCenter"
@@ -40,45 +37,44 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:gravity="center"
+            android:includeFontPadding="false"
             android:maxLines="1"
             android:textColor="#FFFFFFFF"
-            android:textSize="32sp"
+            android:textSize="24sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/overlay_channel_name"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
+            android:layout_marginTop="1dp"
             android:ellipsize="end"
             android:gravity="center"
+            android:includeFontPadding="false"
             android:maxLines="1"
             android:textColor="#FFB8B8B8"
-            android:textSize="13sp" />
+            android:textSize="11sp" />
 
     </LinearLayout>
 
-    <!-- Divider -->
     <View
         android:layout_width="1dp"
         android:layout_height="match_parent"
-        android:layout_marginStart="130dp"
-        android:layout_marginTop="14dp"
-        android:layout_marginBottom="14dp"
+        android:layout_marginStart="100dp"
+        android:layout_marginTop="7dp"
+        android:layout_marginBottom="7dp"
         android:background="#35FFFFFF" />
 
-    <!-- Program information -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginStart="131dp"
+        android:layout_marginStart="101dp"
         android:orientation="vertical"
-        android:paddingStart="18dp"
-        android:paddingTop="11dp"
-        android:paddingEnd="20dp"
-        android:paddingBottom="9dp">
+        android:paddingStart="14dp"
+        android:paddingTop="7dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="6dp">
 
-        <!-- Title, playback status and clock -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -91,73 +87,85 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:ellipsize="end"
+                android:includeFontPadding="false"
                 android:maxLines="1"
                 android:textColor="#FFFFFFFF"
-                android:textSize="20sp"
+                android:textSize="18sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/overlay_status_icon"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="14dp"
+                android:layout_marginStart="10dp"
                 android:gravity="center"
-                android:minWidth="32dp"
+                android:includeFontPadding="false"
+                android:minWidth="26dp"
                 android:textColor="#FF29A9F3"
-                android:textSize="18sp"
+                android:textSize="16sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/overlay_clock"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
+                android:layout_marginStart="9dp"
+                android:includeFontPadding="false"
                 android:textColor="#FFE0E0E0"
-                android:textSize="14sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
         </LinearLayout>
 
-        <!-- Program start and end time -->
-        <TextView
-            android:id="@+id/overlay_current_time"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="3dp"
-            android:textColor="#FFB8B8B8"
-            android:textSize="13sp" />
+            android:layout_marginTop="2dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <!-- Progress -->
+            <TextView
+                android:id="@+id/overlay_current_time"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="#FFB8B8B8"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/overlay_time_remaining"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="#FFD0D0D0"
+                android:textSize="12sp" />
+
+        </LinearLayout>
+
         <ProgressBar
             android:id="@+id/overlay_progress"
             style="@android:style/Widget.ProgressBar.Horizontal"
             android:layout_width="match_parent"
-            android:layout_height="7dp"
-            android:layout_marginTop="9dp"
+            android:layout_height="4dp"
+            android:layout_marginTop="5dp"
             android:max="100"
             android:progress="0"
             android:progressBackgroundTint="#3DFFFFFF"
             android:progressTint="#FF1688D4" />
 
-        <!-- Remaining time -->
-        <TextView
-            android:id="@+id/overlay_time_remaining"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textColor="#FFD0D0D0"
-            android:textSize="13sp" />
-
-        <!-- Next program -->
         <TextView
             android:id="@+id/overlay_next_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="7dp"
+            android:layout_marginTop="4dp"
             android:ellipsize="end"
+            android:includeFontPadding="false"
             android:maxLines="1"
             android:textColor="#FF4DB8F7"
-            android:textSize="13sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
 
     </LinearLayout>

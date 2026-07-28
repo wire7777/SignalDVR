@@ -9,31 +9,40 @@ import retrofit2.http.Query
 
 interface SignalDvrApi {
 
-    @GET("api/kodi/live")
+    @GET("api/live/channels")
     suspend fun getLiveChannels(): List<Channel>
 
-    @GET("api/kodi/nowplaying/{channel}")
+    @GET("api/live/nowplaying/{channel}")
     suspend fun getNowPlaying(
         @Path("channel") channel: String,
     ): NowPlaying
 
-    @GET("api/kodi/stream/{channel}")
+    @GET("api/live/stream/{channel}")
     suspend fun getDirectStream(
         @Path("channel") channel: String,
     ): DirectStreamResponse
 
-    @GET("api/kodi/timeshift/start/{channel}")
-    suspend fun startTimeshift(
+    @GET("api/live/timeshift/start/{channel}")
+    suspend fun startLiveStream(
         @Path("channel") channel: String,
-    ): TimeshiftResponse
+    ): LiveStreamResponse
 
-    @GET("api/kodi/recordings")
+    @GET("api/recordings/list")
     suspend fun getRecordings(): List<Recording>
 
-    @GET("api/kodi/guide/{channel}")
+    @GET("api/live/guide/{channel}")
     suspend fun getGuide(
         @Path("channel") channel: String,
     ): List<EpgProgram>
+
+    // Progressively loadable guide grid. Android requests the first visible
+    // channel rows, renders them immediately, then fetches the rest in the
+    // background. Omitting both values remains backward-compatible.
+    @GET("api/live/guide/grid")
+    suspend fun getGuideGrid(
+        @Query("offset") offset: Int? = null,
+        @Query("limit") limit: Int? = null,
+    ): Map<String, List<EpgProgram>>
 
     @GET("api/guide/program/{programId}/record-options")
     suspend fun getGuideRecordOptions(

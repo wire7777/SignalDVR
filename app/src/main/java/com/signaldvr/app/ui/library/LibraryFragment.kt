@@ -1508,7 +1508,7 @@ class LibraryProgramAdapter(
                  * Keep the card at its measured size. Scaling a focused child
                  * inside a horizontal RecyclerView clipped the artwork and the
                  * yellow selection border at the row edges. Selection is now
-                 * communicated by a thin outline, yellow title, subtle elevation,
+                 * communicated by a thin outline, white title, subtle elevation,
                  * and brightness without changing layout bounds.
                  */
                 focusedView.animate()
@@ -1519,10 +1519,7 @@ class LibraryProgramAdapter(
                     .setDuration(110L)
                     .start()
 
-                title.setTextColor(
-                    if (hasFocus) Color.rgb(255, 204, 0)
-                    else Color.WHITE
-                )
+                title.setTextColor(Color.WHITE)
                 hint.setTextColor(
                     if (hasFocus) Color.WHITE
                     else Color.rgb(189, 189, 189)

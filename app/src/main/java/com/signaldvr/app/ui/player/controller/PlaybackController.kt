@@ -60,7 +60,7 @@ class PlaybackController(
         try {
             val resp = ApiClient
                 .getApi(context)
-                .startTimeshift(channelNum)
+                .startLiveStream(channelNum)
 
             if (!resp.ok) {
                 handler.post {

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_title">Settings</string>
+    <string name="settings_server_section">SERVER</string>
+    <string name="settings_server_address">Server Address</string>
+    <string name="settings_server_help">Enter the complete address. Custom ports, hostnames, HTTP, and HTTPS are supported.</string>
+    <string name="settings_test_connection">Test Connection</string>
+    <string name="settings_testing_button">Testing…</string>
+    <string name="settings_save">Save</string>
+    <string name="settings_testing">Testing server connection…</string>
+    <string name="settings_connected">Connected to %1$s</string>
+    <string name="settings_connection_failed">Connection failed: %1$s</string>
+    <string name="settings_unknown_error">Unknown connection error</string>
+    <string name="settings_saved">Saved server: %1$s</string>
+    <string name="settings_saved_toast">Server address saved</string>
+    <string name="settings_cache_section">CACHE</string>
+    <string name="settings_clear_cache">Clear Artwork Cache</string>
+    <string name="settings_cache_cleared">Artwork cache cleared</string>
+    <string name="settings_about_section">ABOUT</string>
+    <string name="settings_version_value">SignalDVR Android %1$s</string>
+</resources>

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="256"
+    android:viewportHeight="256">
+
+    <!-- DVR body -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M38,74 L218,74 Q228,74 228,84 L228,186 Q228,196 218,196 L38,196 Q28,196 28,186 L28,84 Q28,74 38,74 Z" />
+
+    <!-- Top lid -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M46,74 L68,50 Q74,44 84,44 L188,44 Q198,44 204,50 L224,74" />
+
+    <!-- Feet -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:pathData="M52,196 L52,208 L84,208 L84,196 M172,196 L172,208 L204,208 L204,196" />
+
+    <!-- Checklist boxes -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="6"
+        android:strokeLineJoin="round"
+        android:pathData="M48,100 L72,100 L72,124 L48,124 Z M48,138 L72,138 L72,162 L48,162 Z" />
+
+    <!-- Check marks -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M53,111 L59,117 L68,105 M53,149 L59,155 L68,143" />
+
+    <!-- Task lines -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:pathData="M84,112 L126,112 M84,150 L126,150" />
+
+    <!-- Proper horizontal DVR lettering -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M150.48,121.76 L150.48,137.1 L152.8,137.1 Q156.77,137.1 158.87,135.13 Q160.97,133.16 160.97,129.4 Q160.97,125.67 158.88,123.72 Q156.8,121.76 152.8,121.76 L150.48,121.76 Z M144,116.86 L150.83,116.86 Q156.56,116.86 159.36,117.68 Q162.16,118.49 164.17,120.45 Q165.93,122.15 166.79,124.38 Q167.65,126.6 167.65,129.4 Q167.65,132.25 166.79,134.48 Q165.93,136.71 164.17,138.41 Q162.15,140.37 159.32,141.19 Q156.49,142 150.83,142 L144,142 L144,116.86 Z M169.62,116.86 L176.14,116.86 L182.8,135.42 L189.46,116.86 L195.97,116.86 L186.66,142 L178.93,142 L169.62,116.86 Z M208.51,128.01 Q210.55,128.01 211.43,127.25 Q212.32,126.49 212.32,124.76 Q212.32,123.04 211.43,122.3 Q210.55,121.56 208.51,121.56 L205.79,121.56 L205.79,128.01 L208.51,128.01 Z M205.79,132.49 L205.79,142 L199.31,142 L199.31,116.86 L209.2,116.86 Q214.17,116.86 216.48,118.53 Q218.8,120.2 218.8,123.8 Q218.8,126.29 217.59,127.89 Q216.39,129.49 213.97,130.25 Q215.3,130.55 216.35,131.62 Q217.4,132.69 218.48,134.86 L222,142 L215.1,142 L212.03,135.76 Q211.11,133.87 210.15,133.18 Q209.2,132.49 207.62,132.49 L205.79,132.49 Z" />
+
+    <!-- Blue status LED -->
+    <path
+        android:fillColor="#FF1688D4"
+        android:pathData="M204,168 m-7,0 a7,7 0,1 0,14 0 a7,7 0,1 0,-14 0" />
+
+    <!-- Red recording dot -->
+    <path
+        android:fillColor="#FFFF3B30"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4"
+        android:pathData="M210,52 m-12,0 a12,12 0,1 0,24 0 a12,12 0,1 0,-24 0" />
+
+</vector>

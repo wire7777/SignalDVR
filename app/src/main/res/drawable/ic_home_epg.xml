@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="64dp"
+    android:height="64dp"
+    android:viewportWidth="64"
+    android:viewportHeight="64">
+
+    <!-- Outer EPG frame -->
+    <path
+        android:fillColor="#0B1D3D"
+        android:strokeColor="#168CFF"
+        android:strokeWidth="2"
+        android:pathData="M8,10h48a4,4 0,0 1,4 4v36a4,4 0,0 1,-4 4H8a4,4 0,0 1,-4 -4V14a4,4 0,0 1,4 -4z" />
+
+    <!-- Inner screen -->
+    <path
+        android:fillColor="#07142B"
+        android:pathData="M8,14h48v36H8z" />
+
+    <!-- Time column -->
+    <path
+        android:fillColor="#1C2F52"
+        android:pathData="M10,17h11v7H10zM10,27h11v7H10zM10,37h11v7H10z" />
+
+    <!-- Program blocks -->
+    <path
+        android:fillColor="#174BA1"
+        android:pathData="M24,17h30v7H24z" />
+
+    <path
+        android:fillColor="#2B8B5D"
+        android:pathData="M24,27h13v7H24z" />
+
+    <path
+        android:fillColor="#24395F"
+        android:pathData="M40,27h14v7H40z" />
+
+    <path
+        android:fillColor="#6842B8"
+        android:pathData="M24,37h30v7H24z" />
+
+    <!-- Divider -->
+    <path
+        android:fillColor="#061226"
+        android:pathData="M22,15h1v33h-1z" />
+
+    <!-- Small guide lines -->
+    <path
+        android:fillColor="#D8E7FF"
+        android:pathData="M12,19h7v1H12zM12,29h7v1H12zM12,39h7v1H12z" />
+</vector>

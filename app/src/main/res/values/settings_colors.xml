@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="settings_success">#FF54D67A</color>
+    <color name="settings_error">#FFFF6A61</color>
+    <color name="settings_secondary_text">#FFB8B8C8</color>
+</resources>

@@ -1,74 +1,118 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="100dp"
-    android:orientation="horizontal"
-    android:gravity="center_vertical"
-    android:background="@drawable/bg_channel_normal"
+    android:layout_height="152dp"
+    android:layout_marginStart="18dp"
+    android:layout_marginTop="4dp"
+    android:layout_marginEnd="18dp"
+    android:layout_marginBottom="4dp"
+    android:background="#181A24"
     android:focusable="true"
-    android:paddingStart="12dp"
-    android:paddingEnd="24dp"
-    android:paddingTop="8dp"
-    android:paddingBottom="8dp">
+    android:focusableInTouchMode="true"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="10dp">
 
-    <!-- Thumbnail -->
     <ImageView
         android:id="@+id/rec_thumbnail"
-        android:layout_width="150dp"
-        android:layout_height="84dp"
+        android:layout_width="220dp"
+        android:layout_height="124dp"
         android:layout_marginEnd="16dp"
-        android:scaleType="centerCrop"
-        android:background="#111122" />
+        android:background="#0B0C12"
+        android:contentDescription="Recording artwork"
+        android:scaleType="centerCrop" />
 
-    <!-- Info -->
     <LinearLayout
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:layout_weight="1"
+        android:gravity="center_vertical"
         android:orientation="vertical">
 
         <TextView
             android:id="@+id/rec_title"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="#FFFFFFFF"
-            android:textSize="18sp"
-            android:textStyle="bold"
+            android:ellipsize="end"
             android:maxLines="1"
-            android:ellipsize="end" />
+            android:textColor="#FFFFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/rec_subtitle"
-            android:layout_width="wrap_content"
+            android:id="@+id/rec_episode"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="#FFAAAAAA"
-            android:textSize="13sp"
-            android:maxLines="1"
+            android:layout_marginTop="2dp"
             android:ellipsize="end"
-            android:layout_marginTop="2dp" />
+            android:maxLines="1"
+            android:textColor="#FFD8D9E1"
+            android:textSize="14sp" />
 
-        <LinearLayout
-            android:layout_width="wrap_content"
+        <TextView
+            android:id="@+id/rec_metadata"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="6dp">
+            android:layout_marginTop="5dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#FF8EB7D8"
+            android:textSize="13sp" />
 
-            <TextView
-                android:id="@+id/rec_channel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="#FFFFCC00"
-                android:textSize="13sp" />
+        <TextView
+            android:id="@+id/rec_time"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#FFB5B7C2"
+            android:textSize="13sp" />
 
-            <TextView
-                android:id="@+id/rec_time"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="#FF0077CC"
-                android:textSize="13sp"
-                android:layout_marginStart="12dp" />
+        <TextView
+            android:id="@+id/rec_description"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="5dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textColor="#FF9C9EAA"
+            android:textSize="12sp" />
 
-        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="128dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="12dp"
+        android:gravity="center"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/rec_status"
+            android:layout_width="match_parent"
+            android:layout_height="32dp"
+            android:background="#3A3D49"
+            android:gravity="center"
+            android:maxLines="1"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp"
+            android:text="RECORDED"
+            android:textColor="#FFFFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <ProgressBar
+            android:id="@+id/rec_processing_progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="6dp"
+            android:layout_marginTop="10dp"
+            android:max="100"
+            android:progress="0"
+            android:visibility="gone" />
+
     </LinearLayout>
 
 </LinearLayout>

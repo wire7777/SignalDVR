@@ -76,35 +76,30 @@
         android:background="#E6101014"
         android:elevation="12dp"
         android:orientation="vertical"
-        android:paddingStart="36dp"
-        android:paddingTop="18dp"
-        android:paddingEnd="36dp"
-        android:paddingBottom="22dp"
+        android:paddingStart="28dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="28dp"
+        android:paddingBottom="10dp"
         android:visibility="gone">
 
         <TextView
             android:id="@+id/tv_position"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="end"
-            android:layout_marginEnd="8dp"
-            android:layout_marginBottom="2dp"
-            android:fontFamily="sans-serif-medium"
-            android:text="● LIVE"
-            android:textColor="#FFFFCC00"
-            android:textSize="15sp" />
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:text=""
+            android:visibility="gone" />
 
         <com.signaldvr.app.ui.player.TimelineView
             android:id="@+id/timelineView"
             android:layout_width="match_parent"
-            android:layout_height="120dp"
+            android:layout_height="72dp"
             android:layout_marginStart="4dp"
             android:layout_marginEnd="4dp"
-            android:layout_marginBottom="10dp" />
+            android:layout_marginBottom="4dp" />
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="74dp"
+            android:layout_height="48dp"
             android:gravity="center"
             android:orientation="horizontal">
 
@@ -119,9 +114,9 @@
 
             <TextView
                 android:id="@+id/btn_rew30"
-                android:layout_width="104dp"
-                android:layout_height="58dp"
-                android:layout_marginHorizontal="7dp"
+                android:layout_width="88dp"
+                android:layout_height="42dp"
+                android:layout_marginHorizontal="5dp"
                 android:background="@drawable/bg_channel_normal"
                 android:focusable="true"
                 android:fontFamily="sans-serif-medium"
@@ -129,13 +124,13 @@
                 android:nextFocusRight="@id/btn_rew10"
                 android:text="↶ 30"
                 android:textColor="#FFFFFFFF"
-                android:textSize="17sp" />
+                android:textSize="15sp" />
 
             <TextView
                 android:id="@+id/btn_rew10"
-                android:layout_width="104dp"
-                android:layout_height="58dp"
-                android:layout_marginHorizontal="7dp"
+                android:layout_width="88dp"
+                android:layout_height="42dp"
+                android:layout_marginHorizontal="5dp"
                 android:background="@drawable/bg_channel_normal"
                 android:focusable="true"
                 android:fontFamily="sans-serif-medium"
@@ -144,13 +139,13 @@
                 android:nextFocusRight="@id/btn_play_pause"
                 android:text="↶ 10"
                 android:textColor="#FFFFFFFF"
-                android:textSize="17sp" />
+                android:textSize="15sp" />
 
             <TextView
                 android:id="@+id/btn_play_pause"
-                android:layout_width="92dp"
-                android:layout_height="68dp"
-                android:layout_marginHorizontal="10dp"
+                android:layout_width="78dp"
+                android:layout_height="48dp"
+                android:layout_marginHorizontal="7dp"
                 android:background="@drawable/bg_channel_normal"
                 android:focusable="true"
                 android:fontFamily="sans-serif-medium"
@@ -159,13 +154,13 @@
                 android:nextFocusRight="@id/btn_ff10"
                 android:text="⏸"
                 android:textColor="#FFFFCC00"
-                android:textSize="32sp" />
+                android:textSize="25sp" />
 
             <TextView
                 android:id="@+id/btn_ff10"
-                android:layout_width="104dp"
-                android:layout_height="58dp"
-                android:layout_marginHorizontal="7dp"
+                android:layout_width="88dp"
+                android:layout_height="42dp"
+                android:layout_marginHorizontal="5dp"
                 android:background="@drawable/bg_channel_normal"
                 android:focusable="true"
                 android:fontFamily="sans-serif-medium"
@@ -174,13 +169,13 @@
                 android:nextFocusRight="@id/btn_ff30"
                 android:text="10 ↷"
                 android:textColor="#FFFFFFFF"
-                android:textSize="17sp" />
+                android:textSize="15sp" />
 
             <TextView
                 android:id="@+id/btn_ff30"
-                android:layout_width="104dp"
-                android:layout_height="58dp"
-                android:layout_marginHorizontal="7dp"
+                android:layout_width="88dp"
+                android:layout_height="42dp"
+                android:layout_marginHorizontal="5dp"
                 android:background="@drawable/bg_channel_normal"
                 android:focusable="true"
                 android:fontFamily="sans-serif-medium"
@@ -189,7 +184,7 @@
                 android:nextFocusRight="@id/btn_live"
                 android:text="30 ↷"
                 android:textColor="#FFFFFFFF"
-                android:textSize="17sp" />
+                android:textSize="15sp" />
 
             <!-- Retained for PlayerActivity binding; hidden from the simplified UI. -->
             <TextView
@@ -202,10 +197,10 @@
 
             <TextView
                 android:id="@+id/btn_live"
-                android:layout_width="112dp"
-                android:layout_height="58dp"
-                android:layout_marginStart="18dp"
-                android:layout_marginEnd="7dp"
+                android:layout_width="94dp"
+                android:layout_height="42dp"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="5dp"
                 android:background="@drawable/bg_channel_normal"
                 android:focusable="true"
                 android:fontFamily="sans-serif-medium"
@@ -214,14 +209,14 @@
                 android:nextFocusRight="@id/btn_record"
                 android:text="● LIVE"
                 android:textColor="#FF56E36F"
-                android:textSize="16sp"
+                android:textSize="14sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/btn_record"
-                android:layout_width="112dp"
-                android:layout_height="58dp"
-                android:layout_marginHorizontal="7dp"
+                android:layout_width="94dp"
+                android:layout_height="42dp"
+                android:layout_marginHorizontal="5dp"
                 android:background="@drawable/bg_channel_normal"
                 android:focusable="true"
                 android:fontFamily="sans-serif-medium"
@@ -229,7 +224,7 @@
                 android:nextFocusLeft="@id/btn_live"
                 android:text="● REC"
                 android:textColor="#FFFF5A5F"
-                android:textSize="16sp"
+                android:textSize="14sp"
                 android:textStyle="bold" />
 
         </LinearLayout>

@@ -280,7 +280,7 @@ class TimelineView @JvmOverloads constructor(
         val trackWidth = endX - startX
         val titleY = 24f
         val subtitleY = 46f
-        val labelY = 82f
+        val labelY = 70f
         val trackY = heightF - 24f
         val playheadX = startX + (trackWidth * displayedFraction.coerceIn(0f, 1f))
         val pulse = livePulse()

@@ -73,6 +73,8 @@ class PlayerActivity : AppCompatActivity() {
     private var isLiveMode = true
     private var behindLiveSeconds = 0
     private var reconnecting = false
+    private var liveBuffering = false
+    private var liveReconnectAttempts = 0
     private var userPaused = false
     private var playbackControllerReady = false
 
@@ -96,6 +98,54 @@ class PlayerActivity : AppCompatActivity() {
     private var resumeSeekAttempts = 0
 
     private val handler = Handler(Looper.getMainLooper())
+
+    /*
+     * Media3 can remain stuck on an HLS source after the backend watchdog
+     * restarts FFmpeg. While live TV is buffering, periodically replace the
+     * current media item with a cache-busted copy of the same playlist.
+     *
+     * The backend normally recovers in roughly 15-30 seconds, so several
+     * bounded retries are allowed. Recording/VOD playback is never reloaded
+     * by this watchdog.
+     */
+    private val liveReconnectRunnable = object : Runnable {
+        override fun run() {
+            if (
+                !liveBuffering ||
+                isRecordingPlayback ||
+                userPaused ||
+                currentUrl.isBlank() ||
+                !playbackControllerReady ||
+                isFinishing ||
+                isDestroyed
+            ) {
+                return
+            }
+
+            if (liveReconnectAttempts >= LIVE_RECONNECT_MAX_ATTEMPTS) {
+                reconnecting = false
+                playerUiController.showLoading("Still reconnecting...")
+                return
+            }
+
+            liveReconnectAttempts += 1
+            reconnecting = true
+
+            playerUiController.showLoading(
+                "Reconnecting... ($liveReconnectAttempts/$LIVE_RECONNECT_MAX_ATTEMPTS)"
+            )
+
+            /*
+             * refreshLivePlaylist() keeps the same ExoPlayer instance but
+             * replaces the HLS media item and adds a changing query value.
+             * This forces a new manifest request after FFmpeg recovery.
+             */
+            playerEngine.refreshLivePlaylist(currentUrl)
+
+            handler.removeCallbacks(this)
+            handler.postDelayed(this, LIVE_RECONNECT_DELAY_MS)
+        }
+    }
 
     private val playbackProgressRunnable = object : Runnable {
         override fun run() {
@@ -121,6 +171,9 @@ class PlayerActivity : AppCompatActivity() {
         const val EXTRA_TITLE = "title"
         const val EXTRA_RECORDING_ID = "recording_id"
         const val EXTRA_RESUME_URL = "resume_url"
+
+        private const val LIVE_RECONNECT_DELAY_MS = 12_000L
+        private const val LIVE_RECONNECT_MAX_ATTEMPTS = 6
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -169,12 +222,24 @@ class PlayerActivity : AppCompatActivity() {
                 override fun onOpening() {
                     runOnUiThread {
                         playerUiController.showLoadingDelayed("Buffering...")
+
+                        if (!isRecordingPlayback && !userPaused) {
+                            liveBuffering = true
+                            handler.removeCallbacks(liveReconnectRunnable)
+                            handler.postDelayed(
+                                liveReconnectRunnable,
+                                LIVE_RECONNECT_DELAY_MS
+                            )
+                        }
                     }
                 }
 
                 override fun onPlaying() {
                     runOnUiThread {
+                        liveBuffering = false
+                        liveReconnectAttempts = 0
                         reconnecting = false
+                        handler.removeCallbacks(liveReconnectRunnable)
                         playerUiController.clearTransientMessages()
                         window.decorView.keepScreenOn = true
                         playerUiController.showPauseIcon()
@@ -203,6 +268,8 @@ class PlayerActivity : AppCompatActivity() {
 
                 override fun onPaused() {
                     runOnUiThread {
+                        liveBuffering = false
+                        handler.removeCallbacks(liveReconnectRunnable)
                         playerUiController.showPlayIcon()
                     }
                 }
@@ -211,6 +278,8 @@ class PlayerActivity : AppCompatActivity() {
 
                 override fun onEndReached() {
                     runOnUiThread {
+                        liveBuffering = false
+                        handler.removeCallbacks(liveReconnectRunnable)
                         if (isRecordingPlayback) {
                             playbackCompleted = true
                             stopPlaybackProgressUpdates()
@@ -247,6 +316,8 @@ class PlayerActivity : AppCompatActivity() {
 
                 override fun onError(message: String) {
                     runOnUiThread {
+                        liveBuffering = false
+                        handler.removeCallbacks(liveReconnectRunnable)
                         playbackController.recoverPlayback(
                             currentUrl = currentUrl,
                             isReconnecting = reconnecting,
@@ -272,6 +343,7 @@ class PlayerActivity : AppCompatActivity() {
             )
 
             playbackControllerReady = true
+            //playerUiController.showShortToast("Using Media3 / ExoPlayer")
 
             startRequestedPlayback()
         }
@@ -1208,6 +1280,8 @@ class PlayerActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
 
+        liveBuffering = false
+        handler.removeCallbacks(liveReconnectRunnable)
         stopPlaybackProgressUpdates()
         handler.removeCallbacks(resumeSaveRunnable)
 
@@ -1228,6 +1302,7 @@ class PlayerActivity : AppCompatActivity() {
 
         playerUiController.release()
         handler.removeCallbacks(resumeSaveRunnable)
+        handler.removeCallbacks(liveReconnectRunnable)
         handler.removeCallbacksAndMessages(null)
 
         if (playbackControllerReady) {

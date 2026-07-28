@@ -159,6 +159,14 @@ class GuideOverlayView @JvmOverloads constructor(
     private fun present(dismissAfterMs: Long) {
         cancelDismiss()
 
+        /*
+         * This is the small tune-information blade, not the Quick Guide.
+         * Keep it compact even if activity_player.xml gives it a taller size.
+         */
+        layoutParams = layoutParams?.apply {
+            height = dpToPx(132)
+        }
+
         visibility = View.VISIBLE
         alpha = 1f
 
@@ -182,6 +190,12 @@ class GuideOverlayView @JvmOverloads constructor(
 
         animate().cancel()
         alpha = 1f
+    }
+
+    private fun dpToPx(value: Int): Int {
+        return (value * resources.displayMetrics.density)
+            .toInt()
+            .coerceAtLeast(1)
     }
 
     private fun buildTimeRange(start: String?, stop: String?): String {
