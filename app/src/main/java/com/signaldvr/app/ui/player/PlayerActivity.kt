@@ -5,10 +5,17 @@ import com.signaldvr.app.ui.player.controller.RemoteControlController
 import com.signaldvr.app.ui.player.engine.PlayerEngine
 import com.signaldvr.app.ui.player.engine.PlayerFactory
 import android.app.AlertDialog
+import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
+import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.widget.ProgressBar
@@ -100,13 +107,33 @@ class PlayerActivity : AppCompatActivity() {
     private val handler = Handler(Looper.getMainLooper())
 
     /*
+     * Watches the device's network state (Wi-Fi, LAN/Ethernet, mobile data)
+     * so that when a dropped connection comes back, playback can be retried
+     * immediately instead of waiting for the backoff timer in
+     * liveReconnectRunnable to come back around.
+     */
+    private var connectivityManager: ConnectivityManager? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+
+    /*
      * Media3 can remain stuck on an HLS source after the backend watchdog
-     * restarts FFmpeg. While live TV is buffering, periodically replace the
-     * current media item with a cache-busted copy of the same playlist.
+     * restarts FFmpeg, or after the device's own network (e.g. LAN/Ethernet
+     * cable) drops and comes back. While live TV is buffering/erroring,
+     * periodically replace the current media item with a cache-busted copy
+     * of the same playlist. Recording/VOD playback is never reloaded by
+     * this watchdog.
      *
-     * The backend normally recovers in roughly 15-30 seconds, so several
-     * bounded retries are allowed. Recording/VOD playback is never reloaded
-     * by this watchdog.
+     * This loop never permanently gives up: for the first
+     * LIVE_RECONNECT_MAX_ATTEMPTS tries it does a soft refresh
+     * (refreshLivePlaylist - keeps the ExoPlayer/decoder pipeline, just
+     * swaps the media item) every LIVE_RECONNECT_DELAY_MS, which covers the
+     * typical 15-30s backend FFmpeg restart. After that, a soft refresh
+     * clearly isn't enough, so it escalates to forceReloadLivePlaylist - a
+     * full stop/clear/prepare that tears down and rebuilds the decoder
+     * pipeline - at a slower LIVE_RECONNECT_BACKOFF_MS cadence. Either way
+     * it keeps retrying indefinitely, so a long outage (e.g. the LAN cable
+     * being unplugged) still self-heals without the user needing to press
+     * Live.
      */
     private val liveReconnectRunnable = object : Runnable {
         override fun run() {
@@ -122,29 +149,132 @@ class PlayerActivity : AppCompatActivity() {
                 return
             }
 
-            if (liveReconnectAttempts >= LIVE_RECONNECT_MAX_ATTEMPTS) {
-                reconnecting = false
-                playerUiController.showLoading("Still reconnecting...")
-                return
-            }
-
             liveReconnectAttempts += 1
             reconnecting = true
 
+            val softAttemptsExhausted =
+                liveReconnectAttempts > LIVE_RECONNECT_MAX_ATTEMPTS
+
             playerUiController.showLoading(
-                "Reconnecting... ($liveReconnectAttempts/$LIVE_RECONNECT_MAX_ATTEMPTS)"
+                if (!softAttemptsExhausted) {
+                    "Reconnecting... ($liveReconnectAttempts/$LIVE_RECONNECT_MAX_ATTEMPTS)"
+                } else {
+                    "Reconnecting..."
+                }
             )
 
-            /*
-             * refreshLivePlaylist() keeps the same ExoPlayer instance but
-             * replaces the HLS media item and adds a changing query value.
-             * This forces a new manifest request after FFmpeg recovery.
-             */
-            playerEngine.refreshLivePlaylist(currentUrl)
+            if (!softAttemptsExhausted) {
+                /*
+                 * refreshLivePlaylist() keeps the same ExoPlayer instance but
+                 * replaces the HLS media item and adds a changing query value.
+                 * This forces a new manifest request after FFmpeg recovery, or
+                 * a fresh network attempt once the LAN link is back.
+                 */
+                playerEngine.refreshLivePlaylist(currentUrl)
+            } else {
+                /*
+                 * A soft refresh hasn't recovered playback after several
+                 * tries. Rebuild the decoder pipeline outright in case it,
+                 * rather than the network, is what's actually wedged.
+                 */
+                Log.w(
+                    TAG,
+                    "Soft reconnect attempts exhausted; " +
+                            "forcing a hard pipeline rebuild"
+                )
+
+                playerEngine.forceReloadLivePlaylist(
+                    currentUrl,
+                    jumpToLiveEdge = true
+                )
+            }
+
+            val nextDelay =
+                if (!softAttemptsExhausted) {
+                    LIVE_RECONNECT_DELAY_MS
+                } else {
+                    LIVE_RECONNECT_BACKOFF_MS
+                }
 
             handler.removeCallbacks(this)
-            handler.postDelayed(this, LIVE_RECONNECT_DELAY_MS)
+            handler.postDelayed(this, nextDelay)
         }
+    }
+
+    /*
+     * Media3 can report STATE_READY / isPlaying=true while the decoder or
+     * Surface is actually wedged after a network hiccup: currentPosition
+     * keeps advancing (it's driven by the sample queue, not the screen),
+     * but no new video frame ever reaches the display. That silent stall is
+     * invisible to onOpening()/onError()/onEndReached(), so it needs its
+     * own watchdog based on lastRenderedVideoFrameRealtimeMs().
+     */
+    private val frameStallWatchdogRunnable = object : Runnable {
+        override fun run() {
+            if (
+                isRecordingPlayback ||
+                userPaused ||
+                currentUrl.isBlank() ||
+                !playbackControllerReady ||
+                isFinishing ||
+                isDestroyed
+            ) {
+                handler.postDelayed(this, STALL_CHECK_INTERVAL_MS)
+                return
+            }
+
+            val appearsHealthy =
+                playerEngine.isPlaying() &&
+                        !liveBuffering &&
+                        !reconnecting
+
+            val lastFrameMs =
+                playerEngine.lastRenderedVideoFrameRealtimeMs()
+
+            val elapsedSinceFrame =
+                SystemClock.elapsedRealtime() - lastFrameMs
+
+            if (
+                appearsHealthy &&
+                lastFrameMs > 0L &&
+                elapsedSinceFrame >= STALL_THRESHOLD_MS
+            ) {
+                Log.w(
+                    TAG,
+                    "No video frame rendered in " +
+                            "${elapsedSinceFrame}ms while isPlaying=true; " +
+                            "forcing a hard reload"
+                )
+
+                liveBuffering = true
+                reconnecting = true
+                /*
+                 * Skip straight past the soft-refresh attempts: the player
+                 * already claims to be playing, so a media-item swap alone
+                 * is unlikely to unstick a wedged decoder pipeline.
+                 */
+                liveReconnectAttempts = LIVE_RECONNECT_MAX_ATTEMPTS + 1
+
+                playerUiController.showLoading("Reconnecting...")
+
+                handler.removeCallbacks(liveReconnectRunnable)
+                handler.post(liveReconnectRunnable)
+            }
+
+            handler.postDelayed(this, STALL_CHECK_INTERVAL_MS)
+        }
+    }
+
+    private fun startFrameStallWatchdog() {
+        handler.removeCallbacks(frameStallWatchdogRunnable)
+        handler.postDelayed(
+            frameStallWatchdogRunnable,
+            STALL_CHECK_INTERVAL_MS
+        )
+    }
+
+    private fun stopFrameStallWatchdog() {
+        handler.removeCallbacks(frameStallWatchdogRunnable)
     }
 
     private val playbackProgressRunnable = object : Runnable {
@@ -164,6 +294,8 @@ class PlayerActivity : AppCompatActivity() {
 
 
     companion object {
+        private const val TAG = "SignalDVR-PlayerActivity"
+
         const val EXTRA_CHANNEL_NUM = "channel_num"
         const val EXTRA_CHANNEL_NAME = "channel_name"
         const val EXTRA_PLAY_URL = "play_url"
@@ -173,7 +305,17 @@ class PlayerActivity : AppCompatActivity() {
         const val EXTRA_RESUME_URL = "resume_url"
 
         private const val LIVE_RECONNECT_DELAY_MS = 12_000L
+        private const val LIVE_RECONNECT_INITIAL_DELAY_MS = 2_000L
+        private const val LIVE_RECONNECT_BACKOFF_MS = 20_000L
         private const val LIVE_RECONNECT_MAX_ATTEMPTS = 6
+
+        /*
+         * How often the frame-stall watchdog checks whether video frames
+         * are still being rendered, and how long without a new frame counts
+         * as a wedged decoder pipeline rather than a normal brief hiccup.
+         */
+        private const val STALL_CHECK_INTERVAL_MS = 3_000L
+        private const val STALL_THRESHOLD_MS = 10_000L
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -206,6 +348,72 @@ class PlayerActivity : AppCompatActivity() {
         )
         setupButtons()
         loadPlayerEngineAndStart()
+        registerNetworkCallback()
+    }
+
+    /*
+     * Listens for the network coming back (LAN cable replugged, Wi-Fi
+     * reconnected, etc.) and immediately kicks the reconnect watchdog
+     * instead of leaving the player to wait out its normal backoff delay.
+     */
+    private fun registerNetworkCallback() {
+        val cm =
+            getSystemService(Context.CONNECTIVITY_SERVICE)
+                    as? ConnectivityManager
+                ?: return
+
+        val request =
+            NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                handler.post {
+                    if (
+                        !isRecordingPlayback &&
+                        !userPaused &&
+                        (liveBuffering || reconnecting) &&
+                        currentUrl.isNotBlank() &&
+                        playbackControllerReady &&
+                        !isFinishing &&
+                        !isDestroyed
+                    ) {
+                        liveBuffering = true
+                        liveReconnectAttempts = 0
+
+                        handler.removeCallbacks(liveReconnectRunnable)
+                        handler.post(liveReconnectRunnable)
+                    }
+                }
+            }
+        }
+
+        connectivityManager = cm
+        networkCallback = callback
+
+        try {
+            cm.registerNetworkCallback(request, callback)
+        } catch (_: Exception) {
+            connectivityManager = null
+            networkCallback = null
+        }
+    }
+
+    private fun unregisterNetworkCallback() {
+        val cm = connectivityManager
+        val callback = networkCallback
+
+        if (cm != null && callback != null) {
+            try {
+                cm.unregisterNetworkCallback(callback)
+            } catch (_: Exception) {
+                // Already unregistered or callback never attached.
+            }
+        }
+
+        connectivityManager = null
+        networkCallback = null
     }
 
     private fun loadPlayerEngineAndStart() {
@@ -221,9 +429,22 @@ class PlayerActivity : AppCompatActivity() {
             playerEngine.setListener(object : PlayerEngine.Listener {
                 override fun onOpening() {
                     runOnUiThread {
+                        /*
+                         * Media3 may report BUFFERING while an intentionally
+                         * paused live stream or recording is loading data.
+                         * Paused playback is not a reconnect condition and
+                         * should never display a misleading Buffering overlay.
+                         */
+                        if (userPaused) {
+                            liveBuffering = false
+                            handler.removeCallbacks(liveReconnectRunnable)
+                            playerUiController.hideLoading()
+                            return@runOnUiThread
+                        }
+
                         playerUiController.showLoadingDelayed("Buffering...")
 
-                        if (!isRecordingPlayback && !userPaused) {
+                        if (!isRecordingPlayback) {
                             liveBuffering = true
                             handler.removeCallbacks(liveReconnectRunnable)
                             handler.postDelayed(
@@ -300,15 +521,24 @@ class PlayerActivity : AppCompatActivity() {
                                 playerUiController.hideLoading()
                                 playerUiController.showPlayIcon()
                                 playerEngine.pause()
-                            } else if (!reconnecting && currentUrl.isNotBlank()) {
+                            } else if (currentUrl.isNotBlank()) {
+                                /*
+                                 * Route through the same self-rescheduling
+                                 * watchdog loop as onError()/onOpening()
+                                 * instead of a one-shot reload. A one-shot
+                                 * reload that itself fails (e.g. the LAN is
+                                 * still down) had no further retry queued
+                                 * behind it, which could strand playback.
+                                 */
+                                liveBuffering = true
                                 reconnecting = true
                                 playerUiController.showLoading("Reconnecting...")
 
-                                handler.postDelayed({
-                                    if (!userPaused) {
-                                        playerEngine.playUrl(currentUrl)
-                                    }
-                                }, 500)
+                                handler.removeCallbacks(liveReconnectRunnable)
+                                handler.postDelayed(
+                                    liveReconnectRunnable,
+                                    LIVE_RECONNECT_INITIAL_DELAY_MS
+                                )
                             }
                         }
                     }
@@ -316,19 +546,41 @@ class PlayerActivity : AppCompatActivity() {
 
                 override fun onError(message: String) {
                     runOnUiThread {
-                        liveBuffering = false
+                        /*
+                         * IMPORTANT: this used to call
+                         * playbackController.recoverPlayback(), which is
+                         * guarded by the `reconnecting` flag and only ever
+                         * resets that flag on a successful onPlaying(). If
+                         * the LAN link is actually down, that first
+                         * recovery attempt also fails with another
+                         * onError(), but by then `reconnecting` is already
+                         * true - so every subsequent error was silently
+                         * ignored and the player was stuck forever, only
+                         * recoverable by manually pressing Live.
+                         *
+                         * Instead, route every error into the same
+                         * self-rescheduling watchdog loop used for
+                         * buffering. That loop is idempotent (removeCallbacks
+                         * + postDelayed) and never permanently gives up, so
+                         * repeated errors just keep retrying until playback
+                         * resumes, the user pauses, or the LAN comes back.
+                         */
+                        if (isRecordingPlayback || userPaused || currentUrl.isBlank()) {
+                            liveBuffering = false
+                            handler.removeCallbacks(liveReconnectRunnable)
+                            reconnecting = false
+                            playerUiController.showLongToast(message)
+                            return@runOnUiThread
+                        }
+
+                        liveBuffering = true
+                        reconnecting = true
+                        playerUiController.showLoading("Reconnecting...")
+
                         handler.removeCallbacks(liveReconnectRunnable)
-                        playbackController.recoverPlayback(
-                            currentUrl = currentUrl,
-                            isReconnecting = reconnecting,
-                            onReconnectStarted = {
-                                reconnecting = true
-                                playerUiController.showLoading("Reconnecting...")
-                            },
-                            onReconnectFailed = {
-                                reconnecting = false
-                                playerUiController.showLongToast(message)
-                            }
+                        handler.postDelayed(
+                            liveReconnectRunnable,
+                            LIVE_RECONNECT_INITIAL_DELAY_MS
                         )
                     }
                 }
@@ -698,8 +950,11 @@ class PlayerActivity : AppCompatActivity() {
         playerUiController.showLoadingDelayed("Seeking...")
 
         liveSeekJob = lifecycleScope.launch {
+            val keepPausedAfterSeek = userPaused
+
             playbackController.seekLiveRelative(
                 deltaSeconds = deltaSeconds,
+                keepPaused = keepPausedAfterSeek,
                 onError = seekError@ { message ->
                     if (generation != liveSeekGeneration) {
                         return@seekError
@@ -723,6 +978,27 @@ class PlayerActivity : AppCompatActivity() {
 
                     if (live) {
                         liveUrl = url
+                    }
+
+                    /*
+                     * Preserve the transport state across the seek.
+                     *
+                     * Seeking while paused moves the DVR position but remains
+                     * paused. Seeking while playing continues playback from
+                     * the new position.
+                     */
+                    reconnecting = false
+                    liveBuffering = false
+                    playerUiController.hideLoading()
+
+                    if (keepPausedAfterSeek) {
+                        userPaused = true
+                        playerUiController.showPlayIcon()
+                        playerUiController.setTimelinePaused(true)
+                    } else {
+                        userPaused = false
+                        playerUiController.showPauseIcon()
+                        playerUiController.setTimelinePaused(false)
                     }
 
                     updatePositionLabel()
@@ -817,6 +1093,23 @@ class PlayerActivity : AppCompatActivity() {
 
                     liveSeekJob = null
                     playerUiController.hideLoading()
+
+                    /*
+                     * LIVE is a complete transport-state reset.
+                     *
+                     * Clear the paused UI state before publishing the new LIVE
+                     * position. TimelineView keeps its own pause baseline; if
+                     * setPlayback(LIVE, 0) runs while that baseline is still
+                     * paused, the old Behind Live value can remain visible
+                     * even though Media3 has already jumped to the live edge.
+                     */
+                    userPaused = false
+                    reconnecting = false
+                    liveBuffering = false
+
+                    playerUiController.setTimelinePaused(false)
+                    playerUiController.showPauseIcon()
+
                     liveUrl = url
                     currentUrl = liveUrl
                     isLiveMode = true
@@ -1274,6 +1567,7 @@ class PlayerActivity : AppCompatActivity() {
             }
         } else {
             refreshRecordingStatus()
+            startFrameStallWatchdog()
         }
     }
 
@@ -1282,6 +1576,7 @@ class PlayerActivity : AppCompatActivity() {
 
         liveBuffering = false
         handler.removeCallbacks(liveReconnectRunnable)
+        stopFrameStallWatchdog()
         stopPlaybackProgressUpdates()
         handler.removeCallbacks(resumeSaveRunnable)
 
@@ -1298,11 +1593,13 @@ class PlayerActivity : AppCompatActivity() {
         liveSeekJob?.cancel()
         liveSeekJob = null
         quickGuide.hide()
+        unregisterNetworkCallback()
         super.onDestroy()
 
         playerUiController.release()
         handler.removeCallbacks(resumeSaveRunnable)
         handler.removeCallbacks(liveReconnectRunnable)
+        stopFrameStallWatchdog()
         handler.removeCallbacksAndMessages(null)
 
         if (playbackControllerReady) {

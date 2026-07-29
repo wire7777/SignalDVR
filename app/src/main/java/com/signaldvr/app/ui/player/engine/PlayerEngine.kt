@@ -41,6 +41,17 @@ interface PlayerEngine {
     fun refreshLivePlaylist(
         url: String,
         jumpToLiveEdge: Boolean = false,
+        keepPaused: Boolean = false,
+    )
+
+    /**
+     * Fully rebuild the current live media source after Media3 reports READY
+     * but playback remains frozen. This keeps the ExoPlayer instance and
+     * PlayerView, but tears down the wedged HLS/decoder pipeline.
+     */
+    fun forceReloadLivePlaylist(
+        url: String,
+        jumpToLiveEdge: Boolean = true,
     )
 
     fun play()
@@ -80,6 +91,12 @@ interface PlayerEngine {
     fun durationMs(): Long
 
     fun isPlaying(): Boolean
+
+    /**
+     * Monotonic elapsed-realtime timestamp of the most recent video frame
+     * delivered to the renderer. Returns 0 until a frame has rendered.
+     */
+    fun lastRenderedVideoFrameRealtimeMs(): Long
 
     fun setMuted(muted: Boolean)
 

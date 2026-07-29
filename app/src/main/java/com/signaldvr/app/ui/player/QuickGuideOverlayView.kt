@@ -2,6 +2,7 @@ package com.signaldvr.app.ui.player
 
 import android.content.Context
 import android.util.AttributeSet
+import android.graphics.drawable.GradientDrawable
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.FrameLayout
@@ -382,7 +383,14 @@ class QuickGuideOverlayView @JvmOverloads constructor(
             return
         }
 
-        val rowHeight = dpToPx(30)
+        /*
+         * Keep all three rows inside the fixed bottom channel panel.
+         *
+         * Three 28dp rows = 84dp total, leaving a small safety allowance
+         * inside the 90dp panel. The old 30dp rows also added 1dp top and
+         * bottom margins, requiring 96dp and clipping the third row.
+         */
+        val rowHeight = dpToPx(28)
         val visibleRows = minOf(3, channels.size)
         val halfWindow = 1
 
@@ -412,10 +420,7 @@ class QuickGuideOverlayView @JvmOverloads constructor(
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     rowHeight,
-                ).apply {
-                    topMargin = dpToPx(1)
-                    bottomMargin = dpToPx(1)
-                }
+                )
 
                 setPadding(
                     dpToPx(8),
@@ -424,13 +429,12 @@ class QuickGuideOverlayView @JvmOverloads constructor(
                     0,
                 )
 
-                setBackgroundResource(
-                    if (selected) {
-                        R.drawable.bg_channel_focused
-                    } else {
-                        R.drawable.bg_channel_normal
-                    }
-                )
+                /*
+                 * Draw the row backgrounds here so the Quick Guide rows are
+                 * square even if the shared channel drawables use rounded
+                 * corners elsewhere in the app.
+                 */
+                background = buildSquareRowBackground(selected)
             }
 
             val logoView = ImageView(context).apply {
@@ -560,6 +564,27 @@ class QuickGuideOverlayView @JvmOverloads constructor(
             .skipMemoryCache(false)
             .fitCenter()
             .into(artwork)
+    }
+
+    private fun buildSquareRowBackground(
+        selected: Boolean,
+    ): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 0f
+
+            setColor(
+                if (selected) {
+                    // Slightly deeper SignalDVR blue for a calmer TV focus.
+                    0xFF1565C0.toInt()
+                } else {
+                    // Neutral dark navy that blends into the overlay.
+                    0xE618212E.toInt()
+                }
+            )
+
+            // No outline. Selection is shown by fill and yellow text only.
+        }
     }
 
     private fun dpToPx(dp: Int): Int {

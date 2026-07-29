@@ -79,9 +79,36 @@ class FullInfoOverlayView @JvmOverloads constructor(
         recordButton.setOnClickListener { onRecord?.invoke() }
         closeButton.setOnClickListener { onClose?.invoke() ?: hide() }
 
+        /*
+         * FullInfoOverlayView owns DPAD selection itself through
+         * selectedAction/updateActionSelection(). Android TV's automatic
+         * focus highlight was also drawing a white outline and moving it
+         * between controls, which conflicted with the SignalDVR blue/yellow
+         * selection theme.
+         *
+         * Keep focus only on the overlay container and disable the framework
+         * highlight on the container and action buttons.
+         */
+        actions.forEach { action ->
+            action.isFocusable = false
+            action.isFocusableInTouchMode = false
+
+            if (android.os.Build.VERSION.SDK_INT >=
+                android.os.Build.VERSION_CODES.O
+            ) {
+                action.defaultFocusHighlightEnabled = false
+            }
+        }
+
         visibility = View.GONE
         isFocusable = true
         isFocusableInTouchMode = true
+
+        if (android.os.Build.VERSION.SDK_INT >=
+            android.os.Build.VERSION_CODES.O
+        ) {
+            defaultFocusHighlightEnabled = false
+        }
     }
 
     fun show(

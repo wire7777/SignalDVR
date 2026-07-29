@@ -1,10 +1,13 @@
 package com.signaldvr.app.ui.player.engine
 
 import android.content.Context
+import android.media.MediaFormat
+import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
@@ -16,6 +19,7 @@ import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.exoplayer.video.VideoFrameMetadataListener
 import androidx.media3.ui.PlayerView
 
 @OptIn(UnstableApi::class)
@@ -33,6 +37,9 @@ class Media3PlayerEngine(
     private var muted = false
     private var liveRefreshGeneration = 0L
     private var pendingJumpToLive = false
+
+    @Volatile
+    private var lastRenderedVideoFrameMs = 0L
 
     /*
      * Allow Media3 to try another decoder if the preferred hardware decoder
@@ -60,7 +67,7 @@ class Media3PlayerEngine(
             .setBufferDurationsMs(
                 10_000,  // Minimum buffer
                 45_000,  // Maximum buffer
-                3_000,   // Buffer before initial playback
+                1_200,   // Buffer before initial playback
                 5_000,   // Buffer required after a rebuffer
             )
             .build()
@@ -94,6 +101,25 @@ class Media3PlayerEngine(
         playerView.player = player
         playerView.useController = false
         playerView.keepScreenOn = true
+
+        player.setVideoFrameMetadataListener(
+            object : VideoFrameMetadataListener {
+                override fun onVideoFrameAboutToBeRendered(
+                    presentationTimeUs: Long,
+                    releaseTimeNs: Long,
+                    format: Format,
+                    mediaFormat: MediaFormat?,
+                ) {
+                    /*
+                     * This callback represents real video output. Media3's
+                     * currentPosition can continue advancing while the decoder
+                     * or Surface is wedged, so position alone cannot prove that
+                     * playback recovered.
+                     */
+                    lastRenderedVideoFrameMs = SystemClock.elapsedRealtime()
+                }
+            }
+        )
 
         if (listenerAttached) {
             return
@@ -158,9 +184,13 @@ class Media3PlayerEngine(
                     if (isPlaying) {
                         listener?.onPlaying()
                     } else if (
-                        player.playbackState ==
-                        Player.STATE_READY
+                        player.playbackState == Player.STATE_READY &&
+                        !player.playWhenReady
                     ) {
+                        /*
+                         * Do not treat transient READY/isPlaying=false during
+                         * HLS recovery as an intentional user pause.
+                         */
                         listener?.onPaused()
                     }
                 }
@@ -306,6 +336,8 @@ class Media3PlayerEngine(
             "Opening playback URL: $url"
         )
 
+        lastRenderedVideoFrameMs = 0L
+
         /*
          * Clear any old media and force Media3 to inspect the new MPEG-TS/HLS
          * tracks again.
@@ -342,6 +374,8 @@ class Media3PlayerEngine(
             "Preparing playback URL: $url"
         )
 
+        lastRenderedVideoFrameMs = 0L
+
         player.playWhenReady = false
         player.stop()
         player.clearMediaItems()
@@ -360,7 +394,11 @@ class Media3PlayerEngine(
         player.prepare()
     }
 
-    override fun refreshLivePlaylist(url: String, jumpToLiveEdge: Boolean) {
+    override fun refreshLivePlaylist(
+        url: String,
+        jumpToLiveEdge: Boolean,
+        keepPaused: Boolean,
+    ) {
         if (url.isBlank()) {
             listener?.onError(
                 "Live playlist URL is empty"
@@ -385,15 +423,26 @@ class Media3PlayerEngine(
             "Refreshing live playlist: $refreshUrl"
         )
 
+        lastRenderedVideoFrameMs = 0L
+
         /*
          * Keep the same ExoPlayer instance. Do not call stop() and do not
          * clearMediaItems(). Replacing the media source is enough to force a
          * fresh HLS manifest request while avoiding the heaviest teardown
          * path used for channel changes.
          */
+        /*
+         * Capture the desired transport state before replacing the media item.
+         * When a seek starts from pause, keepPaused is authoritative and must
+         * force playWhenReady=false before prepare() completes. Pausing after
+         * prepare() is too late because Media3 may already begin playback.
+         */
         val shouldResume =
-            player.playWhenReady ||
-                    player.isPlaying
+            !keepPaused &&
+                    (
+                            player.playWhenReady ||
+                                    player.isPlaying
+                            )
 
         val mediaItem =
             MediaItem.Builder()
@@ -403,6 +452,13 @@ class Media3PlayerEngine(
 
         pendingJumpToLive = jumpToLiveEdge
 
+        /*
+         * Apply the requested transport state before the new media source is
+         * prepared. This prevents a paused DVR seek from briefly starting and
+         * then continuing to play.
+         */
+        player.playWhenReady = shouldResume
+
         player.setMediaItem(
             mediaItem,
             true,
@@ -410,7 +466,51 @@ class Media3PlayerEngine(
 
         applyAudioSettings()
         player.prepare()
-        player.playWhenReady = shouldResume
+
+        if (keepPaused) {
+            player.pause()
+        }
+    }
+
+    override fun forceReloadLivePlaylist(
+        url: String,
+        jumpToLiveEdge: Boolean,
+    ) {
+        if (url.isBlank()) {
+            listener?.onError("Live playlist URL is empty")
+            return
+        }
+
+        val refreshUrl =
+            if (url.contains("?")) {
+                "$url&sdvr_refresh=${++liveRefreshGeneration}"
+            } else {
+                "$url?sdvr_refresh=${++liveRefreshGeneration}"
+            }
+
+        Log.w(TAG, "Force reloading live pipeline: $refreshUrl")
+
+        lastRenderedVideoFrameMs = 0L
+
+        val mediaItem =
+            MediaItem.Builder()
+                .setUri(refreshUrl)
+                .setMimeType(MimeTypes.APPLICATION_M3U8)
+                .build()
+
+        pendingJumpToLive = jumpToLiveEdge
+
+        // A simple media-item replacement is not enough after a long network
+        // outage: Media3 can continue downloading segments while its decoder
+        // or render pipeline remains wedged. Stop and clear the media source
+        // so prepare() creates a clean HLS/decoder pipeline.
+        player.playWhenReady = false
+        player.stop()
+        player.clearMediaItems()
+        player.setMediaItem(mediaItem, true)
+        applyAudioSettings()
+        player.prepare()
+        player.playWhenReady = true
     }
 
     override fun play() {
@@ -474,6 +574,10 @@ class Media3PlayerEngine(
 
     override fun isPlaying(): Boolean {
         return player.isPlaying
+    }
+
+    override fun lastRenderedVideoFrameRealtimeMs(): Long {
+        return lastRenderedVideoFrameMs
     }
 
     override fun setMuted(muted: Boolean) {

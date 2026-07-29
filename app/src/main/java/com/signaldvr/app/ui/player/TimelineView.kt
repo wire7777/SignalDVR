@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
+import android.os.SystemClock
 import android.util.AttributeSet
 import android.view.View
 import android.view.animation.DecelerateInterpolator
@@ -146,7 +147,22 @@ class TimelineView @JvmOverloads constructor(
     private var previewBehindLiveSeconds = 0
 
     private var isPaused = false
+
+    /*
+     * Keep a monotonic pause baseline so the Behind Live counter advances
+     * once per second while paused, independent of wall-clock adjustments.
+     */
+    private var pausedBehindAtStartSeconds = 0
+    private var pausedStartedRealtimeMs = 0L
     private var pausedWatchingEpochMs: Long? = null
+
+    /*
+     * The user wants the displayed Behind Live value to behave as a running
+     * clock whenever playback is away from the live edge, not only while
+     * paused. This baseline starts whenever delayed-live state is supplied.
+     */
+    private var delayedBehindAtStartSeconds = 0
+    private var delayedStartedRealtimeMs = 0L
 
     private var displayedFraction = 1f
     private var targetFraction = 1f
@@ -177,13 +193,33 @@ class TimelineView @JvmOverloads constructor(
         behindLiveSeconds: Int,
         isRecordingPlayback: Boolean
     ) {
+        val newBehind = max(0, behindLiveSeconds)
+        val delayedPositionChanged =
+            this.isLive != isLive ||
+                    this.behindLiveSeconds != newBehind ||
+                    this.isRecordingPlayback != isRecordingPlayback
+
         this.isLive = isLive
-        this.behindLiveSeconds = max(0, behindLiveSeconds)
+        this.behindLiveSeconds = newBehind
         this.isRecordingPlayback = isRecordingPlayback
 
         if (!isRecordingPlayback) {
-            if (!isPreviewing) animateTo(livePositionFraction()) else invalidate()
+            if (isLive || newBehind <= 0) {
+                delayedBehindAtStartSeconds = 0
+                delayedStartedRealtimeMs = 0L
+            } else if (delayedPositionChanged || delayedStartedRealtimeMs <= 0L) {
+                delayedBehindAtStartSeconds = newBehind
+                delayedStartedRealtimeMs = SystemClock.elapsedRealtime()
+            }
+
+            if (!isPreviewing) {
+                animateTo(livePositionFraction())
+            } else {
+                invalidate()
+            }
         } else {
+            delayedBehindAtStartSeconds = 0
+            delayedStartedRealtimeMs = 0L
             animateTo(playbackPositionFraction())
         }
     }
@@ -200,15 +236,24 @@ class TimelineView @JvmOverloads constructor(
         }
 
         if (paused) {
-            pausedWatchingEpochMs = watchingEpochMs()
+            /*
+             * Freeze the WATCHING clock at the current delayed position, but
+             * let the Behind Live amount grow in real time while broadcast
+             * time continues moving forward.
+             */
+            pausedBehindAtStartSeconds = max(0, behindLiveSeconds)
+            pausedStartedRealtimeMs = SystemClock.elapsedRealtime()
+            pausedWatchingEpochMs =
+                System.currentTimeMillis() -
+                        (pausedBehindAtStartSeconds.toLong() * 1000L)
             isPaused = true
         } else {
-            val frozenWatching = pausedWatchingEpochMs
-            if (frozenWatching != null) {
-                behindLiveSeconds = ((System.currentTimeMillis() - frozenWatching) / 1000L)
-                    .coerceAtLeast(0L)
-                    .toInt()
-            }
+            behindLiveSeconds = effectiveBehindLiveSeconds()
+            delayedBehindAtStartSeconds = behindLiveSeconds
+            delayedStartedRealtimeMs = SystemClock.elapsedRealtime()
+
+            pausedBehindAtStartSeconds = 0
+            pausedStartedRealtimeMs = 0L
             pausedWatchingEpochMs = null
             isPaused = false
         }
@@ -291,9 +336,14 @@ class TimelineView @JvmOverloads constructor(
         drawTimeline(canvas, startX, endX, trackY, playheadX, pulse)
         drawWatchingClock(canvas, startX, endX, trackY, playheadX)
 
-        // Keep live pulse alive. Playback mode is updated by PlayerActivity from VLC time.
+        /*
+         * Keep the Behind Live clock updating whenever playback is delayed,
+         * whether paused or playing:
+         *
+         *     3m 20s -> 3m 21s -> 3m 22s
+         */
         if (!isRecordingPlayback) {
-            postInvalidateOnAnimation()
+            postInvalidateDelayed(250L)
         }
     }
 
@@ -470,12 +520,27 @@ class TimelineView @JvmOverloads constructor(
     }
 
     private fun effectiveBehindLiveSeconds(): Int {
-        val frozenWatching = pausedWatchingEpochMs
-        if (isPaused && frozenWatching != null) {
-            return ((System.currentTimeMillis() - frozenWatching) / 1000L)
-                .coerceAtLeast(0L)
-                .toInt()
+        if (isPaused && pausedStartedRealtimeMs > 0L) {
+            val pausedElapsedSeconds =
+                ((SystemClock.elapsedRealtime() - pausedStartedRealtimeMs) / 1000L)
+                    .coerceAtLeast(0L)
+                    .toInt()
+
+            return pausedBehindAtStartSeconds + pausedElapsedSeconds
         }
+
+        if (
+            !isLive &&
+            delayedStartedRealtimeMs > 0L
+        ) {
+            val delayedElapsedSeconds =
+                ((SystemClock.elapsedRealtime() - delayedStartedRealtimeMs) / 1000L)
+                    .coerceAtLeast(0L)
+                    .toInt()
+
+            return delayedBehindAtStartSeconds + delayedElapsedSeconds
+        }
+
         return max(0, behindLiveSeconds)
     }
 
@@ -500,9 +565,15 @@ class TimelineView @JvmOverloads constructor(
     }
 
     private fun livePositionFraction(): Float {
-        if (isLive || behindLiveSeconds <= 0) return 1f
+        val effectiveBehind = effectiveBehindLiveSeconds()
 
-        val fractionBehind = effectiveBehindLiveSeconds() / VISIBLE_WINDOW_SECONDS.toFloat()
+        if (isLive || effectiveBehind <= 0) {
+            return 1f
+        }
+
+        val fractionBehind =
+            effectiveBehind / VISIBLE_WINDOW_SECONDS.toFloat()
+
         return min(1f, max(0f, 1f - fractionBehind))
     }
 

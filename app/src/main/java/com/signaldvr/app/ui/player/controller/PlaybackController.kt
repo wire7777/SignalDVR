@@ -614,9 +614,24 @@ class PlaybackController(
         }
 
         try {
-            val resp = ApiClient
-                .getApi(context)
-                .playbackLive()
+            val api = ApiClient.getApi(context)
+
+            /*
+             * Live TV pause freezes both sides:
+             *
+             * 1. playerEngine.pauseLiveDvr() pauses the local Media3 player.
+             * 2. timeshiftPause() freezes the server-side delayed playlist.
+             *
+             * Pressing LIVE must undo both parts before switching back to the
+             * live-edge playlist. Previously jumpLive() only requested the
+             * live playlist, leaving the server timeshift state frozen. Media3
+             * then remained on "Buffering..." until the user pressed Play,
+             * because the normal Play path was the only place that called
+             * timeshiftResume().
+             */
+            api.timeshiftResume()
+
+            val resp = api.playbackLive()
 
             if (
                 !resp.ok ||
@@ -637,14 +652,23 @@ class PlaybackController(
                 isLive = true,
                 currentUrl = url,
                 liveUrl = url,
-                behindLiveSeconds = 0
+                behindLiveSeconds = 0,
+                isPlaying = true
             )
 
             handler.post {
+                /*
+                 * Resume the local DVR player before replacing the playlist,
+                 * then explicitly start playback after the new live media item
+                 * is attached. This makes LIVE a complete transport action:
+                 * unpause, jump to the live edge, and play.
+                 */
+                playerEngine.resumeLiveDvr()
                 playerEngine.refreshLivePlaylist(
                     url = url,
                     jumpToLiveEdge = true
                 )
+                playerEngine.play()
                 onLive(url)
             }
         } catch (e: Exception) {
@@ -658,13 +682,30 @@ class PlaybackController(
 
     suspend fun seekLiveRelative(
         deltaSeconds: Int,
+        keepPaused: Boolean,
         onError: (String) -> Unit,
         onSeek: (String, Int, Boolean) -> Unit
     ) {
         try {
-            val resp = ApiClient
-                .getApi(context)
-                .playbackSeek(deltaSeconds)
+            val api = ApiClient.getApi(context)
+
+            /*
+             * A live pause freezes the server-side timeshift playlist.
+             *
+             * If REW/FF is pressed while paused and we request a new seek
+             * playlist without unfreezing the server first, Media3 repeatedly
+             * reaches the same frozen end point. The activity then appears to
+             * loop through "Reconnecting..." until the user manually presses
+             * Pause/Play, because the normal Play path is what calls
+             * timeshiftResume().
+             *
+             * Make a live seek a complete transport action: unfreeze the
+             * server, request the new seek playlist, resume the local player,
+             * and start playback from the requested position.
+             */
+            api.timeshiftResume()
+
+            val resp = api.playbackSeek(deltaSeconds)
 
             if (!resp.ok || resp.playlistUrl.isNullOrBlank()) {
                 handler.post {
@@ -681,12 +722,41 @@ class PlaybackController(
                 isLive = live,
                 currentUrl = url,
                 liveUrl = if (live) url else state.liveUrl,
-                behindLiveSeconds = secondsBehind
+                behindLiveSeconds = secondsBehind,
+                isPlaying = true
             )
 
             handler.post {
-                playerEngine.refreshLivePlaylist(url)
+                /*
+                 * Let the engine preserve pause at media-source replacement
+                 * time. This avoids the race where refreshLivePlaylist()
+                 * prepares a playing item after pauseLiveDvr() has already
+                 * been called.
+                 */
+                playerEngine.refreshLivePlaylist(
+                    url = url,
+                    jumpToLiveEdge = live,
+                    keepPaused = keepPaused
+                )
+
+                if (!keepPaused) {
+                    playerEngine.play()
+                }
+
                 onSeek(url, secondsBehind, live)
+            }
+
+            if (keepPaused) {
+                /*
+                 * Re-freeze the server-side delayed playlist after the seek
+                 * playlist has been generated. The local player remains
+                 * paused throughout.
+                 */
+                try {
+                    api.timeshiftPause()
+                } catch (_: Exception) {
+                    // Local pause remains authoritative if sync fails.
+                }
             }
         } catch (e: Exception) {
             handler.post {

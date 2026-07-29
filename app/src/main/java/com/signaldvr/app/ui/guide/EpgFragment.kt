@@ -980,7 +980,11 @@ class EpgFragment : Fragment() {
                             shape = GradientDrawable.RECTANGLE
                             cornerRadius = 0f
                             setColor(Color.parseColor("#F0121420"))
-                            setStroke(dp(2), Color.WHITE)
+
+                            /*
+                             * Match the SignalDVR theme:
+                             * dark flat panel with no bright outer frame.
+                             */
                         }
                     )
                     setLayout(
@@ -1130,7 +1134,7 @@ class EpgFragment : Fragment() {
                 marginEnd = dp(16)
             }
             scaleType = ImageView.ScaleType.FIT_CENTER
-            setBackgroundColor(Color.parseColor("#0A0B10"))
+            setBackgroundColor(Color.TRANSPARENT)
             contentDescription = "Program artwork"
         }
 
@@ -1394,17 +1398,21 @@ class EpgFragment : Fragment() {
             GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = 0f
+
                 setColor(
                     Color.parseColor(
-                        if (focused) "#303746" else "#1B1E29"
+                        if (focused) {
+                            "#1976D2"
+                        } else {
+                            "#1A2230"
+                        }
                     )
                 )
-                setStroke(
-                    dp(if (focused) 2 else 1),
-                    Color.parseColor(
-                        if (focused) "#FFFFFF" else "#3B3F4B"
-                    )
-                )
+
+                /*
+                 * No stroke. Focus is shown only by the SignalDVR blue fill,
+                 * so the action list matches the guide and player theme.
+                 */
             }
 
         return TextView(requireContext()).apply {
