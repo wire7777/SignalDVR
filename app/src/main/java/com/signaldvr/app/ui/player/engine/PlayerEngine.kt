@@ -79,6 +79,17 @@ interface PlayerEngine {
 
     fun seekTo(positionMs: Long)
 
+    /**
+     * Attempt a relative seek inside the media timeline Media3 already has.
+     *
+     * Returns false when the requested position falls outside the currently
+     * loaded HLS window, allowing SignalDVR to fall back to its server-side
+     * delayed-live playlist seek.
+     */
+    fun trySeekRelative(deltaMs: Long): Boolean {
+        return false
+    }
+
     fun seekRelative(deltaMs: Long) {
         seekTo(
             (currentPositionMs() + deltaMs)

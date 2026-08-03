@@ -680,6 +680,30 @@ class PlaybackController(
         }
     }
 
+    fun trySeekLiveRelativeLocally(deltaSeconds: Int): Pair<Int, Boolean>? {
+        if (deltaSeconds == 0) {
+            return state.behindLiveSeconds to state.isLive
+        }
+
+        val moved = playerEngine.trySeekRelative(deltaSeconds * 1000L)
+        if (!moved) {
+            return null
+        }
+
+        val secondsBehind =
+            (state.behindLiveSeconds - deltaSeconds)
+                .coerceAtLeast(0)
+        val live = secondsBehind == 0
+
+        state = state.copy(
+            isLive = live,
+            behindLiveSeconds = secondsBehind,
+            isPlaying = playerEngine.isPlaying()
+        )
+
+        return secondsBehind to live
+    }
+
     suspend fun seekLiveRelative(
         deltaSeconds: Int,
         keepPaused: Boolean,

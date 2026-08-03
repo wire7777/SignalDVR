@@ -554,6 +554,35 @@ class Media3PlayerEngine(
         player.seekTo(target)
     }
 
+    override fun trySeekRelative(deltaMs: Long): Boolean {
+        val duration = player.duration
+
+        if (
+            duration <= 0L ||
+            duration == C.TIME_UNSET ||
+            player.currentTimeline.isEmpty
+        ) {
+            return false
+        }
+
+        val current = player.currentPosition.coerceAtLeast(0L)
+        val target = current + deltaMs
+
+        /*
+         * Do not clamp an out-of-window request. Returning false is important:
+         * the controller can then ask the SignalDVR backend to build the
+         * correct delayed-live playlist instead of silently seeking to the
+         * beginning or end of the currently loaded HLS window.
+         */
+        if (target < 0L || target > duration) {
+            return false
+        }
+
+        Log.d(TAG, "Fast in-window seek: $current ms -> $target ms")
+        player.seekTo(target)
+        return true
+    }
+
     override fun currentPositionMs(): Long {
         return player.currentPosition
             .coerceAtLeast(0L)

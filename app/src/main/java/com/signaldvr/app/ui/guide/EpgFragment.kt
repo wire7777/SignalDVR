@@ -71,12 +71,32 @@ class EpgFragment : Fragment() {
 
     private val playheadHandler = Handler(Looper.getMainLooper())
     private val artworkHandler = Handler(Looper.getMainLooper())
+    private val guideRefreshHandler = Handler(Looper.getMainLooper())
     private var pendingArtworkLoad: Runnable? = null
     private var pendingArtworkKey: String? = null
     private var focusedArtworkTarget: CustomTarget<Drawable>? = null
     private var playheadAnimator: ValueAnimator? = null
     private var timelineShiftAnimator: ValueAnimator? = null
     private var timelineAutoShiftInProgress = false
+    private var guideLoadInProgress = false
+
+    // Rebuild the guide before the original guide window becomes four hours
+    // old. The backend guide response is refreshed and the timeline is
+    // re-anchored near NOW, so returning from several hours of Live TV never
+    // exposes stale/off-screen guide data.
+    private val guideWindowRefreshAgeMs = 3L * 60L * 60L * 1_000L
+    private val guideRefreshCheckIntervalMs = 60_000L
+
+    private val guideRefreshChecker = object : Runnable {
+        override fun run() {
+            refreshGuideWindowIfStale()
+            guideRefreshHandler.postDelayed(
+                this,
+                guideRefreshCheckIntervalMs
+            )
+        }
+    }
+
     private val playheadUpdater = object : Runnable {
         override fun run() {
             // Only the first arrival flies in. After that, position the red
@@ -162,7 +182,7 @@ class EpgFragment : Fragment() {
         channelList.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         channelList.itemAnimator = null
 
-        loadGuide()
+        loadGuide(showLoading = true)
 
         view.post {
             updateNowPlayhead(animate = false)
@@ -172,8 +192,30 @@ class EpgFragment : Fragment() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+
+        // This is the important Live TV return path. While PlayerActivity is
+        // open the guide Fragment can remain alive with its original 8:00 AM
+        // window. As soon as the user returns, refresh it automatically when
+        // that window is old instead of requiring an EPG restart.
+        refreshGuideWindowIfStale()
+
+        guideRefreshHandler.removeCallbacks(guideRefreshChecker)
+        guideRefreshHandler.postDelayed(
+            guideRefreshChecker,
+            guideRefreshCheckIntervalMs
+        )
+    }
+
+    override fun onPause() {
+        guideRefreshHandler.removeCallbacks(guideRefreshChecker)
+        super.onPause()
+    }
+
     override fun onDestroyView() {
         playheadHandler.removeCallbacks(playheadUpdater)
+        guideRefreshHandler.removeCallbacks(guideRefreshChecker)
         pendingArtworkLoad?.let(artworkHandler::removeCallbacks)
         pendingArtworkLoad = null
         pendingArtworkKey = null
@@ -277,8 +319,13 @@ class EpgFragment : Fragment() {
         nowPlayheadLabel.bringToFront()
     }
 
-    private fun loadGuide() {
-        loading.visibility = View.VISIBLE
+    private fun loadGuide(showLoading: Boolean) {
+        if (guideLoadInProgress) return
+        guideLoadInProgress = true
+
+        if (showLoading) {
+            loading.visibility = View.VISIBLE
+        }
         errorText.visibility = View.GONE
 
         lifecycleScope.launch {
@@ -314,6 +361,9 @@ class EpgFragment : Fragment() {
                     guide[channel.number] = initialGrid[channel.number].orEmpty()
                 }
 
+                // A refresh is a new timeline, not another scroll inside the
+                // old one. Reset the shared offset before rebuilding every row.
+                sharedScrollX = 0
                 loading.visibility = View.GONE
                 buildTimeHeader()
                 buildGrid()
@@ -352,10 +402,41 @@ class EpgFragment : Fragment() {
                 }
             } catch (e: Exception) {
                 loading.visibility = View.GONE
-                errorText.visibility = View.VISIBLE
-                errorText.text = "Could not load guide:\n${e.message}"
+
+                // Keep the already-rendered guide visible if a quiet automatic
+                // refresh fails. Only show the full-page error when no guide
+                // has ever been built.
+                if (guideWindowStartMs == 0L || epgAdapter == null) {
+                    errorText.visibility = View.VISIBLE
+                    errorText.text = "Could not load guide:\n${e.message}"
+                } else {
+                    android.util.Log.e(
+                        "EpgFragment",
+                        "Automatic guide refresh failed; keeping current guide",
+                        e,
+                    )
+                }
+            } finally {
+                guideLoadInProgress = false
             }
         }
+    }
+
+    private fun refreshGuideWindowIfStale() {
+        if (!isAdded || view == null || guideLoadInProgress) return
+
+        val windowStart = guideWindowStartMs
+        if (windowStart == 0L) return
+
+        val ageMs = System.currentTimeMillis() - windowStart
+        if (ageMs < guideWindowRefreshAgeMs) return
+
+        android.util.Log.i(
+            "EpgFragment",
+            "Guide window is ${ageMs / 60_000L} minutes old; refreshing near NOW",
+        )
+
+        loadGuide(showLoading = false)
     }
 
 

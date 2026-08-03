@@ -940,14 +940,37 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun performLiveRelativeSeek(deltaSeconds: Int) {
+        /*
+         * First use Media3's existing HLS timeline. This avoids replacing the
+         * media item and calling prepare() for ordinary REW/FF presses.
+         *
+         * When the requested position is outside the loaded window, fall back
+         * to SignalDVR's server-side delayed-live playlist path below.
+         */
+        playbackController.trySeekLiveRelativeLocally(deltaSeconds)?.let { result ->
+            val (behindSeconds, live) = result
+
+            isLiveMode = live
+            behindLiveSeconds = behindSeconds
+            reconnecting = false
+            liveBuffering = false
+            playerUiController.hideLoading()
+            updatePositionLabel()
+            playerUiController.scheduleDvrDismiss()
+            return
+        }
+
         val generation = ++liveSeekGeneration
 
         /*
          * Rapid remote presses are combined by PlaybackController.
          * Only the newest server response may update playback.
+         *
+         * Do not display a generic "Seeking..." loading message. The DVR bar
+         * already shows the requested movement, and the current video should
+         * remain visible while the server fallback is prepared.
          */
         liveSeekJob?.cancel()
-        playerUiController.showLoadingDelayed("Seeking...")
 
         liveSeekJob = lifecycleScope.launch {
             val keepPausedAfterSeek = userPaused
