@@ -18,6 +18,8 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener
 import androidx.media3.ui.PlayerView
@@ -77,6 +79,25 @@ class Media3PlayerEngine(
             .setUsage(C.USAGE_MEDIA)
             .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
             .build()
+
+    /*
+     * SignalDVR carries ATSC A/53 captions inside the H.264 MPEG-TS
+     * segments. The playlist does not declare a separate subtitle rendition,
+     * so force Media3 to inspect the transport-stream chunks instead of
+     * relying on chunkless playlist preparation. DefaultHlsExtractorFactory
+     * then exposes the undeclared embedded CEA-608 service.
+     */
+    private val hlsMediaSourceFactory =
+        HlsMediaSource.Factory(DefaultDataSource.Factory(context))
+            .setAllowChunklessPreparation(false)
+
+    private fun createHlsMediaSource(url: String) =
+        hlsMediaSourceFactory.createMediaSource(
+            MediaItem.Builder()
+                .setUri(url)
+                .setMimeType(MimeTypes.APPLICATION_M3U8)
+                .build()
+        )
 
     private val player: ExoPlayer =
         ExoPlayer.Builder(
@@ -345,13 +366,8 @@ class Media3PlayerEngine(
         player.stop()
         player.clearMediaItems()
 
-        val mediaItem =
-            MediaItem.Builder()
-                .setUri(url)
-                .build()
-
-        player.setMediaItem(
-            mediaItem,
+        player.setMediaSource(
+            createHlsMediaSource(url),
             true,
         )
 
@@ -380,13 +396,8 @@ class Media3PlayerEngine(
         player.stop()
         player.clearMediaItems()
 
-        val mediaItem =
-            MediaItem.Builder()
-                .setUri(url)
-                .build()
-
-        player.setMediaItem(
-            mediaItem,
+        player.setMediaSource(
+            createHlsMediaSource(url),
             true,
         )
 
@@ -444,11 +455,7 @@ class Media3PlayerEngine(
                                     player.isPlaying
                             )
 
-        val mediaItem =
-            MediaItem.Builder()
-                .setUri(refreshUrl)
-                .setMimeType(MimeTypes.APPLICATION_M3U8)
-                .build()
+        val mediaSource = createHlsMediaSource(refreshUrl)
 
         pendingJumpToLive = jumpToLiveEdge
 
@@ -459,8 +466,8 @@ class Media3PlayerEngine(
          */
         player.playWhenReady = shouldResume
 
-        player.setMediaItem(
-            mediaItem,
+        player.setMediaSource(
+            mediaSource,
             true,
         )
 
@@ -492,11 +499,7 @@ class Media3PlayerEngine(
 
         lastRenderedVideoFrameMs = 0L
 
-        val mediaItem =
-            MediaItem.Builder()
-                .setUri(refreshUrl)
-                .setMimeType(MimeTypes.APPLICATION_M3U8)
-                .build()
+        val mediaSource = createHlsMediaSource(refreshUrl)
 
         pendingJumpToLive = jumpToLiveEdge
 
@@ -507,7 +510,7 @@ class Media3PlayerEngine(
         player.playWhenReady = false
         player.stop()
         player.clearMediaItems()
-        player.setMediaItem(mediaItem, true)
+        player.setMediaSource(mediaSource, true)
         applyAudioSettings()
         player.prepare()
         player.playWhenReady = true
