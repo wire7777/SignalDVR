@@ -13,6 +13,7 @@ import android.view.animation.DecelerateInterpolator
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
@@ -149,20 +150,18 @@ class TimelineView @JvmOverloads constructor(
     private var isPaused = false
 
     /*
-     * Keep a monotonic pause baseline so the Behind Live counter advances
-     * once per second while paused, independent of wall-clock adjustments.
-     */
-    private var pausedBehindAtStartSeconds = 0
-    private var pausedStartedRealtimeMs = 0L
-    private var pausedWatchingEpochMs: Long? = null
-
-    /*
-     * The user wants the displayed Behind Live value to behave as a running
-     * clock whenever playback is away from the live edge, not only while
-     * paused. This baseline starts whenever delayed-live state is supplied.
+     * The yellow BEHIND LIVE display is intentionally a running clock. Its
+     * baseline advances continuously during delayed-live playback, including
+     * while paused.
      */
     private var delayedBehindAtStartSeconds = 0
     private var delayedStartedRealtimeMs = 0L
+
+    /*
+     * WATCHING is tracked separately from the yellow running counter. This
+     * lets WATCHING advance while playing and freeze while paused.
+     */
+    private var pausedWatchingEpochMs: Long? = null
 
     private var displayedFraction = 1f
     private var targetFraction = 1f
@@ -193,23 +192,27 @@ class TimelineView @JvmOverloads constructor(
         behindLiveSeconds: Int,
         isRecordingPlayback: Boolean
     ) {
-        val newBehind = max(0, behindLiveSeconds)
-        val delayedPositionChanged =
-            this.isLive != isLive ||
-                    this.behindLiveSeconds != newBehind ||
-                    this.isRecordingPlayback != isRecordingPlayback
+        val wasRecordingPlayback = this.isRecordingPlayback
+        val newBehindSeconds = max(0, behindLiveSeconds)
+        val behindChanged = abs(newBehindSeconds - this.behindLiveSeconds) > 1
 
         this.isLive = isLive
-        this.behindLiveSeconds = newBehind
+        this.behindLiveSeconds = newBehindSeconds
         this.isRecordingPlayback = isRecordingPlayback
 
         if (!isRecordingPlayback) {
-            if (isLive || newBehind <= 0) {
-                delayedBehindAtStartSeconds = 0
-                delayedStartedRealtimeMs = 0L
-            } else if (delayedPositionChanged || delayedStartedRealtimeMs <= 0L) {
-                delayedBehindAtStartSeconds = newBehind
-                delayedStartedRealtimeMs = SystemClock.elapsedRealtime()
+            /*
+             * Start or rebase the running yellow counter when entering live
+             * playback, after a seek, or when the backend reports a genuinely
+             * different delayed-live position. Repeated status refreshes with
+             * the same value do not restart the clock.
+             */
+            if (
+                wasRecordingPlayback ||
+                delayedStartedRealtimeMs <= 0L ||
+                behindChanged
+            ) {
+                startDelayedBehindClock(newBehindSeconds)
             }
 
             if (!isPreviewing) {
@@ -220,6 +223,7 @@ class TimelineView @JvmOverloads constructor(
         } else {
             delayedBehindAtStartSeconds = 0
             delayedStartedRealtimeMs = 0L
+            pausedWatchingEpochMs = null
             animateTo(playbackPositionFraction())
         }
     }
@@ -227,33 +231,30 @@ class TimelineView @JvmOverloads constructor(
     fun setPaused(paused: Boolean) {
         if (isRecordingPlayback) {
             isPaused = paused
+            pausedWatchingEpochMs = null
             invalidate()
             return
         }
 
-        if (paused == isPaused) {
-            return
-        }
-
         if (paused) {
-            /*
-             * Freeze the WATCHING clock at the current delayed position, but
-             * let the Behind Live amount grow in real time while broadcast
-             * time continues moving forward.
-             */
-            pausedBehindAtStartSeconds = max(0, behindLiveSeconds)
-            pausedStartedRealtimeMs = SystemClock.elapsedRealtime()
-            pausedWatchingEpochMs =
-                System.currentTimeMillis() -
-                        (pausedBehindAtStartSeconds.toLong() * 1000L)
+            if (!isPaused) {
+                /* Freeze WATCHING at the frame currently being viewed. */
+                pausedWatchingEpochMs =
+                    System.currentTimeMillis() -
+                            (behindLiveSeconds.toLong() * 1000L)
+            }
             isPaused = true
         } else {
-            behindLiveSeconds = effectiveBehindLiveSeconds()
-            delayedBehindAtStartSeconds = behindLiveSeconds
-            delayedStartedRealtimeMs = SystemClock.elapsedRealtime()
+            if (!isPaused) return
 
-            pausedBehindAtStartSeconds = 0
-            pausedStartedRealtimeMs = 0L
+            /*
+             * While paused, the yellow running counter continued increasing.
+             * Commit that new distance behind live, then let WATCHING advance
+             * normally from the frozen frame.
+             */
+            behindLiveSeconds = effectiveBehindLiveSeconds()
+            startDelayedBehindClock(behindLiveSeconds)
+
             pausedWatchingEpochMs = null
             isPaused = false
         }
@@ -261,13 +262,29 @@ class TimelineView @JvmOverloads constructor(
         invalidate()
     }
 
+    private fun startDelayedBehindClock(startBehindSeconds: Int) {
+        delayedBehindAtStartSeconds = max(0, startBehindSeconds)
+        delayedStartedRealtimeMs = SystemClock.elapsedRealtime()
+    }
+
     fun setMediaProgress(positionMs: Long, durationMs: Long) {
         playbackPositionMs = max(0L, positionMs)
         playbackDurationMs = max(0L, durationMs)
-        isRecordingPlayback = true
 
-        if (!isPreviewing) {
-            animateTo(playbackPositionFraction())
+        /*
+         * Do not infer recording playback here. Media3 reports position and
+         * duration for live/delayed-live streams too. Marking every progress
+         * update as recording playback caused the next live status update to
+         * restart the BEHIND LIVE baseline, so the yellow clock never advanced.
+         *
+         * Playback type is owned exclusively by setPlayback().
+         */
+        if (isRecordingPlayback) {
+            if (!isPreviewing) {
+                animateTo(playbackPositionFraction())
+            } else {
+                invalidate()
+            }
         } else {
             invalidate()
         }
@@ -302,6 +319,8 @@ class TimelineView @JvmOverloads constructor(
         val selectedSeconds = previewBehindLiveSeconds
         isPreviewing = false
         behindLiveSeconds = selectedSeconds
+        startDelayedBehindClock(selectedSeconds)
+        pausedWatchingEpochMs = null
         animateTo(livePositionFraction())
         return selectedSeconds
     }
@@ -337,10 +356,9 @@ class TimelineView @JvmOverloads constructor(
         drawWatchingClock(canvas, startX, endX, trackY, playheadX)
 
         /*
-         * Keep the Behind Live clock updating whenever playback is delayed,
-         * whether paused or playing:
-         *
-         *     3m 20s -> 3m 21s -> 3m 22s
+         * Redraw both clocks regularly. The yellow BEHIND LIVE value is a
+         * running counter. WATCHING advances while playing and freezes while
+         * paused.
          */
         if (!isRecordingPlayback) {
             postInvalidateDelayed(250L)
@@ -516,32 +534,27 @@ class TimelineView @JvmOverloads constructor(
 
     private fun watchingEpochMs(): Long {
         pausedWatchingEpochMs?.let { return it }
-        return System.currentTimeMillis() - (effectiveBehindLiveSeconds().toLong() * 1000L)
+
+        /*
+         * Use the committed playback offset, not the yellow running display.
+         * This prevents WATCHING from cancelling itself out and rocking back
+         * and forth by one second.
+         */
+        return System.currentTimeMillis() -
+                (max(0, behindLiveSeconds).toLong() * 1000L)
     }
 
     private fun effectiveBehindLiveSeconds(): Int {
-        if (isPaused && pausedStartedRealtimeMs > 0L) {
-            val pausedElapsedSeconds =
-                ((SystemClock.elapsedRealtime() - pausedStartedRealtimeMs) / 1000L)
-                    .coerceAtLeast(0L)
-                    .toInt()
-
-            return pausedBehindAtStartSeconds + pausedElapsedSeconds
+        if (delayedStartedRealtimeMs <= 0L) {
+            return max(0, behindLiveSeconds)
         }
 
-        if (
-            !isLive &&
-            delayedStartedRealtimeMs > 0L
-        ) {
-            val delayedElapsedSeconds =
-                ((SystemClock.elapsedRealtime() - delayedStartedRealtimeMs) / 1000L)
-                    .coerceAtLeast(0L)
-                    .toInt()
+        val elapsedSeconds =
+            ((SystemClock.elapsedRealtime() - delayedStartedRealtimeMs) / 1000L)
+                .coerceAtLeast(0L)
+                .toInt()
 
-            return delayedBehindAtStartSeconds + delayedElapsedSeconds
-        }
-
-        return max(0, behindLiveSeconds)
+        return delayedBehindAtStartSeconds + elapsedSeconds
     }
 
     private fun animateTo(newFraction: Float) {
