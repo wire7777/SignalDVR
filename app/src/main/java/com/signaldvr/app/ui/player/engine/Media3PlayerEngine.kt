@@ -617,6 +617,22 @@ class Media3PlayerEngine(
         applyAudioSettings()
     }
 
+    override fun setClosedCaptionsEnabled(enabled: Boolean) {
+        player.trackSelectionParameters =
+            player.trackSelectionParameters
+                .buildUpon()
+                .setPreferredTextLanguage("en")
+                // OTA CEA-608 tracks commonly have no language tag.
+                .setSelectUndeterminedTextLanguage(enabled)
+                .setTrackTypeDisabled(
+                    C.TRACK_TYPE_TEXT,
+                    !enabled,
+                )
+                .build()
+
+        Log.d(TAG, "Closed captions enabled=$enabled")
+    }
+
     private fun applyAudioSettings() {
         player.volume =
             if (muted) {

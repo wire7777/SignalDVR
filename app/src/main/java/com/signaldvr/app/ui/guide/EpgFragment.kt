@@ -49,6 +49,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Collections
+import retrofit2.HttpException
 
 class EpgFragment : Fragment() {
 
@@ -323,6 +324,16 @@ class EpgFragment : Fragment() {
         if (guideLoadInProgress) return
         guideLoadInProgress = true
 
+        // Remember where the user was looking, in wall-clock time, before
+        // this load rebuilds the timeline. A background refresh (the guide
+        // window going stale after guideWindowRefreshAgeMs, or resuming from
+        // Live TV) should never yank someone back to NOW just because the
+        // underlying data got re-fetched -- it should just keep whatever
+        // point in time was on screen, the way MythTV's guide never snaps
+        // your position when it silently reloads listings.
+        val previousWindowStartMs = guideWindowStartMs
+        val previousScrollX = sharedScrollX
+
         if (showLoading) {
             loading.visibility = View.VISIBLE
         }
@@ -361,12 +372,42 @@ class EpgFragment : Fragment() {
                     guide[channel.number] = initialGrid[channel.number].orEmpty()
                 }
 
-                // A refresh is a new timeline, not another scroll inside the
-                // old one. Reset the shared offset before rebuilding every row.
-                sharedScrollX = 0
                 loading.visibility = View.GONE
                 buildTimeHeader()
-                buildGrid()
+
+                // buildTimeHeader() just re-anchored guideWindowStartMs to the
+                // current NOW. On the very first load there's no prior window
+                // to preserve, so start at the left edge as before. On every
+                // later (background) load, translate the old scroll offset
+                // onto the new timeline so the same moment in time stays
+                // under the viewport instead of resetting to NOW.
+                sharedScrollX = if (previousWindowStartMs > 0L) {
+                    val density = resources.displayMetrics.density
+                    val pxPerMinute = minuteWidthDp * density
+                    val shiftMinutes =
+                        (guideWindowStartMs - previousWindowStartMs) / 60_000f
+                    val shiftPx = (shiftMinutes * pxPerMinute).toInt()
+                    val contentWidthPx =
+                        (windowHours * 60 * minuteWidthDp * density).toInt()
+
+                    (previousScrollX - shiftPx).coerceIn(0, contentWidthPx)
+                } else {
+                    0
+                }
+
+                buildGrid(
+                    restoreFocusKey = if (previousWindowStartMs > 0L) {
+                        focusedProgramKey
+                    } else {
+                        null
+                    }
+                )
+
+                // buildTimeHeader() rebuilds the header at native scroll 0;
+                // each row syncs itself to sharedScrollX as it binds, but the
+                // header is a separate view and needs the same nudge or it'll
+                // show NOW while the rows show wherever the user actually was.
+                timeHeader.scrollTo(sharedScrollX, 0)
 
                 view?.post {
                     updateNowPlayhead(animate = true)
@@ -697,14 +738,19 @@ class EpgFragment : Fragment() {
         focusedProgramKey = focusKey
 
         /*
-         * Do not render the compact grid metadata first. The compact row can
-         * contain episode=95 while season is still missing, which causes the
-         * panel to flash "Episode 95" and then switch to "S6E95" after the full
-         * channel guide arrives.
-         *
-         * Instead, render only a cached or freshly fetched full program record.
-         * If the full lookup fails, fall back to the compact row once.
+         * Render what we already have immediately. The panel used to wait
+         * for a cached or freshly fetched full program record before
+         * showing anything, specifically to avoid a flash where episode=95
+         * upgrades to S6E95 once the full channel guide arrives. But holding
+         * the OLD program's text on screen while the grid highlight had
+         * already jumped to the new cell was worse: it looked like the
+         * guide had skipped or landed on the wrong time, when it had
+         * actually landed correctly and only the info panel was stale.
+         * A brief in-place upgrade to full metadata is a smaller cost than
+         * that desync.
          */
+        renderDetails(channel, program)
+
         fullGuideCache[channel.number]?.let { cachedPrograms ->
             val fullProgram = cachedPrograms.firstOrNull { candidate ->
                 candidate.id == program.id
@@ -732,9 +778,8 @@ class EpgFragment : Fragment() {
                     renderDetails(channel, fullProgram)
                 }
             } catch (_: Exception) {
-                if (focusedProgramKey == focusKey) {
-                    renderDetails(channel, program)
-                }
+                // Compact details are already showing from the immediate
+                // render above; nothing further to do on failure.
             }
         }
     }
@@ -918,8 +963,8 @@ class EpgFragment : Fragment() {
     }
 
     private fun showGuideActions(channel: Channel, program: EpgProgram) {
-        val programId = program.id
-        if (programId == null) {
+        val originalProgramId = program.id
+        if (originalProgramId == null) {
             Toast.makeText(
                 requireContext(),
                 "This guide item cannot be recorded",
@@ -931,23 +976,112 @@ class EpgFragment : Fragment() {
         lifecycleScope.launch {
             try {
                 val api = ApiClient.getApi(requireContext())
-                val options = api.getGuideRecordOptions(programId)
+
+                var actionProgram = program
+                var actionProgramId = originalProgramId
+                var guideWasRefreshed = false
+
+                suspend fun refreshAndResolveCurrentProgram(): EpgProgram? {
+                    val freshPrograms = api.getGuide(channel.number)
+                    fullGuideCache[channel.number] = freshPrograms
+
+                    val nowMs = System.currentTimeMillis()
+                    val originalStart = TimeUtil.parseEpg(program.start)?.time
+                    val originalStop = TimeUtil.parseEpg(program.stop)?.time
+
+                    return freshPrograms.firstOrNull { candidate ->
+                        candidate.id == originalProgramId
+                    } ?: freshPrograms.firstOrNull { candidate ->
+                        candidate.start == program.start &&
+                                candidate.title == program.title
+                    } ?: freshPrograms.firstOrNull { candidate ->
+                        val start = TimeUtil.parseEpg(candidate.start)?.time
+                            ?: return@firstOrNull false
+                        val stop = TimeUtil.parseEpg(candidate.stop)?.time
+                            ?: return@firstOrNull false
+
+                        originalStart != null &&
+                                originalStop != null &&
+                                start < originalStop &&
+                                stop > originalStart &&
+                                candidate.title == program.title
+                    } ?: freshPrograms.firstOrNull { candidate ->
+                        val start = TimeUtil.parseEpg(candidate.start)?.time
+                            ?: return@firstOrNull false
+                        val stop = TimeUtil.parseEpg(candidate.stop)?.time
+                            ?: return@firstOrNull false
+
+                        nowMs in start until stop
+                    }
+                }
 
                 /*
-                 * Resolve the selected grid item through the full per-channel
-                 * guide before opening the details panel. The fast grid response
-                 * can be compact, while the full guide includes season, episode,
-                 * episode title and the rest of the program metadata.
+                 * A guide left open for several hours can still contain a
+                 * program ID that the backend has already aged out. Resolve a
+                 * fresh per-channel entry before calling recording-options so
+                 * the user never sees a raw HTTP 404 from stale guide data.
                  */
-                val fullProgram = try {
-                    api.getGuide(channel.number)
-                        .firstOrNull { candidate ->
-                            candidate.id == programId
-                        }
-                        ?: program
-                } catch (_: Exception) {
-                    program
+                val guideAgeMs = System.currentTimeMillis() - guideWindowStartMs
+                if (
+                    guideWindowStartMs > 0L &&
+                    guideAgeMs >= guideWindowRefreshAgeMs
+                ) {
+                    val replacement = refreshAndResolveCurrentProgram()
+                    if (replacement?.id == null) {
+                        loadGuide(showLoading = false)
+                        Toast.makeText(
+                            requireContext(),
+                            "Guide was updated. Select the current program again.",
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                        return@launch
+                    }
+
+                    actionProgram = replacement
+                    actionProgramId = replacement.id
+                    guideWasRefreshed = true
                 }
+
+                val options = try {
+                    api.getGuideRecordOptions(actionProgramId)
+                } catch (error: HttpException) {
+                    if (error.code() != 404) throw error
+
+                    val replacement = refreshAndResolveCurrentProgram()
+                    if (replacement?.id == null) {
+                        loadGuide(showLoading = false)
+                        Toast.makeText(
+                            requireContext(),
+                            "Guide was updated. Select the current program again.",
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                        return@launch
+                    }
+
+                    actionProgram = replacement
+                    actionProgramId = replacement.id
+                    guideWasRefreshed = true
+                    api.getGuideRecordOptions(actionProgramId)
+                }
+
+                if (guideWasRefreshed) {
+                    // Rebuild the visible grid around NOW in the background so
+                    // the program shown behind the dialog also becomes current.
+                    loadGuide(showLoading = false)
+                }
+
+                val targetProgramId = actionProgramId
+
+                /*
+                 * Resolve the selected item through the fresh/full channel
+                 * guide before opening the dialog so season, episode and other
+                 * metadata remain complete.
+                 */
+                val fullProgram = fullGuideCache[channel.number]
+                    ?.firstOrNull { candidate ->
+                        candidate.id == targetProgramId
+                    }
+                    ?: actionProgram
 
                 val content = buildGuideDetailsDialog(channel, fullProgram)
                 val dialog = AlertDialog.Builder(requireContext())
@@ -976,10 +1110,10 @@ class EpgFragment : Fragment() {
                                     try {
                                         action()
                                         val refreshed =
-                                            api.getGuideRecordOptions(programId)
+                                            api.getGuideRecordOptions(targetProgramId)
 
                                         epgAdapter?.updateRecordingState(
-                                            programId,
+                                            targetProgramId,
                                             refreshed.recordingStatus ?: "none",
                                             refreshed.series,
                                             refreshed.seriesId,
@@ -1016,7 +1150,7 @@ class EpgFragment : Fragment() {
                     if (!options.recording) {
                         addAction("Record Once") {
                             api.recordGuideProgramOnce(
-                                programId,
+                                targetProgramId,
                                 GuideRecordRequest("once"),
                             )
                         }
@@ -1025,13 +1159,13 @@ class EpgFragment : Fragment() {
                     if (!options.series) {
                         addAction("Record Series") {
                             api.recordGuideProgramSeries(
-                                programId,
+                                targetProgramId,
                                 GuideRecordRequest("series"),
                             )
                         }
                         addAction("Record New Episodes Only") {
                             api.recordGuideProgramNewEpisodes(
-                                programId,
+                                targetProgramId,
                                 GuideRecordRequest("new"),
                             )
                         }
@@ -1039,7 +1173,7 @@ class EpgFragment : Fragment() {
 
                     if (options.recording) {
                         addAction("Cancel Recording") {
-                            api.cancelGuideProgramRecording(programId)
+                            api.cancelGuideProgramRecording(targetProgramId)
                         }
                     }
 
@@ -1061,11 +1195,6 @@ class EpgFragment : Fragment() {
                             shape = GradientDrawable.RECTANGLE
                             cornerRadius = 0f
                             setColor(Color.parseColor("#F0121420"))
-
-                            /*
-                             * Match the SignalDVR theme:
-                             * dark flat panel with no bright outer frame.
-                             */
                         }
                     )
                     setLayout(
@@ -1562,7 +1691,7 @@ class EpgFragment : Fragment() {
         )
     }
 
-    private fun buildGrid() {
+    private fun buildGrid(restoreFocusKey: String? = null) {
         epgAdapter = EpgAdapter(
             ctx = requireContext(),
             channels = channels,
@@ -1604,15 +1733,46 @@ class EpgFragment : Fragment() {
         )
         channelList.adapter = epgAdapter
 
-        channels.firstNotNullOfOrNull { channel ->
-            guide[channel.number]
-                ?.firstOrNull()
-                ?.let { program -> channel to program }
-        }?.let { (channel, program) ->
-            updateDetails(channel, program)
-        }
+        // On a background refresh, try to put focus and the details panel
+        // back on the exact program the user was already looking at rather
+        // than always defaulting to the first channel's first program - a
+        // periodic refresh should never feel like it dropped you back to
+        // the top of the guide.
+        val restored = restoreFocusKey?.let { key ->
+            val parts = key.split("|", limit = 3)
+            val channelNumber = parts.getOrNull(0)
+            val programId = parts.getOrNull(1)?.toIntOrNull()
+            val startStr = parts.getOrNull(2)
+            val startMs = startStr?.let { TimeUtil.parseEpg(it)?.time }
 
-        channelList.requestFocus()
+            val channel = channelNumber?.let { num -> channels.find { it.number == num } }
+            val program = channel?.let {
+                guide[channel.number].orEmpty().firstOrNull { candidate ->
+                    candidate.id == programId || candidate.start == startStr
+                }
+            }
+
+            if (channel != null && program != null && startMs != null) {
+                updateDetails(channel, program)
+                val anchorMinute = ((startMs - guideWindowStartMs) / 60_000L).toInt()
+                epgAdapter?.focusChannel(channelList, channel.number, anchorMinute)
+                true
+            } else {
+                false
+            }
+        } ?: false
+
+        if (!restored) {
+            channels.firstNotNullOfOrNull { channel ->
+                guide[channel.number]
+                    ?.firstOrNull()
+                    ?.let { program -> channel to program }
+            }?.let { (channel, program) ->
+                updateDetails(channel, program)
+            }
+
+            channelList.requestFocus()
+        }
     }
 }
 
@@ -1668,6 +1828,27 @@ class EpgAdapter(
         guide.putAll(newGuide)
         channels.addAll(newChannels)
         notifyItemRangeInserted(startPosition, newChannels.size)
+    }
+
+    /**
+     * Used after a background guide refresh rebuilds this adapter, to put
+     * focus back on the program the user was actually looking at instead of
+     * always landing on the first channel's first program.
+     */
+    fun focusChannel(recyclerView: RecyclerView, channelNumber: String, anchorMinute: Int) {
+        val position = channels.indexOfFirst { it.number == channelNumber }
+        if (position !in channels.indices) return
+
+        val clampedAnchor = anchorMinute.coerceIn(0, (totalMins - 1).coerceAtLeast(0))
+        recyclerView.scrollToPosition(position)
+        recyclerView.post {
+            focusProgramAtMinute(
+                recyclerView = recyclerView,
+                adapterPosition = position,
+                anchorMinute = clampedAnchor,
+                direction = 1,
+            )
+        }
     }
 
     fun updateRecordingState(
@@ -1808,14 +1989,17 @@ class EpgAdapter(
             holder.hScroll.scrollTo(getScrollX(), 0)
         }
 
-        holder.hScroll.setOnScrollChangeListener {
-                _, scrollX, _, _, _ ->
+        holder.hScroll.setOnScrollChangeListener { _, scrollX, _, _, _ ->
             onHScroll(scrollX)
 
-            val recyclerView = holder.hScroll
-                .parent
-                ?.parent
-                ?.parent as? RecyclerView
+            // holder.hScroll's parent is the row root (holder.itemView), and
+            // that root is a direct child of the RecyclerView -- so only one
+            // more hop up is needed. Walking one extra .parent landed outside
+            // the RecyclerView entirely, so this cast always failed and only
+            // the row actually being scrolled (plus the time header, via
+            // onHScroll above) ever moved; every other channel row stayed on
+            // the old time slice until it happened to get rebound later.
+            val recyclerView = holder.itemView.parent as? RecyclerView
                 ?: return@setOnScrollChangeListener
 
             for (index in 0 until recyclerView.childCount) {
@@ -1962,6 +2146,14 @@ class EpgAdapter(
             else -> base
         }
 
+        // A "currently airing" cell and a "focused" cell were both signaled
+        // with the SAME fill color, just 28% brighter when focused. On a
+        // dim or brightly-lit screen (or in a photo/video) that difference
+        // is nearly impossible to see, which is exactly what made it so
+        // hard to tell whether "Match Game" or "Family Feud" actually had
+        // focus. Focus now gets its own unmistakable border instead of
+        // relying on a subtle brightness bump on top of whatever color the
+        // program's genre or "now playing" state already painted underneath.
         return GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = 0f
@@ -2046,10 +2238,6 @@ class EpgAdapter(
                         moveFocusVertically(
                             sourceView = this,
                             direction = -1,
-                            // Anchor vertical travel to the selected cell's
-                            // LEFT time edge, not its midpoint. Midpoints of
-                            // long programs progressively push focus right.
-                            fallbackMinute = startMinute
                         )
                     }
 
@@ -2057,9 +2245,6 @@ class EpgAdapter(
                         moveFocusVertically(
                             sourceView = this,
                             direction = 1,
-                            // Keep the same exact time column while moving
-                            // through rows with different program durations.
-                            fallbackMinute = startMinute
                         )
                     }
 
@@ -2187,19 +2372,17 @@ class EpgAdapter(
     private fun moveFocusVertically(
         sourceView: View,
         direction: Int,
-        fallbackMinute: Int
     ): Boolean {
         val recyclerView = findRecyclerView(sourceView) ?: return false
-        val sourceHolder = recyclerView.findContainingViewHolder(sourceView) ?: return false
+        val sourceHolder = recyclerView.findContainingViewHolder(sourceView) as? VH
+            ?: return false
         val sourcePosition = sourceHolder.bindingAdapterPosition
 
         if (sourcePosition == RecyclerView.NO_POSITION) return false
 
         var targetPosition = sourcePosition + direction
 
-        // Skip channels that have no focusable guide cells in the visible window.
-        // Without this, focus stops on the first channel whose guide response is
-        // empty (or whose programs are all outside the current four-hour window).
+        // Skip channels that have no focusable guide cells in this timeline.
         while (
             targetPosition in channels.indices &&
             !hasVisiblePrograms(targetPosition)
@@ -2209,23 +2392,71 @@ class EpgAdapter(
 
         if (targetPosition !in channels.indices) return false
 
-        val anchorMinute = (
-                verticalAnchorMinute ?: fallbackMinute
-                ).coerceIn(0, (totalMins - 1).coerceAtLeast(0))
+        /*
+         * Anchor vertical travel to a fixed point in the timeline, computed
+         * ONCE per up/down session from the START of the focused cell, then
+         * reused as-is for every further row change.
+         *
+         * Bugs that have lived here before:
+         *  - Re-clamping the anchor into the newly-focused program's own
+         *    start/end range on every row let it drift later step by step,
+         *    since every channel's schedule is offset differently.
+         *  - Using the center of the whole visible viewport ignored where
+         *    the focused cell actually sat on screen.
+         *  - Using the CENTER of the focused cell (instead of its start)
+         *    skipped past nearby programs and landed further right than
+         *    expected whenever the focused cell was wide -- a 63-minute
+         *    show starting at 11:34 PM has a center around 12:05 AM, so
+         *    DOWN would jump to whatever's airing at 12:05 instead of
+         *    11:34, skipping the very next channel's 11:30 PM show.
+         * The anchor is the start time of your selection, cached, and never
+         * re-derived from whatever program you land on next.
+         */
+        val anchorMinute = verticalAnchorMinute
+            ?: visibleAnchorMinute(holder = sourceHolder, sourceView = sourceView)
 
-        verticalAnchorMinute = anchorMinute
+        verticalAnchorMinute = anchorMinute.coerceIn(
+            0,
+            (totalMins - 1).coerceAtLeast(0),
+        )
 
         recyclerView.scrollToPosition(targetPosition)
         recyclerView.post {
             focusProgramAtMinute(
                 recyclerView = recyclerView,
                 adapterPosition = targetPosition,
-                anchorMinute = anchorMinute,
-                direction = direction
+                anchorMinute = verticalAnchorMinute ?: anchorMinute,
+                direction = direction,
             )
         }
 
         return true
+    }
+
+    private fun visibleAnchorMinute(holder: VH, sourceView: View): Int {
+        val pixelsPerMinute = dp(minuteWidthDp).coerceAtLeast(1)
+        val cell = sourceView.parent as? View
+        val viewportWidth = holder.hScroll.width
+
+        if (cell == null || viewportWidth <= 0) return 0
+
+        val visibleLeftPx = getScrollX()
+
+        // Anchor to the START of the focused program, not its center. Every
+        // real guide (this one included, before this bug) tracks the start
+        // time of your current selection when you move up/down -- if you're
+        // on a show that begins at 11:34 PM, DOWN should land on whatever is
+        // airing at 11:34 PM on the next channel, not on whatever happens to
+        // be airing at that show's midpoint. A wide cell (a 90-minute movie,
+        // say) made "center" and "start" very different, which is what was
+        // skipping past the nearer program and landing further right than
+        // expected. If the cell starts off-screen to the left, use the
+        // visible left edge instead, since that's the earliest point of the
+        // selection actually on screen.
+        val anchorPx = cell.left.coerceAtLeast(visibleLeftPx)
+
+        val anchorMinute = anchorPx / pixelsPerMinute
+        return anchorMinute.coerceIn(0, (totalMins - 1).coerceAtLeast(0))
     }
 
     private fun focusProgramAtMinute(

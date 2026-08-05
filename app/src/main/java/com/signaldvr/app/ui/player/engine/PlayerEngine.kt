@@ -111,5 +111,8 @@ interface PlayerEngine {
 
     fun setMuted(muted: Boolean)
 
+    /** Enable or disable closed-caption text tracks. */
+    fun setClosedCaptionsEnabled(enabled: Boolean)
+
     fun release()
 }

@@ -36,6 +36,7 @@ import com.bumptech.glide.Glide
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.drawable.Drawable
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -61,6 +62,7 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var btnFf60: TextView
     private lateinit var btnLive: TextView
     private lateinit var btnRecord: TextView
+    private lateinit var btnCc: TextView
     private lateinit var tvPosition: TextView
     private lateinit var timelineView: TimelineView
 
@@ -84,6 +86,7 @@ class PlayerActivity : AppCompatActivity() {
     private var liveReconnectAttempts = 0
     private var userPaused = false
     private var playbackControllerReady = false
+    private var closedCaptionsEnabled = false
 
     /*
      * Every live DVR seek/jump receives a new generation number.
@@ -686,6 +689,7 @@ class PlayerActivity : AppCompatActivity() {
         btnFf60 = findViewById(R.id.btn_ff60)
         btnLive = findViewById(R.id.btn_live)
         btnRecord = findViewById(R.id.btn_record)
+        btnCc = findViewById(R.id.btn_cc)
         tvPosition = findViewById(R.id.tv_position)
         timelineView = findViewById(R.id.timelineView)
     }
@@ -833,6 +837,33 @@ class PlayerActivity : AppCompatActivity() {
             onFf60 = { fastForwardSeconds(60) },
             onLive = { jumpLive() },
             onRecord = { showRecordMenu() }
+        )
+
+        // Match the CC button to the existing DVR transport focus behavior.
+        // The original buttons receive this through configureDvrButtons(), but
+        // CC is wired separately, so it must be added explicitly.
+        playerUiController.applyDvrButtonFocus(btnCc)
+
+        btnCc.setOnClickListener {
+            if (!::playerEngine.isInitialized) {
+                playerUiController.showShortToast("Player is still starting")
+                return@setOnClickListener
+            }
+
+            closedCaptionsEnabled = !closedCaptionsEnabled
+            playerEngine.setClosedCaptionsEnabled(closedCaptionsEnabled)
+            updateClosedCaptionButton()
+        }
+
+        updateClosedCaptionButton()
+    }
+
+    private fun updateClosedCaptionButton() {
+        btnCc.text = if (closedCaptionsEnabled) "CC ON" else "CC"
+        btnCc.setTextColor(
+            Color.parseColor(
+                if (closedCaptionsEnabled) "#FF56E36F" else "#FFFFFFFF"
+            )
         )
     }
 
