@@ -69,7 +69,7 @@ class Media3PlayerEngine(
             .setBufferDurationsMs(
                 10_000,  // Minimum buffer
                 45_000,  // Maximum buffer
-                1_200,   // Buffer before initial playback
+                3_000,   // Buffer before initial playback
                 5_000,   // Buffer required after a rebuffer
             )
             .build()
