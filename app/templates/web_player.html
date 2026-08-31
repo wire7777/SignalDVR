@@ -1,0 +1,168 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{{ title }} - SignalDVR</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: #05070a;
+            color: #fff;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+        header {
+            min-height: 64px;
+            padding: 12px 18px;
+            background: #101722;
+            border-bottom: 1px solid #253044;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+        a {
+            color: #ffcc00;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        h1 {
+            font-size: 20px;
+            margin: 0;
+        }
+        .sub {
+            margin-top: 4px;
+            color: #aaa;
+            font-size: 13px;
+        }
+        .player-shell {
+            width: 100%;
+            min-height: calc(100vh - 64px);
+            background: #000;
+            display: grid;
+            place-items: center;
+            position: relative;
+        }
+        video {
+            width: 100%;
+            height: calc(100vh - 64px);
+            background: #000;
+            display: block;
+        }
+        .msg {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            min-width: 260px;
+            max-width: 80%;
+            padding: 14px 18px;
+            border: 1px solid #333;
+            background: rgba(12, 16, 22, .92);
+            color: #ddd;
+            text-align: center;
+            border-radius: 8px;
+        }
+        .msg:empty { display: none; }
+    </style>
+</head>
+<body>
+<header>
+    <a href="{{ back_url or '/library' }}">← Back</a>
+    <div>
+        <h1>{{ title }}</h1>
+        <div class="sub">{{ subtitle }}</div>
+    </div>
+</header>
+
+<div class="player-shell">
+    <video id="video" controls autoplay playsinline></video>
+    <div class="msg" id="msg">Preparing video…</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script>
+const directUrl = {{ (playlist_url or '')|tojson }};
+const vodApiUrl = {{ (vod_api_url or '')|tojson }};
+const video = document.getElementById("video");
+const msg = document.getElementById("msg");
+let hls = null;
+
+function setMessage(text) {
+    msg.textContent = text || "";
+}
+
+function playHls(url) {
+    if (!url) {
+        setMessage("No playback stream was returned.");
+        return;
+    }
+
+    if (hls) {
+        hls.destroy();
+        hls = null;
+    }
+
+    if (window.Hls && Hls.isSupported()) {
+        hls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: false,
+            backBufferLength: 120,
+            maxBufferLength: 120
+        });
+
+        hls.loadSource(url);
+        hls.attachMedia(video);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, function () {
+            setMessage("");
+            video.play().catch(() => {});
+        });
+
+        hls.on(Hls.Events.ERROR, function (event, data) {
+            if (data && data.fatal) {
+                setMessage("Playback error: " + (data.details || data.type || "unknown"));
+            }
+        });
+        return;
+    }
+
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        video.src = url;
+        video.addEventListener("loadedmetadata", function onReady() {
+            video.removeEventListener("loadedmetadata", onReady);
+            setMessage("");
+            video.play().catch(() => {});
+        });
+        return;
+    }
+
+    setMessage("This browser cannot play HLS video.");
+}
+
+async function startPlayback() {
+    try {
+        if (vodApiUrl) {
+            setMessage("Preparing browser-compatible video…");
+            const response = await fetch(vodApiUrl, { cache: "no-store" });
+            const data = await response.json();
+
+            if (!response.ok || !data.ok || !data.playlist_url) {
+                throw new Error(data.error || "Unable to prepare recording");
+            }
+
+            playHls(data.playlist_url);
+            return;
+        }
+
+        playHls(directUrl);
+    } catch (error) {
+        setMessage("Unable to start playback: " + error.message);
+    }
+}
+
+startPlayback();
+</script>
+</body>
+</html>

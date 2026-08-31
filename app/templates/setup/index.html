@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SignalDVR Setup</title>
+  <link rel="stylesheet" href="/static/setup/setup.css">
+</head>
+<body>
+<main class="shell">
+  <header><div class="mark">S</div><div><h1>Welcome to SignalDVR</h1><p>Complete the first-run setup for this server.</p></div></header>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <section><h2>System check</h2><div class="checks">
+    {% for item in storage %}<div class="check"><b>{{ item.name }}</b><span class="{{ 'ok' if item.ok else 'bad' }}">{{ 'Ready' if item.ok else 'Not writable' }}</span><code>{{ item.path }}</code></div>{% endfor %}
+  </div></section>
+  <form method="post">
+    <section><h2>Administrator</h2>
+      <label>Username<input name="username" value="admin" required></label>
+      <label>Password<input type="password" name="password" minlength="8" required></label>
+      <label>Confirm password<input type="password" name="confirm_password" minlength="8" required></label>
+    </section>
+    <section><h2>Tuner and guide</h2>
+      {% if tuners %}
+      <label>Discovered HDHomeRun tuner
+        <select name="hdhr_device" id="hdhr_device">
+          {% for tuner in tuners %}<option value="{{ tuner.device_id }}" data-ip="{{ tuner.ip }}">{{ tuner.label }}</option>{% endfor %}
+        </select>
+      </label>
+      <input type="hidden" name="hdhr_host" id="hdhr_host" value="{{ tuners[0].ip }}">
+      <p class="hint">SignalDVR discovered {{ tuners|length }} tuner{{ '' if tuners|length == 1 else 's' }} on the local network.</p>
+      {% else %}
+      <div class="warning">{{ tuner_error }}</div>
+      {% endif %}
+      <label>Manual device ID or IP (optional)
+        <input name="hdhr_device_manual" placeholder="Example: 1077144F or 192.168.2.158">
+      </label>
+      <label>Guide source<select name="guide_source"><option value="schedules_direct">Schedules Direct</option><option value="xmltv">XMLTV</option><option value="none">Configure later</option></select></label>
+      <label>Guide days<input type="number" name="guide_days" value="15" min="1" max="21"></label>
+    </section>
+    <section><h2>DVR defaults</h2>
+      <label>Maximum recordings<input type="number" name="max_recordings" value="4" min="1" max="32"></label>
+      <label>Background DVR retention<select name="background_dvr_retention"><option value="12_hours">12 hours</option><option value="1_day">1 day</option><option value="3_days" selected>3 days</option><option value="7_days">7 days</option></select></label>
+    </section>
+    <button type="submit">Finish setup</button>
+  </form>
+</main>
+<script>
+const select = document.getElementById('hdhr_device');
+const host = document.getElementById('hdhr_host');
+if (select && host) {
+  const updateHost = () => { host.value = select.options[select.selectedIndex]?.dataset.ip || ''; };
+  select.addEventListener('change', updateHost);
+  updateHost();
+}
+</script>
+</body>
+</html>

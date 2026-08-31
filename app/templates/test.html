@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>SignalDVR Test</title>
+<style>
+body { background:#111; color:#eee; font-family:Arial; margin:20px; }
+.card { background:#1d1d1d; border:1px solid #333; padding:12px; margin:10px 0; border-radius:8px; }
+button, a { background:#2b6cff; color:white; padding:8px 12px; border-radius:5px; border:0; text-decoration:none; margin:4px; display:inline-block; }
+.meta { color:#aaa; }
+</style>
+</head>
+<body>
+
+<h1>SignalDVR Test</h1>
+<button onclick="loadRecorded()">Recorded Only</button>
+
+<div id="status"></div>
+<div id="out"></div>
+
+<script>
+function esc(v){
+  return String(v ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[c]));
+}
+
+function copyUrl(url){
+  prompt("Copy this VLC URL:", url);
+}
+
+async function makeHls(filename){
+  document.getElementById("status").innerText = "Generating HLS...";
+  const res = await fetch("/test/make_hls/" + encodeURIComponent(filename));
+  const data = await res.json();
+
+  if (!data.ok) {
+    alert("HLS failed: " + data.error);
+    return;
+  }
+
+  const full = window.location.origin + data.playlist;
+  prompt("Copy this HLS VLC URL:", full);
+  document.getElementById("status").innerText = "HLS ready.";
+}
+
+async function createRecordingSession(filename){
+  document.getElementById("status").innerText = "Creating playback session...";
+  const res = await fetch("/test/session/recording/" + encodeURIComponent(filename));
+  const data = await res.json();
+
+  if (!data.ok) {
+    alert("Session failed: " + (data.error || "unknown error"));
+    document.getElementById("status").innerText = "Session failed.";
+    return;
+  }
+
+  const full = window.location.origin + data.playlist;
+
+  let html = "";
+  html += "<h2>Playback Session Created</h2>";
+  html += '<div class="card">';
+  html += '<div class="meta">Session ID: ' + esc(data.session_id) + '</div>';
+  html += '<div class="meta">VLC Session URL:</div>';
+  html += '<p><input style="width:90%;padding:8px;" readonly value="' + esc(full) + '" onclick="this.select()"></p>';
+  html += '<p><a target="_blank" href="' + esc(full) + '">Open Session Playlist</a></p>';
+  html += '</div>';
+
+  document.getElementById("status").innerText = "Session ready.";
+  document.getElementById("out").innerHTML = html;
+}
+
+async function loadRecorded(){
+  document.getElementById("status").innerText = "Loading...";
+  const res = await fetch("/api/library");
+  const data = await res.json();
+
+  const items = data.recorded || [];
+  let html = "<h2>Recorded (" + items.length + ")</h2>";
+
+  for (const item of items) {
+    const url = window.location.origin + "/play/" + encodeURIComponent(item.filename);
+
+    html += '<div class="card">';
+    html += '<h3>' + esc(item.title || item.filename) + '</h3>';
+    html += '<div class="meta">Channel: ' + esc(item.channel || "") + '</div>';
+    html += '<div class="meta">File: ' + esc(item.filename || "") + '</div>';
+    html += '<p><a target="_blank" href="' + url + '">Play Direct TS</a></p>';
+    const hlsUrl = window.location.origin + "/livebuffer/test_hls/" + encodeURIComponent(item.filename) + "/index.m3u8";
+
+    html += '<div class="meta">Direct TS URL:</div>';
+    html += '<p><input style="width:90%;padding:8px;" readonly value="' + esc(url) + '" onclick="this.select()"></p>';
+    html += '<p><button onclick="makeHls(' + JSON.stringify(item.filename) + ')">Generate HLS</button></p>';
+    html += '<p><button onclick="createRecordingSession(' + JSON.stringify(item.filename) + ')">Create Playback Session</button></p>';
+
+    html += '<div class="meta">HLS Test URL:</div>';
+    html += '<p><input style="width:90%;padding:8px;" readonly value="' + esc(hlsUrl) + '" onclick="this.select()"></p>';
+
+    html += '<div class="meta">Click inside a box, Ctrl+C, paste into VLC.</div>';
+    html += '</div>';
+  }
+
+  document.getElementById("status").innerText = "Loaded.";
+  document.getElementById("out").innerHTML = html;
+}
+
+loadRecorded();
+</script>
+
+</body>
+</html>

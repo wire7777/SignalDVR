@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}SignalDVR Search{% endblock %}
+
+{% block head %}
+<style>
+    .search-box {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+    }
+
+    .search-input {
+        padding: 12px 14px;
+        width: min(520px, 100%);
+        border-radius: 8px;
+        border: 1px solid #333;
+        background: #1d1d1d;
+        color: #eee;
+        font-size: 16px;
+    }
+
+    .result-card {
+        border-left: 6px solid #4da3ff;
+    }
+
+    .result-title {
+        font-size: 24px;
+        font-weight: bold;
+    }
+
+    .subtitle {
+        color: #bbb;
+        margin-top: 8px;
+    }
+
+    .time {
+        color: #ffd966;
+        margin-top: 10px;
+    }
+
+    .desc {
+        color: #ccc;
+        line-height: 1.5;
+    }
+
+    .record {
+        background: #d93025;
+    }
+
+    .series {
+        background: #7b1fa2;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<h1>🔎 Search</h1>
+
+<form class="search-box" action="/search" method="get">
+    <input class="search-input" name="q" value="{{ q }}" placeholder="Search shows, movies, sports...">
+
+    <button class="primary" type="submit">Search</button>
+</form>
+
+{% for p in results %}
+<div class="card result-card">
+    <div class="result-title">{{ p["title"] }}</div>
+
+    {% if p["subtitle"] %}
+    <div class="subtitle">{{ p["subtitle"] }}</div>
+    {% endif %}
+
+    <div class="time">
+        Channel {{ p["channel"] }} · {{ p["start"]|tvtime }} - {{ p["stop"]|tvtime }}
+    </div>
+    <div class="program-badges">
+        {% if p.is_new %}
+        <span class="badge badge-new">NEW</span>
+        {% else %}
+        <span class="badge badge-secondary">REPEAT</span>
+        {% endif %}
+
+        {% if p.video_properties|has_hd %}
+        <span class="badge badge-hd">{{ p.video_properties|short_video }}</span>
+        {% endif %}
+
+        {% if p.audio_properties|has_dd51 %}
+        <span class="badge badge-audio">DD 5.1</span>
+        {% endif %}
+
+        {% if p.rating %}
+        <span class="badge badge-rating">{{ p.rating }}</span>
+        {% endif %}
+    </div>
+
+    {% if p["description"] %}
+    <p class="desc">{{ p["description"] }}</p>
+    {% endif %}
+
+    <form action="/schedule-program" method="post" style="display:inline;">
+        <input type="hidden" name="channel" value="{{ p['channel'] }}">
+        <input type="hidden" name="title" value="{{ p['title'] }}">
+        <input type="hidden" name="subtitle" value="{{ p['subtitle'] }}">
+        <input type="hidden" name="start" value="{{ p['start'] }}">
+        <input type="hidden" name="stop" value="{{ p['stop'] }}">
+        <button class="record" type="submit">🔴 Record Once</button>
+    </form>
+
+    <form action="/series/add" method="post" style="display:inline;">
+        <input type="hidden" name="channel" value="{{ p['channel'] }}">
+        <input type="hidden" name="title" value="{{ p['title'] }}">
+        <button class="series" type="submit">🔁 Record Series</button>
+    </form>
+</div>
+{% else %}
+{% if q %}
+<div class="card">
+    No results found for <b>{{ q }}</b>.
+</div>
+{% endif %}
+{% endfor %}
+
+{% endblock %}

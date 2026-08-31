@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}SignalDVR Scheduled{% endblock %}
+
+{% block head %}
+<style>
+    .Recording {
+        border-left: 5px solid #ff5555;
+    }
+
+    .Scheduled {
+        border-left: 5px solid #4da3ff;
+    }
+
+    .title {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 8px;
+    }
+
+    .meta {
+        color: #ccc;
+        line-height: 1.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<h1>🗓 Scheduled Recordings</h1>
+
+{% for s in scheduled %}
+<div class="card {{ s['status'] }}">
+    <div class="title">{{ s["title"] }}</div>
+
+    {% if s["subtitle"] %}
+    <div class="meta">{{ s["subtitle"] }}</div>
+    {% endif %}
+
+    <div class="meta">
+        <b>Status:</b> {{ s["status"]|status_badge }}<br>
+        <b>Channel:</b> {{ s["channel"] }}<br>
+        <b>Time:</b> {{ s["start"]|tvtime }} - {{ s["stop"]|tvtime }}
+    </div>
+
+    {% if s["status"] == "Scheduled" %}
+    <form action="/scheduled/delete/{{ s['id'] }}" method="post">
+        <button class="danger" type="submit">Cancel Recording</button>
+    </form>
+    {% endif %}
+</div>
+{% else %}
+<p>No upcoming scheduled recordings.</p>
+{% endfor %}
+
+{% endblock %}

@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}SignalDVR Library{% endblock %}
+
+{% block head %}
+<style>
+    body {
+        margin: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        background: #0b0f14;
+        color: #f5f7fa;
+    }
+
+    header {
+        padding: 24px 28px;
+        background: linear-gradient(180deg, #151c26, #0b0f14);
+        border-bottom: 1px solid #263241;
+    }
+
+    h1 {
+        margin: 0;
+        font-size: 34px;
+    }
+
+    .subtitle {
+        margin-top: 6px;
+        color: #9aa7b5;
+    }
+
+    .topbar {
+        margin-top: 18px;
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    input {
+        background: #0c1219;
+        border: 1px solid #2a3748;
+        color: #fff;
+        border-radius: 10px;
+        padding: 11px 13px;
+        min-width: 270px;
+        font-size: 15px;
+    }
+
+    .pill {
+        border: 1px solid #2a3748;
+        background: #111923;
+        border-radius: 999px;
+        padding: 9px 13px;
+        color: #c8d4e2;
+        font-size: 13px;
+    }
+
+    .dashboard {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
+        padding: 18px 28px;
+    }
+
+    .stat {
+        background: #111923;
+        border: 1px solid #263241;
+        border-radius: 14px;
+        padding: 14px;
+    }
+
+    .label {
+        color: #9aa7b5;
+        font-size: 13px;
+    }
+
+    .value {
+        font-size: 27px;
+        font-weight: bold;
+        margin-top: 4px;
+    }
+
+    .section {
+        padding: 12px 28px 28px;
+    }
+
+    .section h2 {
+        margin: 12px 0 14px;
+        font-size: 22px;
+    }
+
+    .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 16px;
+    }
+
+    .card {
+        background: #121a24;
+        border: 1px solid #2a3748;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
+    }
+
+    .thumb {
+        height: 126px;
+        background: radial-gradient(circle at top left, #24364a, #101722);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #7d8ea3;
+        font-size: 44px;
+        position: relative;
+    }
+
+    .body {
+        padding: 16px;
+    }
+
+    .badge {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: bold;
+        border-radius: 999px;
+        padding: 5px 9px;
+        margin-bottom: 10px;
+        background: #263241;
+        color: #dbe7f3;
+    }
+
+    .live {
+        background: #7a1111;
+    }
+
+    .buffered {
+        background: #7a5b11;
+    }
+
+    .saved {
+        background: #0f6b38;
+    }
+
+    .recorded {
+        background: #123e7a;
+    }
+
+    .title {
+        font-size: 18px;
+        font-weight: bold;
+        margin-bottom: 6px;
+        line-height: 1.25;
+    }
+
+    .meta {
+        color: #a9b6c5;
+        font-size: 13px;
+        line-height: 1.45;
+        margin-bottom: 12px;
+    }
+
+    .desc {
+        color: #c7d2df;
+        font-size: 13px;
+        min-height: 38px;
+        line-height: 1.4;
+    }
+
+    .actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+    }
+
+    .actions a,
+    .actions button {
+        background: #1d70f2;
+        color: white;
+        border: 0;
+        border-radius: 10px;
+        padding: 9px 11px;
+        text-decoration: none;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .actions .delete {
+        background: #a31616;
+    }
+
+    .empty {
+        color: #778699;
+        padding: 16px;
+        background: #101722;
+        border-radius: 14px;
+        border: 1px dashed #2b394b;
+    }
+
+    footer {
+        padding: 20px 28px 40px;
+        color: #697789;
+        font-size: 13px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<header>
+    <h1>SignalDVR Library</h1>
+    <div class="subtitle">Live, buffered, saved, and recorded programs in one place.</div>
+    <div class="topbar">
+        <input id="searchBox" placeholder="Search library...">
+        <div class="pill" id="lastUpdated">Loading...</div>
+    </div>
+</header>
+<div class="dashboard" id="dashboard"></div>
+<div id="content"></div>
+<footer>SignalDVR Library auto-refreshes every 5 seconds.</footer>
+
+<script>
+    function escapeHtml(value) { return String(value || "").replace(/[&<>"']/g, s => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[s])); }
+    function absUrl(path) { return window.location.origin + path; }
+    function copyText(value) { navigator.clipboard.writeText(value); alert("Copied VLC network URL:\n\n" + value); }
+    function timeLabel(value) { if (!value) return ""; const raw = String(value).slice(0, 14); if (raw.length < 12) return value; const d = new Date(`${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}T${raw.slice(8, 10)}:${raw.slice(10, 12)}:00`); return Number.isNaN(d.getTime()) ? value : d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); }
+    function iconFor(i) { const c = String(i.category || "").toLowerCase(), t = String(i.title || "").toLowerCase(); if (c.includes("baseball") || t.includes("baseball")) return "⚾"; if (c.includes("sports")) return "🏟️"; if (c.includes("news") || t.includes("news")) return "📰"; if (c.includes("movie") || t.includes("movie")) return "🎬"; if (c.includes("weather")) return "🌦️"; if (i.type === "recording") return "📼"; return "📺"; }
+    function card(i, k) {
+        const title = escapeHtml(i.title || "Unknown Program"), channel = escapeHtml(i.channel_name || i.channel || "");
+        const start = timeLabel(i.start_time), stop = timeLabel(i.stop_time), desc = escapeHtml(i.description || "");
+        const segments = i.segment_count ? `${i.segment_count} segments` : "";
+        let actions = "";
+        if (i.id && (k === "live" || k === "buffered" || k === "saved")) {
+            if (i.type === "live") {
+                actions += `<a href="/live/player/${encodeURIComponent(i.channel)}">▶ Watch Live</a>`;
+            } else {
+                actions += `<a href="/program/player/${i.id}">▶ Watch</a>`;
+            }
+            actions += `<a href="/api/program_catalog/${i.id}/download">⬇ Download</a>`;
+            if (!i.saved) actions += `<button onclick="saveProgram(${i.id})">💾 Save</button>`;
+            actions += `<button class="delete" onclick="deleteProgram(${i.id})">🗑 Delete</button>`;
+        }
+        if (i.id && i.type === "recording") {
+            actions += `<a href="/recording/player/${i.id}">▶ Play</a>`;
+            actions += `<a href="/api/recordings/${i.id}/download">⬇ Download</a>`;
+            if (i.filename) {
+                let vlcUrl = absUrl(`/play/${encodeURIComponent(i.filename)}`);
+                actions += `<button onclick="copyText('${vlcUrl}')">📋 VLC URL</button>`;
+            }
+            actions += `<button class="delete" onclick="deleteRecording(${i.id})">🗑 Delete</button>`;
+        } else if (i.filename) {
+            actions += `<a href="/recording/play/${encodeURIComponent(i.filename)}">▶ Play</a>`;
+            const vlcUrl = absUrl(`/play/${encodeURIComponent(i.filename)}`);
+            actions += `<button onclick="copyText('${vlcUrl}')">📋 VLC URL</button>`;
+        }
+        return `<div class="card"><div class="thumb">${iconFor(i)}</div><div class="body"><div class="badge ${k}">${k.toUpperCase()}</div><div class="title">${title}</div><div class="meta">${channel}<br>${start}${start || stop ? " → " : ""}${stop}<br>${segments}</div><div class="desc">${desc.slice(0, 190)}</div><div class="actions">${actions}</div></div></div>`;
+    }
+    function section(title, kind, items) { if (!items || !items.length) return `<section class="section"><h2>${title}</h2><div class="empty">Nothing here yet.</div></section>`; return `<section class="section"><h2>${title}</h2><div class="cards">${items.map(i => card(i, kind)).join("")}</div></section>`; }
+    function render(data) {
+        const c = data.counts || {};
+        document.getElementById("dashboard").innerHTML = `<div class="stat"><div class="label">Live</div><div class="value">${c.live || 0}</div></div><div class="stat"><div class="label">Buffered</div><div class="value">${c.buffered || 0}</div></div><div class="stat"><div class="label">Saved</div><div class="value">${c.saved || 0}</div></div><div class="stat"><div class="label">Recorded</div><div class="value">${c.recorded || 0}</div></div>`;
+        document.getElementById("content").innerHTML = section("🔴 Live Now", "live", data.live) + section("🟡 Buffered", "buffered", data.buffered) + section("🟢 Saved", "saved", data.saved) + section("🔵 Recorded", "recorded", data.recorded);
+        document.getElementById("lastUpdated").textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}`;
+    }
+    async function loadLibrary() { const q = document.getElementById("searchBox").value.trim(); const url = q ? `/api/library/search?q=${encodeURIComponent(q)}` : "/api/library"; const r = await fetch(url); render(await r.json()); }
+    async function saveProgram(id) { const r = await fetch(`/api/program_catalog/${id}/save`, { method: "POST" }); const j = await r.json(); if (!j.ok) { alert(j.error || "Unable to save program."); return; } await loadLibrary(); }
+    async function deleteProgram(id) { if (!confirm("Delete this saved/buffered program and its files?")) return; const r = await fetch(`/api/program_catalog/${id}/delete`, { method: "DELETE" }); const j = await r.json(); if (!j.ok) { alert(j.error || "Delete failed."); return; } await loadLibrary(); }
+    async function deleteRecording(id) { if (!confirm("Delete this recording file?")) return; const r = await fetch(`/api/recordings/${id}/delete`, { method: "DELETE" }); const j = await r.json(); if (!j.ok) { alert(j.error || "Delete failed."); return; } await loadLibrary(); }
+    document.getElementById("searchBox").addEventListener("input", () => { clearTimeout(window._searchTimer); window._searchTimer = setTimeout(loadLibrary, 250); });
+    loadLibrary(); setInterval(loadLibrary, 5000);
+</script>
+
+{% endblock %}

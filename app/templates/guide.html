@@ -1,0 +1,362 @@
+{% extends "base.html" %}
+
+{% block title %}SignalDVR Guide{% endblock %}
+
+{% block head %}
+<style>
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        gap: 18px;
+    }
+
+    .channel-card {
+        background: #1d1d1d;
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 18px;
+        transition: .2s;
+    }
+
+    .channel-card:hover {
+        border-color: #4da3ff;
+        transform: translateY(-2px);
+    }
+
+    .channel-title {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 14px;
+    }
+
+    .section-label {
+        font-size: 13px;
+        font-weight: bold;
+        color: #aaa;
+        margin-bottom: 5px;
+    }
+
+    .now-title {
+        color: #55ff88;
+        font-size: 18px;
+        font-weight: bold;
+    }
+
+    .next-title {
+        color: #ffd966;
+        font-size: 17px;
+        font-weight: bold;
+    }
+
+    .progress-bg {
+        margin: 10px 0 14px 0;
+        background: #333;
+        border-radius: 10px;
+        overflow: hidden;
+        height: 9px;
+    }
+
+    .progress-fill {
+        height: 9px;
+        background: #55ff88;
+    }
+
+    .live-text {
+        color: #55ff88;
+        font-size: 12px;
+        font-weight: bold;
+        margin-bottom: 14px;
+    }
+
+    .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .view {
+        background: #2196f3;
+    }
+
+    .record {
+        background: #d93025;
+    }
+
+    .watch-live {
+        background: #18864b;
+        border: 0;
+        color: #fff;
+        cursor: pointer;
+    }
+
+    .live-modal[hidden] {
+        display: none;
+    }
+
+    .live-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: rgba(0, 0, 0, .78);
+    }
+
+    .live-modal-panel {
+        width: min(1100px, 96vw);
+        background: #101010;
+        border: 1px solid #3a3a3a;
+        border-radius: 12px;
+        box-shadow: 0 24px 80px rgba(0, 0, 0, .65);
+        overflow: hidden;
+    }
+
+    .live-modal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 12px 16px;
+        background: #1c1c1c;
+        border-bottom: 1px solid #333;
+    }
+
+    .live-modal-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #fff;
+    }
+
+    .live-modal-close {
+        border: 0;
+        border-radius: 7px;
+        padding: 8px 12px;
+        background: #383838;
+        color: #fff;
+        cursor: pointer;
+        font-size: 15px;
+    }
+
+    .live-modal-video {
+        display: block;
+        width: 100%;
+        max-height: 75vh;
+        aspect-ratio: 16/9;
+        background: #000;
+    }
+
+    .live-modal-status {
+        min-height: 20px;
+        padding: 9px 16px 12px;
+        color: #bbb;
+        background: #151515;
+        font-size: 13px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<h1>📺 Program Guide</h1>
+
+<div class="grid">
+
+    {% for ch in channels %}
+
+    <div class="channel-card">
+
+        <div class="channel-title">
+            {{ ch["guide_number"] }} {{ ch["guide_name"] }}
+        </div>
+
+        <div class="section-label">NOW</div>
+        <div class="now-title">
+            {{ ch["now_title"] or "No guide data available." }}
+        </div>
+
+        {% if ch["now_start"] and ch["now_stop"] %}
+        <div class="progress-bg">
+            <div class="progress-fill" style="width:{{ ch['now_start']|progress_percent(ch['now_stop']) }}%;">
+            </div>
+        </div>
+
+        <div class="live-text">
+            ● LIVE · {{ ch["now_start"]|progress_percent(ch["now_stop"]) }}% complete
+        </div>
+        {% endif %}
+
+        <div class="section-label">NEXT</div>
+        <div class="next-title">
+            {{ ch["next_title"] or "No guide data available." }}
+        </div>
+
+        <br>
+
+        <div class="actions">
+
+            <button class="button watch-live" type="button" data-watch-live data-channel="{{ ch['guide_number'] }}"
+                data-name="{{ ch['guide_name'] }}">▶ Watch Live</button>
+
+            <a class="button view" href="/guide-view/{{ ch['guide_number'] }}">
+                📅 View Schedule
+            </a>
+
+            <form action="/record-channel/{{ ch['guide_number'] }}" method="post">
+
+                <button class="button record" type="submit">
+                    🔴 Record Live
+                </button>
+
+            </form>
+
+        </div>
+
+    </div>
+
+    {% else %}
+
+    <div class="card">
+        No channels found.
+    </div>
+
+    {% endfor %}
+
+</div>
+
+
+<div id="liveModal" class="live-modal" hidden aria-hidden="true">
+    <div class="live-modal-panel" role="dialog" aria-modal="true" aria-labelledby="liveModalTitle">
+        <div class="live-modal-head">
+            <div id="liveModalTitle" class="live-modal-title">Live TV</div>
+            <button id="liveModalClose" class="live-modal-close" type="button">Close</button>
+        </div>
+        <video id="liveModalVideo" class="live-modal-video" controls autoplay playsinline></video>
+        <div id="liveModalStatus" class="live-modal-status">Select a channel.</div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script>
+    (() => {
+        const modal = document.getElementById("liveModal");
+        const video = document.getElementById("liveModalVideo");
+        const title = document.getElementById("liveModalTitle");
+        const status = document.getElementById("liveModalStatus");
+        const closeButton = document.getElementById("liveModalClose");
+        let hls = null;
+        let heartbeatTimer = null;
+        let serverSessionActive = false;
+
+        const setStatus = (text) => { if (status) status.textContent = text; };
+
+        function stopHeartbeat() {
+            if (heartbeatTimer) {
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = null;
+            }
+        }
+
+        function sendHeartbeat() {
+            if (!serverSessionActive) return;
+            fetch("/api/web/live/heartbeat", {
+                method: "POST",
+                credentials: "same-origin",
+                cache: "no-store"
+            }).catch(() => { });
+        }
+
+        function startHeartbeat() {
+            stopHeartbeat();
+            serverSessionActive = true;
+            sendHeartbeat();
+            heartbeatTimer = setInterval(sendHeartbeat, 20000);
+        }
+
+        function releaseServerStream() {
+            stopHeartbeat();
+            if (!serverSessionActive) return;
+            serverSessionActive = false;
+
+            const url = "/api/web/live/stop";
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon(url, new Blob([], { type: "application/octet-stream" }));
+            } else {
+                fetch(url, {
+                    method: "POST",
+                    credentials: "same-origin",
+                    keepalive: true,
+                    cache: "no-store"
+                }).catch(() => { });
+            }
+        }
+
+        function destroyPlayer() {
+            if (hls) { hls.destroy(); hls = null; }
+            if (video) { video.pause(); video.removeAttribute("src"); video.load(); }
+        }
+
+        function closePlayer() {
+            destroyPlayer();
+            releaseServerStream();
+            modal.hidden = true;
+            modal.setAttribute("aria-hidden", "true");
+            document.body.style.overflow = "";
+        }
+
+        function attachStream(channel) {
+            const src = "/play/live/" + encodeURIComponent(channel) + "/web?ts=" + Date.now();
+            destroyPlayer();
+            releaseServerStream();
+            setStatus("Loading live TV...");
+
+            if (window.Hls && Hls.isSupported()) {
+                hls = new Hls({ enableWorker: true, lowLatencyMode: false, liveSyncDuration: 8, liveMaxLatencyDuration: 3600, backBufferLength: 3600, maxBufferLength: 600, maxMaxBufferLength: 3600 });
+                hls.loadSource(src);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    startHeartbeat();
+                    video.play().then(() => setStatus("Playing live")).catch(() => setStatus("Ready. Press Play."));
+                });
+                hls.on(Hls.Events.ERROR, (_, data) => {
+                    if (!data.fatal) return;
+                    if (data.type === Hls.ErrorTypes.NETWORK_ERROR) { setStatus("Network error. Retrying..."); hls.startLoad(); }
+                    else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) { setStatus("Media error. Recovering..."); hls.recoverMediaError(); }
+                    else { setStatus("Unable to play this channel."); destroyPlayer(); }
+                });
+                return;
+            }
+
+            if (video.canPlayType("application/vnd.apple.mpegurl")) {
+                video.src = src;
+                video.addEventListener("loadedmetadata", startHeartbeat, { once: true });
+                video.play().then(() => setStatus("Playing live")).catch(() => setStatus("Ready. Press Play."));
+                return;
+            }
+
+            setStatus("This browser cannot play HLS.");
+        }
+
+        function openPlayer(channel, name) {
+            if (!channel) return;
+            title.textContent = channel + (name ? "  " + name : "");
+            modal.hidden = false;
+            modal.setAttribute("aria-hidden", "false");
+            document.body.style.overflow = "hidden";
+            attachStream(channel);
+        }
+
+        document.querySelectorAll("[data-watch-live]").forEach((button) => {
+            button.addEventListener("click", () => openPlayer(button.dataset.channel || "", button.dataset.name || ""));
+        });
+        closeButton.addEventListener("click", closePlayer);
+        modal.addEventListener("click", (event) => { if (event.target === modal) closePlayer(); });
+        document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !modal.hidden) closePlayer(); });
+        window.addEventListener("pagehide", () => { destroyPlayer(); releaseServerStream(); });
+    })();
+</script>
+{% endblock %}

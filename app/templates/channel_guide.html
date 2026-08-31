@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}Channel {{ channel }}{% endblock %}
+
+{% block head %}
+<style>
+    .program-card {
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 18px;
+        margin-bottom: 18px;
+        transition: .2s;
+    }
+
+    .program-card:hover {
+        transform: translateY(-2px);
+        border-color: #4da3ff;
+    }
+
+    .live {
+        border-left: 6px solid #55ff88;
+        box-shadow: 0 0 12px rgba(85, 255, 136, .15);
+    }
+
+    .time {
+        color: #bbb;
+        font-size: 14px;
+        margin-bottom: 10px;
+    }
+
+    .title {
+        font-size: 26px;
+        font-weight: bold;
+        margin-bottom: 8px;
+    }
+
+    .subtitle {
+        color: #ddd;
+        font-style: italic;
+        margin-bottom: 12px;
+    }
+
+    .description {
+        color: #ccc;
+        line-height: 1.6;
+        margin-bottom: 12px;
+    }
+
+    .category {
+        display: inline-block;
+        background: rgba(255, 255, 255, .08);
+        padding: 5px 10px;
+        border-radius: 8px;
+        font-size: 13px;
+        margin-bottom: 10px;
+    }
+
+    .meta {
+        color: #ccc;
+        font-size: 13px;
+        margin-top: 6px;
+    }
+
+    .progress-bg {
+        height: 10px;
+        background: #333;
+        border-radius: 12px;
+        overflow: hidden;
+        margin: 12px 0;
+    }
+
+    .progress-fill {
+        height: 10px;
+        background: #55ff88;
+    }
+
+    .live-text {
+        color: #55ff88;
+        font-size: 13px;
+        font-weight: bold;
+        margin-bottom: 14px;
+    }
+
+    .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 14px;
+    }
+
+    .record {
+        background: #d93025;
+        color: white;
+    }
+
+    .series {
+        background: #7b1fa2;
+        color: white;
+    }
+
+    .channel-header {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        margin-bottom: 20px;
+    }
+
+    .channel-logo {
+        max-width: 120px;
+        max-height: 70px;
+        background: #fff;
+        border-radius: 10px;
+        padding: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="channel-header">
+    <img class="channel-logo" src="/static/logos/{{ guide_name|logo_name }}" onerror="this.style.display='none';">
+
+    <div>
+        <h1>📺 Channel {{ channel }}</h1>
+    </div>
+</div>
+<div class="card">
+    <strong>Logo support coming next:</strong>
+    app/static/logos/
+</div>
+
+{% for p in programs %}
+
+<div class="program-card {% if p['start']|is_live_now(p['stop']) %}live{% endif %}"
+    style="background:{{ p['category']|category_color }};">
+
+    <div class="time">
+        {{ p["start"]|tvtime }} — {{ p["stop"]|tvtime }}
+    </div>
+
+    {% if p["start"]|is_live_now(p["stop"]) %}
+    <div class="progress-bg">
+        <div class="progress-fill" style="width:{{ p['start']|progress_percent(p['stop']) }}%;"></div>
+    </div>
+
+    <div class="live-text">
+        🔴 LIVE NOW · {{ p["start"]|progress_percent(p["stop"]) }}%
+    </div>
+    {% endif %}
+
+    <div class="title">
+        {{ p["title"] }}
+    </div>
+
+    {% if p["subtitle"] %}
+    <div class="subtitle">
+        {{ p["subtitle"] }}
+    </div>
+    {% endif %}
+
+    {% if p["description"] %}
+    <div class="description">
+        {{ p["description"] }}
+    </div>
+    {% endif %}
+
+    {% if p["category"] %}
+    <div class="category">
+        {{ p["category"] }}
+    </div>
+    {% endif %}
+
+    <div class="program-badges">
+        {% if p.is_new %}
+        <span class="badge badge-new">NEW</span>
+        {% else %}
+        <span class="badge badge-secondary">REPEAT</span>
+        {% endif %}
+
+        {% if p.video_properties|has_hd %}
+        <span class="badge badge-hd">{{ p.video_properties|short_video }}</span>
+        {% endif %}
+
+        {% if p.audio_properties|has_dd51 %}
+        <span class="badge badge-audio">DD 5.1</span>
+        {% endif %}
+
+        {% if p.rating %}
+        <span class="badge badge-rating">{{ p.rating }}</span>
+        {% endif %}
+    </div>
+
+    {% if p.originalairdate %}
+    <div class="meta">Original Air Date: {{ p.originalairdate }}</div>
+    {% endif %}
+
+    {% if p.episode_title %}
+    <div class="meta">Episode: {{ p.episode_title }}</div>
+    {% endif %}
+
+    {% if p.runtime %}
+    <div class="meta">Runtime: {{ (p.runtime // 60) }} minutes</div>
+    {% endif %}
+
+    {% if p.year %}
+    <div class="meta">Year: {{ p.year }}</div>
+    {% endif %}
+
+    {% if p.cast %}
+    <div class="meta">Cast: {{ p.cast }}</div>
+    {% endif %}
+
+    {% if p.genres %}
+    <div class="meta">Genres: {{ p.genres }}</div>
+    {% endif %}
+
+    <div class="actions">
+        <form action="/schedule-program" method="post">
+
+            <input type="hidden" name="channel" value="{{ channel }}">
+            <input type="hidden" name="title" value="{{ p['title'] }}">
+            <input type="hidden" name="subtitle" value="{{ p['subtitle'] }}">
+            <input type="hidden" name="start" value="{{ p['start'] }}">
+            <input type="hidden" name="stop" value="{{ p['stop'] }}">
+            <button class="button button-danger" type="submit">🔴 Record This</button>
+        </form>
+
+        <form action="/series/add" method="post">
+            <input type="hidden" name="title" value="{{ p['title'] }}">
+            <input type="hidden" name="channel" value="{{ channel }}">
+            <button class="button button-info" type="submit">🔁 Record Series</button>
+
+        </form>
+    </div>
+
+</div>
+
+{% else %}
+
+<div class="card">
+    <h2>No Upcoming Guide Data</h2>
+</div>
+
+{% endfor %}
+
+{% endblock %}

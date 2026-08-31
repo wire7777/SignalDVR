@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}Live TV - {{ channel }}{% endblock %}
+
+{% block content %}
+
+<h1>📺 Live TV</h1>
+
+<div class="card">
+
+    <h2>{{ channel }}</h2>
+
+    <video id="player" controls autoplay playsinline
+        style="width:100%;max-width:1100px;background:#000;border-radius:12px;">
+    </video>
+
+    <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;">
+
+        <button class="button" onclick="playBeginning()">
+            ⏮ Watch From Beginning
+        </button>
+
+        <button class="button" onclick="playLive()">
+            🔴 Jump Live
+        </button>
+
+        <button class="button" onclick="saveLast(5)">
+            💾 Save Last 5 Minutes
+        </button>
+
+        <button class="button" onclick="saveLast(30)">
+            💾 Save Last 30 Minutes
+        </button>
+
+    </div>
+
+    <pre id="status" style="margin-top:20px;background:#111;padding:12px;border-radius:8px;color:#ccc;overflow:auto;">
+Loading...
+    </pre>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+<script>
+
+    let hls = null;
+
+    function loadStream(url) {
+
+        const video = document.getElementById("player");
+
+        if (hls) {
+            hls.destroy();
+            hls = null;
+        }
+
+        if (Hls.isSupported()) {
+
+            hls = new Hls({
+                liveDurationInfinity: true,
+                enableWorker: true,
+                lowLatencyMode: false
+            });
+
+            hls.loadSource(url);
+
+            hls.attachMedia(video);
+
+            hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                video.play().catch(err => console.log(err));
+            });
+
+            hls.on(Hls.Events.ERROR, function (event, data) {
+                console.log("HLS ERROR", data);
+            });
+
+        }
+        else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+
+            video.src = url;
+
+            video.play().catch(err => console.log(err));
+
+        }
+    }
+
+    function playLive() {
+
+        loadStream("/play/live/{{ channel }}/web");
+
+    }
+
+    function playBeginning() {
+
+        loadStream("/play/live/{{ channel }}/beginning");
+
+    }
+
+    async function refreshStatus() {
+
+        try {
+
+            const res = await fetch("/api/stream/playback");
+
+            const data = await res.json();
+
+            document.getElementById("status").textContent =
+                JSON.stringify(data, null, 2);
+
+        }
+        catch (err) {
+
+            console.log(err);
+
+        }
+
+    }
+
+    async function saveLast(minutes) {
+
+        const form = new FormData();
+
+        form.append("title", "Live Buffer Save");
+
+        form.append("minutes", minutes);
+
+        const res = await fetch("/api/stream/save", {
+
+            method: "POST",
+
+            body: form
+
+        });
+
+        const data = await res.json();
+
+        alert(JSON.stringify(data, null, 2));
+
+    }
+
+    loadStream("/play/live/{{ channel }}/web");
+
+    refreshStatus();
+
+    setInterval(refreshStatus, 5000);
+
+
+
+    // ------------------------------------------------------------
+    // SignalDVR browser live-session heartbeat
+    //
+    // Keeps the browser-owned WebStreamSession alive while this page
+    // remains open. Without this, the 90-second stale-session cleaner
+    // correctly assumes the browser disappeared and releases the tuner.
+    // ------------------------------------------------------------
+
+    let sdvrWebHeartbeatTimer = null;
+
+    function sdvrSendWebHeartbeat() {
+        fetch("/api/web/live/heartbeat", {
+            method: "POST",
+            credentials: "same-origin",
+            cache: "no-store"
+        }).catch(() => {});
+    }
+
+    function sdvrStartWebHeartbeat() {
+        if (sdvrWebHeartbeatTimer) {
+            return;
+        }
+
+        sdvrSendWebHeartbeat();
+
+        sdvrWebHeartbeatTimer = setInterval(
+            sdvrSendWebHeartbeat,
+            20000
+        );
+    }
+
+    function sdvrStopWebHeartbeat() {
+        if (sdvrWebHeartbeatTimer) {
+            clearInterval(sdvrWebHeartbeatTimer);
+            sdvrWebHeartbeatTimer = null;
+        }
+    }
+
+    function sdvrReleaseWebStream() {
+        sdvrStopWebHeartbeat();
+
+        const url = "/api/web/live/stop";
+
+        if (navigator.sendBeacon) {
+            navigator.sendBeacon(
+                url,
+                new Blob([], {
+                    type: "application/octet-stream"
+                })
+            );
+            return;
+        }
+
+        fetch(url, {
+            method: "POST",
+            credentials: "same-origin",
+            keepalive: true,
+            cache: "no-store"
+        }).catch(() => {});
+    }
+
+    // Start immediately. If no web session exists yet the heartbeat is
+    // harmless; once /play/live/<channel>/web creates one, subsequent
+    // heartbeats keep it alive.
+    sdvrStartWebHeartbeat();
+
+    window.addEventListener(
+        "pagehide",
+        sdvrReleaseWebStream
+    );
+
+</script>
+
+{% endblock %}

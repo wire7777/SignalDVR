@@ -1,0 +1,709 @@
+{% extends "base.html" %}
+
+{% block title %}SignalDVR Tuners{% endblock %}
+
+{% block head %}
+<style>
+    .tuner-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .summary-card {
+        padding: 14px;
+        background: #1d1d1d;
+        border: 1px solid #333;
+    }
+
+    .summary-label {
+        color: #999;
+        font-size: 12px;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+
+    .summary-value {
+        margin-top: 4px;
+        color: #fff;
+        font-size: 26px;
+        font-weight: bold;
+    }
+
+    .device-line {
+        margin-bottom: 18px;
+        padding: 12px 14px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        background: #171717;
+        border: 1px solid #333;
+    }
+
+    .connection-dot {
+        width: 10px;
+        height: 10px;
+        display: inline-block;
+        background: #777;
+    }
+
+    .connection-dot.connected {
+        background: #55ff88;
+    }
+
+    .connection-dot.offline {
+        background: #ff6666;
+    }
+
+    .tuner-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        gap: 14px;
+    }
+
+    .tuner-card {
+        padding: 18px;
+        background: #1d1d1d;
+        border: 1px solid #333;
+        border-left: 6px solid #55ff88;
+    }
+
+    .tuner-card.busy {
+        border-left-color: #d93025;
+    }
+
+    .tuner-card.offline {
+        border-left-color: #777;
+    }
+
+    .tuner-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+
+    .tuner-title {
+        margin: 0;
+        font-size: 21px;
+    }
+
+    .state {
+        color: #55ff88;
+        font-size: 13px;
+        font-weight: bold;
+    }
+
+    .state.busy {
+        color: #ff6666;
+    }
+
+    .state.offline {
+        color: #aaa;
+    }
+
+    .locked-channel {
+        margin: 0 0 14px;
+        padding: 12px 14px;
+        background: #151b23;
+        border: 1px solid #334155;
+        border-left: 4px solid #2196f3;
+    }
+
+    .locked-channel.idle {
+        background: #171717;
+        border-color: #333;
+        border-left-color: #555;
+    }
+
+    .locked-number {
+        color: #ffd54f;
+        font-size: 25px;
+        font-weight: bold;
+        line-height: 1.1;
+    }
+
+    .locked-name {
+        margin-top: 3px;
+        color: #fff;
+        font-size: 16px;
+        font-weight: bold;
+    }
+
+    .locked-rf {
+        margin-top: 5px;
+        color: #999;
+        font-size: 12px;
+    }
+
+    .section-title {
+        margin: 16px 0 8px;
+        padding-bottom: 5px;
+        color: #ffd54f;
+        border-bottom: 1px solid #333;
+        font-size: 12px;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+
+    .info-row {
+        min-height: 29px;
+        display: grid;
+        grid-template-columns: 125px minmax(0, 1fr);
+        align-items: center;
+        gap: 8px;
+        color: #ddd;
+        border-bottom: 1px solid #292929;
+    }
+
+    .info-row:last-child {
+        border-bottom: 0;
+    }
+
+    .label {
+        color: #888;
+        font-size: 13px;
+        font-weight: bold;
+    }
+
+    .value {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .meter-row {
+        margin-top: 8px;
+        display: grid;
+        grid-template-columns: 105px minmax(80px, 1fr) 48px;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .meter-label {
+        color: #aaa;
+        font-size: 13px;
+    }
+
+    .meter {
+        height: 8px;
+        overflow: hidden;
+        background: #3d3d3d;
+    }
+
+    .meter-value {
+        width: 0;
+        height: 100%;
+        background: #2196f3;
+        transition: width .2s linear;
+    }
+
+    .meter-value.good {
+        background: #55c96f;
+    }
+
+    .meter-value.warn {
+        background: #ffb300;
+    }
+
+    .meter-value.bad {
+        background: #d93025;
+    }
+
+    .meter-number {
+        color: #ddd;
+        font-size: 12px;
+        text-align: right;
+    }
+
+    .raw-status {
+        margin-top: 12px;
+        padding: 9px;
+        overflow-x: auto;
+        background: #111;
+        color: #999;
+        font-family: monospace;
+        font-size: 11px;
+        white-space: nowrap;
+    }
+
+    .loading {
+        padding: 20px;
+        color: #aaa;
+        background: #1d1d1d;
+        border: 1px solid #333;
+    }
+
+    @media (max-width: 620px) {
+        .info-row {
+            grid-template-columns: 105px minmax(0, 1fr);
+        }
+
+        .meter-row {
+            grid-template-columns: 82px minmax(70px, 1fr) 42px;
+        }
+    }
+
+.rogue-release-button {
+    width: 100%;
+    margin-top: 12px;
+    padding: 9px 12px;
+    border: 1px solid #ff4d4f;
+    background: #8f1d1d;
+    color: #ffffff;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.rogue-release-button:hover,
+.rogue-release-button:focus {
+    background: #b42323;
+    outline: 2px solid #ff4d4f;
+    outline-offset: 2px;
+}
+
+
+.rogue-tuner-button {
+    width: 100%;
+    margin-top: 14px;
+    padding: 10px 12px;
+    border: 1px solid #dc3545;
+    background: #9f2026;
+    color: #ffffff;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.rogue-tuner-button:hover,
+.rogue-tuner-button:focus {
+    background: #c62832;
+    outline: 2px solid #dc3545;
+    outline-offset: 2px;
+}
+
+</style>
+{% endblock %}
+
+{% block content %}
+
+<h1>Tuner Manager</h1>
+
+<div class="device-line">
+    <span id="connectionDot" class="connection-dot"></span>
+    <strong id="connectionText">Checking HDHomeRun…</strong>
+    <span id="deviceName" class="meta"></span>
+    <span id="updatedAt" class="meta" style="margin-left:auto;"></span>
+</div>
+
+<div class="tuner-summary">
+    <div class="summary-card">
+        <div class="summary-label">Tuners</div>
+        <div id="summaryTotal" class="summary-value">—</div>
+    </div>
+
+    <div class="summary-card">
+        <div class="summary-label">Busy</div>
+        <div id="summaryBusy" class="summary-value">—</div>
+    </div>
+
+    <div class="summary-card">
+        <div class="summary-label">Idle</div>
+        <div id="summaryIdle" class="summary-value">—</div>
+    </div>
+
+    <div class="summary-card">
+        <div class="summary-label">HDHomeRun Active</div>
+        <div id="summaryHardware" class="summary-value">—</div>
+    </div>
+
+    <div class="summary-card">
+        <div class="summary-label">SignalDVR Active</div>
+        <div id="summarySignalDvr" class="summary-value">—</div>
+    </div>
+</div>
+
+<div id="tunerGrid" class="tuner-grid">
+    <div class="loading">Loading real-time tuner status…</div>
+</div>
+
+<script>
+    (() => {
+        "use strict";
+
+        const grid = document.getElementById("tunerGrid");
+        let refreshTimer = null;
+        let requestRunning = false;
+
+        function escapeHtml(value) {
+            return String(value ?? "").replace(
+                /[&<>"']/g,
+                character => ({
+                    "&": "&amp;",
+                    "<": "&lt;",
+                    ">": "&gt;",
+                    '"': "&quot;",
+                    "'": "&#039;"
+                })[character]
+            );
+        }
+
+        function meterClass(value) {
+            const number = Number(value || 0);
+
+            if (number >= 80) return "good";
+            if (number >= 55) return "warn";
+            return "bad";
+        }
+
+        function meter(label, value) {
+            const safe = Math.max(0, Math.min(100, Number(value || 0)));
+
+            return `
+            <div class="meter-row">
+                <div class="meter-label">${escapeHtml(label)}</div>
+                <div class="meter">
+                    <div
+                        class="meter-value ${meterClass(safe)}"
+                        style="width:${safe}%">
+                    </div>
+                </div>
+                <div class="meter-number">${safe}%</div>
+            </div>
+        `;
+        }
+
+        function row(label, value) {
+            return `
+            <div class="info-row">
+                <div class="label">${escapeHtml(label)}</div>
+                <div class="value">${escapeHtml(value || "-")}</div>
+            </div>
+        `;
+        }
+
+        function stateLabel(tuner) {
+            const busy =
+                tuner.state === "busy";
+
+            const hdhrOffline =
+                tuner.source === "hdhomerun"
+                && tuner.hardware
+                && tuner.hardware.available === false;
+
+            if (hdhrOffline) {
+                return tuner.internal_busy
+                    ? "BUSY / HARDWARE OFFLINE"
+                    : "OFFLINE";
+            }
+
+            return busy ? "BUSY" : "IDLE";
+        }
+
+        function renderTuner(tuner) {
+            const hardware = tuner.hardware || null;
+
+
+
+            const busy =
+                tuner.state === "busy";
+
+            const offline =
+                tuner.source === "hdhomerun"
+                && hardware
+                && hardware.available === false;
+
+            const cardClass = [
+                "tuner-card",
+                busy ? "busy" : "",
+                offline ? "offline" : ""
+            ].filter(Boolean).join(" ");
+
+            const stateClass = [
+                "state",
+                busy ? "busy" : "",
+                offline ? "offline" : ""
+            ].filter(Boolean).join(" ");
+
+            const channelNumber =
+                tuner.channel ||
+                hardware?.virtual_channel ||
+                "";
+
+            const channelName =
+                tuner.channel_name ||
+                hardware?.channel_name ||
+                "";
+
+            const lockedClass =
+                channelNumber || tuner.state === "busy"
+                    ? "locked-channel"
+                    : "locked-channel idle";
+
+            const channelHtml = `
+            <div class="${lockedClass}">
+                <div class="locked-number">
+                    ${escapeHtml(channelNumber || "No Channel")}
+                </div>
+                <div class="locked-name">
+                    ${escapeHtml(channelName || (
+                tuner.state === "busy"
+                    ? "Channel name unavailable"
+                    : "Tuner available"
+            ))}
+                </div>
+                <div class="locked-rf">
+                    ${hardware?.rf_channel
+                    ? "RF " + escapeHtml(hardware.rf_channel)
+                    : ""}
+                </div>
+            </div>
+        `;
+
+            let hardwareHtml = "";
+
+            if (
+                tuner.source === "hdhomerun"
+                && hardware
+            ) {
+                hardwareHtml = `
+                <div class="section-title">HDHomeRun Hardware</div>
+                ${row("Virtual Channel", hardware.virtual_channel)}
+                ${row("Channel Name", hardware.channel_name)}
+                ${row("Program", hardware.program_number)}
+                ${row("RF Channel", hardware.rf_channel)}
+                ${row("Lock", hardware.lock)}
+                ${row("Target", hardware.target)}
+                ${row("Bitrate", hardware.bitrate_mbps
+                    ? hardware.bitrate_mbps + " Mbps"
+                    : "-")}
+                ${row("Packets/sec", hardware.packets_per_second)}
+                ${meter("Signal", hardware.signal_strength)}
+                ${meter("Quality", hardware.signal_quality)}
+                ${meter("Symbol", hardware.symbol_quality)}
+                <div class="raw-status">
+                    ${escapeHtml(
+                        hardware.raw_status
+                        || "No hardware status"
+                    )}
+                </div>
+            `;
+
+            } else if (
+                tuner.source === "native_dvb"
+            ) {
+                hardwareHtml = `
+                <div class="section-title">Native DVB Hardware</div>
+                ${row(
+                    "Adapter",
+                    tuner.adapter !== undefined
+                        ? "adapter" + tuner.adapter
+                        : "-"
+                )}
+                ${row("Frontend", tuner.frontend)}
+                ${row(
+                    "Status",
+                    busy ? "In Use" : "Available"
+                )}
+                ${row("Owner", tuner.owner)}
+            `;
+
+            } else {
+                hardwareHtml = `
+                <div class="section-title">Hardware</div>
+                ${row(
+                    "Source",
+                    tuner.source || "Local tuner"
+                )}
+            `;
+            }
+
+            const hardwareTarget =
+            hardware && hardware.target
+                ? String(hardware.target).trim()
+                : "";
+
+        const rogueCandidate =
+            tuner.source === "hdhomerun"
+            && Boolean(tuner.hardware_busy)
+            && !Boolean(tuner.internal_busy)
+            && !hardwareTarget;
+
+        const physicalTunerId =
+            tuner.physical_id !== undefined
+                ? Number(tuner.physical_id)
+                : Number(tuner.tuner_id);
+
+        const rogueReleaseHtml =
+            rogueCandidate
+                ? `
+                    <button
+                        type="button"
+                        class="rogue-release-button"
+                        onclick="window.releaseRogueTuner(${physicalTunerId})"
+                    >
+                        Release Rogue Tuner
+                    </button>
+                `
+                : "";
+
+        return `
+            <article class="${cardClass}">
+                <div class="tuner-head">
+                    <h2 class="tuner-title">Tuner ${Number(tuner.tuner_id) + 1}</h2>
+                    <div class="${stateClass}">${escapeHtml(stateLabel(tuner))}</div>
+                </div>
+
+                ${channelHtml}
+
+                <div class="section-title">SignalDVR</div>
+                ${row("Channel Number", tuner.channel)}
+                ${row("Channel Name", tuner.channel_name)}
+                ${row("Purpose", tuner.purpose)}
+                ${row("Program", tuner.title)}
+                ${row("Source", tuner.source)}
+                ${row("Started", tuner.started_at)}
+
+                ${hardwareHtml}
+                ${rogueReleaseHtml}
+            </article>
+        `;
+        }
+
+        function render(data) {
+            const summary = data.summary || {};
+
+            document.getElementById("summaryTotal").textContent =
+                summary.total ?? 0;
+            document.getElementById("summaryBusy").textContent =
+                summary.busy ?? 0;
+            document.getElementById("summaryIdle").textContent =
+                summary.idle ?? 0;
+            document.getElementById("summaryHardware").textContent =
+                summary.hardware_active ?? 0;
+            document.getElementById("summarySignalDvr").textContent =
+                summary.signaldvr_active ?? 0;
+
+            const dot = document.getElementById("connectionDot");
+            const text = document.getElementById("connectionText");
+
+            dot.className =
+                "connection-dot " +
+                (data.connected ? "connected" : "offline");
+
+            text.textContent =
+                data.connected
+                    ? "HDHomeRun Connected"
+                    : "HDHomeRun Offline";
+
+            document.getElementById("deviceName").textContent =
+                data.device ? "Device " + data.device : "";
+
+            document.getElementById("updatedAt").textContent =
+                data.updated_at ? "Updated " + data.updated_at : "";
+
+            const tuners = Array.isArray(data.tuners) ? data.tuners : [];
+
+            grid.innerHTML = tuners.length
+                ? tuners.map(renderTuner).join("")
+                : '<div class="loading">No configured tuners.</div>';
+        }
+
+        window.releaseRogueTuner = async function(tunerId) {
+        const displayNumber = Number(tunerId) + 1;
+
+        if (!window.confirm(
+            "Force release HDHomeRun Tuner "
+            + displayNumber
+            + "?\n\n"
+            + "Use this only for a stuck or rogue tuner."
+        )) {
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                `/api/tuners/hdhomerun/${encodeURIComponent(tunerId)}/release`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Accept": "application/json"
+                    }
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok || data.ok === false) {
+                throw new Error(
+                    data.error
+                    || "Unable to release tuner"
+                );
+            }
+
+            await refresh();
+
+        } catch (error) {
+            window.alert(
+                error.message
+                || "Unable to release tuner"
+            );
+        }
+    };
+
+
+    async function refresh() {
+            if (requestRunning || document.hidden) {
+                return;
+            }
+
+            requestRunning = true;
+
+            try {
+                const response = await fetch(
+                    "/api/tuners/realtime",
+                    { cache: "no-store" }
+                );
+
+                const data = await response.json();
+
+                if (!response.ok || data.ok === false) {
+                    throw new Error(data.error || "Unable to read tuner status");
+                }
+
+                render(data);
+            } catch (error) {
+                document.getElementById("connectionDot").className =
+                    "connection-dot offline";
+                document.getElementById("connectionText").textContent =
+                    "Tuner status unavailable";
+                grid.innerHTML =
+                    '<div class="loading">' +
+                    escapeHtml(error.message || "Unable to read tuner status") +
+                    '</div>';
+            } finally {
+                requestRunning = false;
+            }
+        }
+
+        function startRefresh() {
+            if (refreshTimer) {
+                window.clearInterval(refreshTimer);
+            }
+
+            refresh();
+            refreshTimer = window.setInterval(refresh, 1000);
+        }
+
+        document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) {
+                refresh();
+            }
+        });
+
+        startRefresh();
+    })();
+</script>
+
+{% endblock %}

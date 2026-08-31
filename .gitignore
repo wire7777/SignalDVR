@@ -1,0 +1,138 @@
+# ===========================
+# Python
+# ===========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# ===========================
+# Editors / OS
+# ===========================
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ===========================
+# Database
+# ===========================
+database/*.db
+database/*.db-*
+*.sqlite
+*.sqlite3
+*.db-journal
+*.sqlite-journal
+
+# ===========================
+# Guide Data
+# ===========================
+guide/*
+!guide/.gitkeep
+
+# ===========================
+# Live TV / Timeshift
+# ===========================
+livebuffer/*
+!livebuffer/.gitkeep
+
+# Runtime state files
+*.pid
+*_channel.txt
+*_current.txt
+*_position.txt
+
+# ===========================
+# Recordings
+# ===========================
+recordings/*
+!recordings/.gitkeep
+
+# ===========================
+# Thumbnails
+# ===========================
+thumbnails/*
+!thumbnails/.gitkeep
+
+# ===========================
+# Logs
+# ===========================
+logs/*
+!logs/.gitkeep
+*.log
+
+# ===========================
+# Temporary Files
+# ===========================
+*.tmpdatabase/*.backup
+database/*.backup
+
+
+# Temporary backup files
+*.before*
+*.backup
+*.bak
+
+# SQLite temp files
+*.db-shm
+*.db-wal
+
+# macOS
+.DS_Store
+
+# Generated SignalDVR artwork cache
+app/static/program_artwork/
+
+# Temporary backup files
+*.before*
+*.backup
+*.bak
+
+current_recording.txt
+
+# SignalDVR generated artwork and thumbnails
+app/static/logos/
+app/static/program_artwork/
+program_artwork/
+thumbnails/
+livebuffer/
+
+# Python virtual environment
+venv/
+.venv/
+
+# Generated guide data
+guide/guide.xml
+
+# Runtime database and database recovery copies
+database/signaldvr.db
+database/signaldvr.db-*
+database/signaldvr.db.*
+
+# Docker runtime data and local environment
+data/
+.env
+
+# Local SignalDVR database backups
+database/backups/*.db
+
+# SignalDVR Native DVB generated configuration / scan data
+dvb/
+atsc-us-scan.conf
+dvb_channels.conf
+dvb_native_scan.conf
+native_dvb_channels.conf
+native_test.ts
+test_195.conf
+test_195_services.conf
+
+# SignalDVR Native DVB generated configuration / scan data
+dvb/
+atsc-us-scan.conf
+dvb_channels.conf
+dvb_native_scan.conf
+native_dvb_channels.conf
+native_test.ts
+test_195.conf
+test_195_services.conf

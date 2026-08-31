@@ -1,0 +1,26 @@
+services:
+  signaldvr:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: signaldvr:local
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      TZ: ${TZ:-America/Los_Angeles}
+      SIGNALDVR_PORT: ${SIGNALDVR_PORT:-8088}
+      SIGNALDVR_WEB_THREADS: ${SIGNALDVR_WEB_THREADS:-8}
+      SIGNALDVR_GUIDE_URL: ${SIGNALDVR_GUIDE_URL:-}
+    volumes:
+      - ${SIGNALDVR_CONFIG_HOST:-./data/config}:/config
+      - ${SIGNALDVR_RECORDINGS_HOST:-./data/recordings}:/recordings
+      - ${SIGNALDVR_TIMESHIFT_HOST:-./data/timeshift}:/timeshift
+      - ${SIGNALDVR_THUMBNAILS_HOST:-./data/thumbnails}:/thumbnails
+      - ${SIGNALDVR_LOGS_HOST:-./data/logs}:/logs
+      - ${SIGNALDVR_GUIDE_HOST:-./data/guide}:/guide
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${SIGNALDVR_PORT:-8088}/api/setup/status >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3

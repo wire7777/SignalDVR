@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}SignalDVR Conflicts{% endblock %}
+
+{% block head %}
+<style>
+    .conflict-card {
+        background: #2a1515;
+        border: 1px solid #aa3333;
+        border-left: 6px solid #d93025;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 18px;
+    }
+
+    .ok-card {
+        border-left: 6px solid #55ff88;
+    }
+
+    .bad {
+        color: #ff6666;
+    }
+
+    .ok {
+        color: #55ff88;
+    }
+
+    .conflict-title {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 16px;
+    }
+
+    .program {
+        background: #1d1d1d;
+        border: 1px solid #333;
+        border-radius: 10px;
+        padding: 14px;
+        margin-top: 12px;
+    }
+
+    .time {
+        color: #ffd966;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<h1>⚠ Recording Conflicts</h1>
+
+{% for c in conflicts %}
+<div class="conflict-card">
+    <div class="conflict-title bad">Conflict Detected</div>
+
+    <div class="program">
+        <h2>{{ c["title1"] }}</h2>
+        <p>
+            Channel {{ c["channel1"] }}<br>
+            <span class="time">{{ c["start1"]|tvtime }} - {{ c["stop1"]|tvtime }}</span>
+        </p>
+    </div>
+
+    <div class="program">
+        <h2>{{ c["title2"] }}</h2>
+        <p>
+            Channel {{ c["channel2"] }}<br>
+            <span class="time">{{ c["start2"]|tvtime }} - {{ c["stop2"]|tvtime }}</span>
+        </p>
+    </div>
+</div>
+{% else %}
+<div class="card ok-card">
+    <h2 class="ok">✅ No recording conflicts found.</h2>
+</div>
+{% endfor %}
+
+{% endblock %}

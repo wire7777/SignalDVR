@@ -1,0 +1,427 @@
+{% extends "base.html" %}
+
+{% block title %}SignalDVR Timeline Guide{% endblock %}
+
+{% block head %}
+<style>
+    .timeline-wrap {
+        overflow-x: auto;
+        border: 1px solid #333;
+        border-radius: 12px;
+        background: #151515;
+    }
+
+    .timeline {
+        display: grid;
+        grid-template-columns: 160px repeat(12, 180px);
+        min-width: 2320px;
+    }
+
+    .cell {
+        border-right: 1px solid #333;
+        border-bottom: 1px solid #333;
+        padding: 10px;
+        min-height: 95px;
+        background: #181818;
+    }
+
+    .header-cell {
+        background: #222;
+        color: #aaa;
+        font-weight: bold;
+        min-height: 40px;
+    }
+
+    .channel {
+        background: #202020;
+        font-weight: bold;
+        position: sticky;
+        left: 0;
+        z-index: 3;
+    }
+
+    .program {
+        overflow: hidden;
+        border-left: 4px solid rgba(255, 255, 255, .25);
+    }
+
+    .program.live {
+        border-left: 5px solid #55ff88;
+        box-shadow: inset 0 0 0 1px #55ff88;
+    }
+
+    .time {
+        color: #ddd;
+        font-size: 12px;
+        margin-bottom: 5px;
+    }
+
+    .title {
+        font-size: 15px;
+        font-weight: bold;
+    }
+
+    .desc {
+        color: #ddd;
+        font-size: 12px;
+        margin-top: 5px;
+    }
+
+    .progress-bg {
+        margin-top: 8px;
+        background: rgba(0, 0, 0, .35);
+        border-radius: 10px;
+        overflow: hidden;
+        height: 7px;
+    }
+
+    .progress-fill {
+        height: 7px;
+        background: #55ff88;
+    }
+
+    .live-text {
+        font-size: 11px;
+        color: #55ff88;
+        margin-top: 4px;
+        font-weight: bold;
+    }
+
+    .record-btn {
+        background: #2196f3;
+    }
+
+    .series-btn {
+        background: #7b1fa2;
+    }
+
+    .view-btn {
+        display: inline-block;
+        background: #444;
+        color: white;
+        padding: 6px 10px;
+        border-radius: 6px;
+        margin-top: 8px;
+        text-decoration: none;
+    }
+
+    .grid-channel-logo {
+        max-width: 90px;
+        max-height: 45px;
+        background: #fff;
+        border-radius: 8px;
+        padding: 5px;
+        margin-bottom: 8px;
+    }
+
+    .watch-live {
+        background: #18864b;
+        border: 0;
+        color: #fff;
+        cursor: pointer;
+    }
+
+    .live-modal[hidden] {
+        display: none;
+    }
+
+    .live-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: rgba(0, 0, 0, .78);
+    }
+
+    .live-modal-panel {
+        width: min(1100px, 96vw);
+        background: #101010;
+        border: 1px solid #3a3a3a;
+        border-radius: 12px;
+        box-shadow: 0 24px 80px rgba(0, 0, 0, .65);
+        overflow: hidden;
+    }
+
+    .live-modal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 12px 16px;
+        background: #1c1c1c;
+        border-bottom: 1px solid #333;
+    }
+
+    .live-modal-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #fff;
+    }
+
+    .live-modal-close {
+        border: 0;
+        border-radius: 7px;
+        padding: 8px 12px;
+        background: #383838;
+        color: #fff;
+        cursor: pointer;
+        font-size: 15px;
+    }
+
+    .live-modal-video {
+        display: block;
+        width: 100%;
+        max-height: 75vh;
+        aspect-ratio: 16/9;
+        background: #000;
+    }
+
+    .live-modal-status {
+        min-height: 20px;
+        padding: 9px 16px 12px;
+        color: #bbb;
+        background: #151515;
+        font-size: 13px;
+    }
+
+    .grid-watch-live {
+        display: inline-block;
+        margin-top: 8px;
+        margin-right: 5px;
+        padding: 6px 10px;
+        border-radius: 6px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<h1>📺 Timeline Guide</h1>
+
+<div class="timeline-wrap">
+    <div class="timeline">
+
+        <div class="cell header-cell channel">Channel</div>
+
+        {% for i in range(12) %}
+        <div class="cell header-cell">
+            {{ grid[0]["programs"][i]["start"]|tvtime if grid and grid[0]["programs"]|length > i else "" }}
+        </div>
+        {% endfor %}
+
+        {% for ch in grid %}
+        <div class="cell channel">
+            <img class="grid-channel-logo" src="/static/logos/{{ ch['guide_name']|logo_name }}"
+                onerror="this.style.display='none';">
+
+            <div>{{ ch["guide_number"] }}</div>
+            <div>{{ ch["guide_name"] }}</div>
+
+            <button class="grid-watch-live watch-live" type="button" data-watch-live
+                data-channel="{{ ch['guide_number'] }}" data-name="{{ ch['guide_name'] }}">▶ Live</button>
+            <a class="view-btn" href="/guide-view/{{ ch['guide_number'] }}">View</a>
+        </div>
+
+        {% for p in ch["programs"][:12] %}
+        <div class="cell program {% if p['start']|is_live_now(p['stop']) %}live{% endif %}"
+            style="background:{{ p['category']|category_color }};">
+
+            <div class="time">{{ p["start"]|tvtime }} - {{ p["stop"]|tvtime }}</div>
+            <div class="title">{{ p["title"] }}</div>
+
+            <div class="program-badges">
+                {% if p.is_new %}
+                <span class="badge badge-new">NEW</span>
+                {% endif %}
+
+                {% if p.video_properties|has_hd %}
+                <span class="badge badge-hd">{{ p.video_properties|short_video }}</span>
+                {% endif %}
+
+                {% if p.audio_properties|has_dd51 %}
+                <span class="badge badge-audio">DD 5.1</span>
+                {% endif %}
+
+                {% if p.rating %}
+                <span class="badge badge-rating">{{ p.rating }}</span>
+                {% endif %}
+            </div>
+
+            {% if p["subtitle"] %}
+            <div class="desc">{{ p["subtitle"] }}</div>
+            {% endif %}
+
+            {% if p["start"]|is_live_now(p["stop"]) %}
+            <div class="progress-bg">
+                <div class="progress-fill" style="width:{{ p['start']|progress_percent(p['stop']) }}%;"></div>
+            </div>
+            <div class="live-text">● LIVE · {{ p["start"]|progress_percent(p["stop"]) }}%</div>
+            {% endif %}
+
+            <form action="/schedule-program" method="post" style="display:inline;">
+                <input type="hidden" name="channel" value="{{ ch['guide_number'] }}">
+                <input type="hidden" name="title" value="{{ p['title'] }}">
+                <input type="hidden" name="subtitle" value="{{ p['subtitle'] }}">
+                <input type="hidden" name="start" value="{{ p['start'] }}">
+                <input type="hidden" name="stop" value="{{ p['stop'] }}">
+                <button class="record-btn" type="submit">Record</button>
+            </form>
+
+            <form action="/series/add" method="post" style="display:inline;">
+                <input type="hidden" name="title" value="{{ p['title'] }}">
+                <input type="hidden" name="channel" value="{{ ch['guide_number'] }}">
+                <button class="series-btn" type="submit">Series</button>
+            </form>
+
+        </div>
+        {% endfor %}
+
+        {% for i in range(12 - (ch["programs"][:12]|length)) %}
+        <div class="cell program">
+            <div class="desc">No guide data</div>
+        </div>
+        {% endfor %}
+
+        {% endfor %}
+
+    </div>
+</div>
+
+
+<div id="liveModal" class="live-modal" hidden aria-hidden="true">
+    <div class="live-modal-panel" role="dialog" aria-modal="true" aria-labelledby="liveModalTitle">
+        <div class="live-modal-head">
+            <div id="liveModalTitle" class="live-modal-title">Live TV</div>
+            <button id="liveModalClose" class="live-modal-close" type="button">Close</button>
+        </div>
+        <video id="liveModalVideo" class="live-modal-video" controls autoplay playsinline></video>
+        <div id="liveModalStatus" class="live-modal-status">Select a channel.</div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script>
+    (() => {
+        const modal = document.getElementById("liveModal");
+        const video = document.getElementById("liveModalVideo");
+        const title = document.getElementById("liveModalTitle");
+        const status = document.getElementById("liveModalStatus");
+        const closeButton = document.getElementById("liveModalClose");
+        let hls = null;
+        let heartbeatTimer = null;
+        let serverSessionActive = false;
+
+        const setStatus = (text) => { if (status) status.textContent = text; };
+
+        function stopHeartbeat() {
+            if (heartbeatTimer) {
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = null;
+            }
+        }
+
+        function sendHeartbeat() {
+            if (!serverSessionActive) return;
+            fetch("/api/web/live/heartbeat", {
+                method: "POST",
+                credentials: "same-origin",
+                cache: "no-store"
+            }).catch(() => { });
+        }
+
+        function startHeartbeat() {
+            stopHeartbeat();
+            serverSessionActive = true;
+            sendHeartbeat();
+            heartbeatTimer = setInterval(sendHeartbeat, 20000);
+        }
+
+        function releaseServerStream() {
+            stopHeartbeat();
+            if (!serverSessionActive) return;
+            serverSessionActive = false;
+
+            const url = "/api/web/live/stop";
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon(url, new Blob([], { type: "application/octet-stream" }));
+            } else {
+                fetch(url, {
+                    method: "POST",
+                    credentials: "same-origin",
+                    keepalive: true,
+                    cache: "no-store"
+                }).catch(() => { });
+            }
+        }
+
+        function destroyPlayer() {
+            if (hls) { hls.destroy(); hls = null; }
+            if (video) { video.pause(); video.removeAttribute("src"); video.load(); }
+        }
+
+        function closePlayer() {
+            destroyPlayer();
+            releaseServerStream();
+            modal.hidden = true;
+            modal.setAttribute("aria-hidden", "true");
+            document.body.style.overflow = "";
+        }
+
+        function attachStream(channel) {
+            const src = "/play/live/" + encodeURIComponent(channel) + "/web?ts=" + Date.now();
+            destroyPlayer();
+            releaseServerStream();
+            setStatus("Loading live TV...");
+
+            if (window.Hls && Hls.isSupported()) {
+                hls = new Hls({ enableWorker: true, lowLatencyMode: false, liveSyncDuration: 8, liveMaxLatencyDuration: 3600, backBufferLength: 3600, maxBufferLength: 600, maxMaxBufferLength: 3600 });
+                hls.loadSource(src);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    startHeartbeat();
+                    video.play().then(() => setStatus("Playing live")).catch(() => setStatus("Ready. Press Play."));
+                });
+                hls.on(Hls.Events.ERROR, (_, data) => {
+                    if (!data.fatal) return;
+                    if (data.type === Hls.ErrorTypes.NETWORK_ERROR) { setStatus("Network error. Retrying..."); hls.startLoad(); }
+                    else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) { setStatus("Media error. Recovering..."); hls.recoverMediaError(); }
+                    else { setStatus("Unable to play this channel."); destroyPlayer(); }
+                });
+                return;
+            }
+
+            if (video.canPlayType("application/vnd.apple.mpegurl")) {
+                video.src = src;
+                video.addEventListener("loadedmetadata", startHeartbeat, { once: true });
+                video.play().then(() => setStatus("Playing live")).catch(() => setStatus("Ready. Press Play."));
+                return;
+            }
+
+            setStatus("This browser cannot play HLS.");
+        }
+
+        function openPlayer(channel, name) {
+            if (!channel) return;
+            title.textContent = channel + (name ? "  " + name : "");
+            modal.hidden = false;
+            modal.setAttribute("aria-hidden", "false");
+            document.body.style.overflow = "hidden";
+            attachStream(channel);
+        }
+
+        document.querySelectorAll("[data-watch-live]").forEach((button) => {
+            button.addEventListener("click", () => openPlayer(button.dataset.channel || "", button.dataset.name || ""));
+        });
+        closeButton.addEventListener("click", closePlayer);
+        modal.addEventListener("click", (event) => { if (event.target === modal) closePlayer(); });
+        document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !modal.hidden) closePlayer(); });
+        window.addEventListener("pagehide", () => { destroyPlayer(); releaseServerStream(); });
+    })();
+</script>
+{% endblock %}

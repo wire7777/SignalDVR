@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}SignalDVR{% endblock %}</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    {% block head %}{% endblock %}
+</head>
+
+<body>
+
+    <header class="header">
+
+        <div class="brand">
+            <a href="/" aria-label="SignalDVR Home">
+                <img class="brand-logo" src="{{ url_for('static', filename='logo.png') }}" alt="SignalDVR">
+            </a>
+        </div>
+
+        <nav class="nav" aria-label="Primary navigation">
+
+            <a class="{% if request.path == '/' %}active{% endif %}" href="/">
+                Home
+            </a>
+
+            <a class="{% if request.path.startswith('/live') or request.path.startswith('/timeshift') %}active{% endif %}"
+                href="/live">
+                Live TV
+            </a>
+
+            <a class="{% if request.path.startswith('/guide') %}active{% endif %}" href="/guide">
+                Guide
+            </a>
+
+            <a class="{% if request.path.startswith('/grid') %}active{% endif %}" href="/grid">
+                Grid
+            </a>
+
+            <a class="{% if request.path.startswith('/library') %}active{% endif %}" href="/library">
+                Library
+            </a>
+
+            <a class="{% if request.path.startswith('/scheduled') %}active{% endif %}" href="/scheduled">
+                Scheduled
+            </a>
+
+            <a class="{% if request.path.startswith('/series') %}active{% endif %}" href="/series">
+                Series
+            </a>
+
+            <a class="{% if request.path.startswith('/recordings') %}active{% endif %}" href="/recordings">
+                Recordings
+            </a>
+
+            <a class="{% if request.path.startswith('/search') %}active{% endif %}" href="/search">
+                Search
+            </a>
+
+            <a class="{% if request.path.startswith('/tuners') %}active{% endif %}" href="/tuners">
+                Tuners
+            </a>
+
+            <a class="{% if request.path.startswith('/health') %}active{% endif %}" href="/health">
+                Health
+            </a>
+
+            <a class="{% if request.path.startswith('/history') %}active{% endif %}" href="/history">
+                History
+            </a>
+
+            <a class="{% if request.path.startswith('/settings') %}active{% endif %}" href="/settings">
+                Settings
+            </a>
+
+        </nav>
+
+        <div id="headerClock" class="header-clock"></div>
+
+    </header>
+
+    <main class="content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        SignalDVR • Foundation Build
+    </footer>
+
+    <script>
+        (() => {
+            const clock = document.getElementById("headerClock");
+
+            function updateClock() {
+                if (!clock) return;
+
+                clock.textContent = new Intl.DateTimeFormat(undefined, {
+                    hour: "numeric",
+                    minute: "2-digit"
+                }).format(new Date());
+            }
+
+            updateClock();
+            window.setInterval(updateClock, 15000);
+        })();
+    </script>
+
+    {% block scripts %}{% endblock %}
+
+</body>
+
+</html>

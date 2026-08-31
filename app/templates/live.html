@@ -1,0 +1,865 @@
+{% extends "base.html" %}
+
+{% block title %}SignalDVR Live TV{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+<style>
+    .live-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 330px;
+        gap: 18px;
+        align-items: start;
+    }
+
+    .player-panel {
+        min-width: 0;
+    }
+
+    .player {
+        width: 100%;
+        display: block;
+        aspect-ratio: 16 / 9;
+        background: #000;
+        border: 1px solid #333;
+        border-radius: 0;
+        object-fit: contain;
+    }
+
+    .player-controls {
+        padding: 12px 0 0;
+    }
+
+    #playerStatus {
+        min-height: 22px;
+        margin: 10px 0 0;
+        color: #ffd966;
+        font-weight: bold;
+    }
+
+    .now-panel {
+        padding: 18px;
+        background: #1d1d1d;
+        border: 1px solid #333;
+    }
+
+    .now-channel {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 15px;
+    }
+
+    .now-logo {
+        width: 72px;
+        height: 46px;
+        padding: 3px;
+        object-fit: contain;
+        background: #111;
+        border: 1px solid #333;
+    }
+
+    .now-number {
+        color: #ffd54f;
+        font-size: 22px;
+        font-weight: bold;
+    }
+
+    .now-name {
+        color: #bbbbbb;
+        font-size: 14px;
+    }
+
+    .now-title {
+        margin: 0 0 5px;
+        font-size: 26px;
+        line-height: 1.15;
+    }
+
+    .now-subtitle {
+        margin-bottom: 10px;
+        color: #cccccc;
+        font-size: 16px;
+    }
+
+    .now-meta {
+        min-height: 20px;
+        margin-bottom: 10px;
+        color: #ffd54f;
+        font-size: 12px;
+        font-weight: bold;
+    }
+
+    .progress-track {
+        height: 6px;
+        overflow: hidden;
+        background: #4a4a4a;
+    }
+
+    .progress-value {
+        width: 0;
+        height: 100%;
+        background: #ffd54f;
+    }
+
+    .time-row {
+        margin-top: 7px;
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        color: #bbbbbb;
+        font-size: 13px;
+    }
+
+    .now-description {
+        margin: 15px 0;
+        color: #eeeeee;
+        line-height: 1.5;
+    }
+
+    .next-box {
+        padding: 10px;
+        background: #162436;
+        border-left: 3px solid #2196f3;
+        color: #dddddd;
+        font-size: 13px;
+        font-weight: bold;
+    }
+
+    .status-box {
+        padding: 14px 18px;
+        margin: 18px 0;
+    }
+
+    .status-box h2 {
+        margin-top: 0;
+    }
+
+    .running {
+        color: #55ff88;
+        font-weight: bold;
+    }
+
+    .stopped {
+        color: #ff6666;
+        font-weight: bold;
+    }
+
+    .channel-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 10px;
+    }
+
+    .channel-card {
+        padding: 12px;
+        cursor: pointer;
+    }
+
+    .channel-card:hover,
+    .channel-card.active {
+        border-color: #2196f3;
+        background: #242424;
+    }
+
+    .channel-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .channel-logo {
+        width: 54px;
+        height: 36px;
+        padding: 2px;
+        object-fit: contain;
+        background: #111;
+        border: 1px solid #333;
+    }
+
+    .channel-number {
+        color: #ffd54f;
+        font-size: 18px;
+        font-weight: bold;
+    }
+
+    .channel-name {
+        color: #cccccc;
+        font-size: 13px;
+    }
+
+    .channel-now {
+        min-height: 38px;
+        margin-top: 10px;
+        color: #ffffff;
+        font-size: 14px;
+        font-weight: bold;
+    }
+
+    .channel-next {
+        margin-top: 4px;
+        color: #999999;
+        font-size: 12px;
+    }
+
+    .stop {
+        background: #aa2222;
+    }
+
+    @media (max-width: 950px) {
+        .live-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<h1>Live TV</h1>
+
+<div class="live-layout">
+
+    <section class="player-panel">
+        <video id="video" class="player" controls autoplay playsinline>
+        </video>
+
+        <div class="player-controls">
+            <button class="primary" type="button" onclick="reloadPlayer()">
+                Reload Player
+            </button>
+
+            <button class="button-secondary" type="button" onclick="rewindLive(10)">
+                Back 10s
+            </button>
+
+            <button class="button-secondary" type="button" onclick="rewindLive(30)">
+                Back 30s
+            </button>
+
+            <button class="button-warning" type="button" onclick="jumpToLive()">
+                Live
+            </button>
+
+            <button class="stop" type="button" onclick="stopLive()">
+                Stop Live TV
+            </button>
+
+            <a class="button button-secondary" href="/grid">
+                Open Guide
+            </a>
+
+            <div id="playerStatus">
+                Click a channel to start Live TV.
+            </div>
+        </div>
+    </section>
+
+    <aside class="now-panel">
+        <div class="now-channel">
+            <img id="nowLogo" class="now-logo" alt="" hidden>
+
+            <div>
+                <div id="nowNumber" class="now-number">—</div>
+                <div id="nowName" class="now-name">No channel selected</div>
+            </div>
+        </div>
+
+        <h2 id="nowTitle" class="now-title">
+            Choose a channel
+        </h2>
+
+        <div id="nowSubtitle" class="now-subtitle"></div>
+        <div id="nowMeta" class="now-meta"></div>
+
+        <div class="progress-track">
+            <div id="nowProgress" class="progress-value"></div>
+        </div>
+
+        <div class="time-row">
+            <span id="nowTime"></span>
+            <span id="nowRemaining"></span>
+        </div>
+
+        <p id="nowDescription" class="now-description">
+            Current program information will appear here.
+        </p>
+
+        <div id="nextBox" class="next-box" hidden></div>
+    </aside>
+
+</div>
+
+<h2>Channels</h2>
+
+
+<div class="channel-list">
+    {% for ch in channels %}
+    <article class="channel-card" tabindex="0" role="button" data-channel="{{ ch['guide_number'] }}"
+        data-name="{{ ch['guide_name'] }}">
+
+        <div class="channel-head">
+            <img class="channel-logo" src="/static/logos/{{ ch['guide_number']|replace('.', '_') }}.png"
+                alt="{{ ch['guide_name'] }} logo" onerror="this.hidden=true">
+
+            <div>
+                <div class="channel-number">{{ ch["guide_number"] }}</div>
+                <div class="channel-name">{{ ch["guide_name"] }}</div>
+            </div>
+        </div>
+
+        <div class="channel-now" data-now-title="{{ ch['guide_number'] }}">
+            Loading guide…
+        </div>
+
+        <div class="channel-next" data-next-title="{{ ch['guide_number'] }}">
+        </div>
+
+    </article>
+    {% endfor %}
+</div>
+
+<script>
+    let hls = null;
+    let activeChannel = "";
+    let activeName = "";
+    let metadataTimer = null;
+
+    const video = document.getElementById("video");
+    const cards = Array.from(document.querySelectorAll(".channel-card"));
+
+    function setPlayerStatus(text) {
+        document.getElementById("playerStatus").textContent = text;
+    }
+
+    function destroyPlayer() {
+        if (hls) {
+            hls.destroy();
+            hls = null;
+        }
+
+        video.pause();
+        video.removeAttribute("src");
+        video.load();
+    }
+
+    function loadPlayer() {
+        if (!activeChannel) {
+            setPlayerStatus("Select a channel first.");
+            return;
+        }
+
+        const src =
+            "/play/live/" +
+            encodeURIComponent(activeChannel) +
+            "/web?ts=" +
+            Date.now();
+
+        destroyPlayer();
+        setPlayerStatus("Loading browser video...");
+
+        video.muted = false;
+        video.volume = 1.0;
+
+        if (window.Hls && Hls.isSupported()) {
+            hls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: false,
+                /*
+                 * Keep the browser at about 8 seconds behind live when it
+                 * initially starts, but do not force it back to live after
+                 * the user seeks backward.
+                 *
+                 * The old liveMaxLatencyDuration: 40 setting caused Hls.js
+                 * to treat any rewind beyond roughly 40 seconds as excessive
+                 * latency and automatically jump to the live edge.
+                 */
+                liveSyncDuration: 8,
+                liveMaxLatencyDuration: 3600,
+                backBufferLength: 3600,
+                maxBufferLength: 600,
+                maxMaxBufferLength: 3600
+            });
+
+            hls.loadSource(src);
+            hls.attachMedia(video);
+
+            hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                video.play()
+                    .then(() => {
+                        setPlayerStatus("Playing");
+                    })
+                    .catch(() => {
+                        setPlayerStatus("Ready. Press Play.");
+                    });
+            });
+
+            hls.on(Hls.Events.ERROR, function (_, data) {
+                if (!data.fatal) return;
+
+                if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                    setPlayerStatus("Network error. Retrying...");
+                    hls.startLoad();
+                } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                    setPlayerStatus("Media error. Recovering...");
+                    hls.recoverMediaError();
+                } else {
+                    setPlayerStatus("Unable to play this stream.");
+                    destroyPlayer();
+                }
+            });
+
+            return;
+        }
+
+        if (video.canPlayType("application/vnd.apple.mpegurl")) {
+            video.src = src;
+
+            video.play()
+                .then(() => {
+                    setPlayerStatus("Playing");
+                })
+                .catch(() => {
+                    setPlayerStatus("Ready. Press Play.");
+                });
+
+            return;
+        }
+
+        setPlayerStatus("This browser cannot play HLS.");
+    }
+
+    function reloadPlayer() {
+        loadPlayer();
+    }
+
+    function parseGuideDate(value) {
+        if (!value) return null;
+
+        const raw = String(value);
+
+        if (/^\d{14}$/.test(raw)) {
+            return new Date(
+                Number(raw.slice(0, 4)),
+                Number(raw.slice(4, 6)) - 1,
+                Number(raw.slice(6, 8)),
+                Number(raw.slice(8, 10)),
+                Number(raw.slice(10, 12)),
+                Number(raw.slice(12, 14))
+            );
+        }
+
+        const parsed = new Date(raw);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    function formatTime(value) {
+        const parsed = parseGuideDate(value);
+        if (!parsed) return "";
+
+        return new Intl.DateTimeFormat(undefined, {
+            hour: "numeric",
+            minute: "2-digit"
+        }).format(parsed);
+    }
+
+    function renderNowPlaying(data) {
+        const current = data?.current || null;
+        const next = data?.next || null;
+
+        document.getElementById("nowNumber").textContent =
+            data?.channel || activeChannel || "—";
+
+        document.getElementById("nowName").textContent =
+            data?.name || activeName || "";
+
+        const logo = document.getElementById("nowLogo");
+
+        if (activeChannel) {
+            logo.src =
+                "/static/logos/" +
+                activeChannel.replace(".", "_") +
+                ".png";
+
+            logo.alt = (data?.name || activeName || "") + " logo";
+            logo.hidden = false;
+            logo.onerror = function () {
+                logo.hidden = true;
+            };
+        }
+
+        if (!current) {
+            document.getElementById("nowTitle").textContent = "No guide data";
+            document.getElementById("nowSubtitle").textContent = "";
+            document.getElementById("nowMeta").textContent = "";
+            document.getElementById("nowProgress").style.width = "0%";
+            document.getElementById("nowTime").textContent = "";
+            document.getElementById("nowRemaining").textContent = "";
+            document.getElementById("nowDescription").textContent =
+                "No current program information is available.";
+        } else {
+            document.getElementById("nowTitle").textContent =
+                current.title || "No guide data";
+
+            document.getElementById("nowSubtitle").textContent =
+                current.episode_title ||
+                current.subtitle ||
+                "";
+
+            const meta = [];
+
+            if (Number(current.is_new) === 1) {
+                meta.push("NEW");
+            }
+
+            if (current.season && current.episode) {
+                meta.push("S" + current.season + " E" + current.episode);
+            }
+
+            if (current.rating) {
+                meta.push(String(current.rating).toUpperCase());
+            }
+
+            if (current.category) {
+                meta.push(String(current.category).toUpperCase());
+            }
+
+            document.getElementById("nowMeta").textContent =
+                [...new Set(meta)].join("  •  ");
+
+            const start = parseGuideDate(current.start);
+            const stop = parseGuideDate(current.stop);
+
+            if (start && stop && stop > start) {
+                const now = new Date();
+                const total = stop.getTime() - start.getTime();
+                const elapsed = now.getTime() - start.getTime();
+                const percent = Math.max(
+                    0,
+                    Math.min(100, (elapsed / total) * 100)
+                );
+
+                const minutesLeft = Math.max(
+                    0,
+                    Math.ceil((stop.getTime() - now.getTime()) / 60000)
+                );
+
+                document.getElementById("nowProgress").style.width =
+                    percent + "%";
+
+                document.getElementById("nowTime").textContent =
+                    formatTime(current.start) +
+                    " – " +
+                    formatTime(current.stop);
+
+                document.getElementById("nowRemaining").textContent =
+                    minutesLeft >= 60
+                        ? Math.floor(minutesLeft / 60) +
+                        "h " +
+                        (minutesLeft % 60) +
+                        "m left"
+                        : minutesLeft + " min left";
+            }
+
+            document.getElementById("nowDescription").textContent =
+                current.description ||
+                "No description available.";
+        }
+
+        const nextBox = document.getElementById("nextBox");
+
+        if (next?.title) {
+            const nextTime = formatTime(next.start);
+
+            nextBox.textContent =
+                nextTime
+                    ? "NEXT  " + nextTime + "  •  " + next.title
+                    : "NEXT  " + next.title;
+
+            nextBox.hidden = false;
+        } else {
+            nextBox.hidden = true;
+            nextBox.textContent = "";
+        }
+    }
+
+    async function refreshNowPlaying() {
+        if (!activeChannel) return;
+
+        try {
+            const response = await fetch(
+                "/api/live/nowplaying/" +
+                encodeURIComponent(activeChannel),
+                { cache: "no-store" }
+            );
+
+            if (!response.ok) return;
+
+            renderNowPlaying(await response.json());
+        } catch (_) {
+            // Metadata failures must not stop playback.
+        }
+    }
+
+    async function startChannel(channel, label) {
+        activeChannel = channel;
+        activeName = label || channel;
+
+        cards.forEach((card) => {
+            card.classList.toggle(
+                "active",
+                card.dataset.channel === activeChannel
+            );
+        });
+
+        setPlayerStatus("Changing to " + activeName + "...");
+
+        document.getElementById("nowNumber").textContent = channel;
+        document.getElementById("nowName").textContent = activeName;
+        document.getElementById("nowTitle").textContent = "Loading guide...";
+
+        loadPlayer();
+        await refreshNowPlaying();
+
+        if (metadataTimer) {
+            window.clearInterval(metadataTimer);
+        }
+
+        metadataTimer = window.setInterval(
+            refreshNowPlaying,
+            30000
+        );
+    }
+
+    function rewindLive(seconds) {
+        if (!Number.isFinite(video.currentTime)) {
+            setPlayerStatus("Player is not ready.");
+            return;
+        }
+
+        const amount = Math.max(1, Number(seconds || 0));
+        const ranges = video.seekable;
+
+        if (!ranges || ranges.length === 0) {
+            setPlayerStatus("Rewind buffer is not ready yet.");
+            return;
+        }
+
+        const earliest = ranges.start(0);
+        const target = Math.max(
+            earliest,
+            video.currentTime - amount
+        );
+
+        video.currentTime = target;
+
+        video.play()
+            .then(() => {
+                setPlayerStatus("Rewound " + amount + " seconds.");
+            })
+            .catch(() => {
+                setPlayerStatus("Rewound " + amount + " seconds. Press Play.");
+            });
+    }
+
+    function jumpToLive() {
+        const ranges = video.seekable;
+
+        if (!ranges || ranges.length === 0) {
+            setPlayerStatus("Live edge is not available yet.");
+            return;
+        }
+
+        const liveEdge = ranges.end(ranges.length - 1);
+
+        /*
+         * Stay just behind the newest segment boundary. Seeking to the exact
+         * end can briefly stall while Hls.js waits for the next segment.
+         */
+        video.currentTime = Math.max(
+            ranges.start(0),
+            liveEdge - 0.5
+        );
+
+        video.play()
+            .then(() => {
+                setPlayerStatus("Live");
+            })
+            .catch(() => {
+                setPlayerStatus("At live edge. Press Play.");
+            });
+    }
+
+    async function stopLive() {
+        try {
+            await fetch("/api/web/live/stop", {
+                method: "POST"
+            });
+        } finally {
+            destroyPlayer();
+            setPlayerStatus("Live TV stopped.");
+        }
+    }
+
+    async function loadChannelGuideCards() {
+        try {
+            const response = await fetch(
+                "/api/live/channels",
+                { cache: "no-store" }
+            );
+
+            if (!response.ok) return;
+
+            const channels = await response.json();
+
+            channels.forEach((channel) => {
+                const now = document.querySelector(
+                    '[data-now-title="' +
+                    CSS.escape(channel.number) +
+                    '"]'
+                );
+
+                const next = document.querySelector(
+                    '[data-next-title="' +
+                    CSS.escape(channel.number) +
+                    '"]'
+                );
+
+                if (now) {
+                    now.textContent =
+                        channel.now_title ||
+                        "No guide data";
+                }
+
+                if (next) {
+                    next.textContent =
+                        channel.next_title
+                            ? "Next: " + channel.next_title
+                            : "";
+                }
+            });
+        } catch (_) {
+            // Keep server-rendered channel cards.
+        }
+    }
+
+    cards.forEach((card) => {
+        const tune = () => {
+            startChannel(
+                card.dataset.channel || "",
+                (card.dataset.channel || "") +
+                " " +
+                (card.dataset.name || "")
+            );
+        };
+
+        card.addEventListener("click", tune);
+
+        card.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                tune();
+            }
+        });
+    });
+
+    loadChannelGuideCards();
+
+    {% if current %}
+    (() => {
+        const currentValue = {{ current| tojson
+    }};
+
+    const currentCard = cards.find((card) =>
+        currentValue.startsWith(
+            card.dataset.channel || ""
+        )
+    );
+
+    if (currentCard) {
+        startChannel(
+            currentCard.dataset.channel || "",
+            (currentCard.dataset.channel || "") +
+            " " +
+            (currentCard.dataset.name || "")
+        );
+    }
+    }) ();
+    {% endif %}
+
+
+    // ------------------------------------------------------------
+    // SignalDVR browser live-session heartbeat
+    //
+    // Keeps the browser-owned WebStreamSession alive while this page
+    // remains open. Without this, the 90-second stale-session cleaner
+    // correctly assumes the browser disappeared and releases the tuner.
+    // ------------------------------------------------------------
+
+    let sdvrWebHeartbeatTimer = null;
+
+    function sdvrSendWebHeartbeat() {
+        fetch("/api/web/live/heartbeat", {
+            method: "POST",
+            credentials: "same-origin",
+            cache: "no-store"
+        }).catch(() => {});
+    }
+
+    function sdvrStartWebHeartbeat() {
+        if (sdvrWebHeartbeatTimer) {
+            return;
+        }
+
+        sdvrSendWebHeartbeat();
+
+        sdvrWebHeartbeatTimer = setInterval(
+            sdvrSendWebHeartbeat,
+            20000
+        );
+    }
+
+    function sdvrStopWebHeartbeat() {
+        if (sdvrWebHeartbeatTimer) {
+            clearInterval(sdvrWebHeartbeatTimer);
+            sdvrWebHeartbeatTimer = null;
+        }
+    }
+
+    function sdvrReleaseWebStream() {
+        sdvrStopWebHeartbeat();
+
+        const url = "/api/web/live/stop";
+
+        if (navigator.sendBeacon) {
+            navigator.sendBeacon(
+                url,
+                new Blob([], {
+                    type: "application/octet-stream"
+                })
+            );
+            return;
+        }
+
+        fetch(url, {
+            method: "POST",
+            credentials: "same-origin",
+            keepalive: true,
+            cache: "no-store"
+        }).catch(() => {});
+    }
+
+    // Start immediately. If no web session exists yet the heartbeat is
+    // harmless; once /play/live/<channel>/web creates one, subsequent
+    // heartbeats keep it alive.
+    sdvrStartWebHeartbeat();
+
+    window.addEventListener(
+        "pagehide",
+        sdvrReleaseWebStream
+    );
+
+</script>
+
+{% endblock %}

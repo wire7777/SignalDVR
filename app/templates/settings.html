@@ -1,0 +1,2259 @@
+{% extends "base.html" %}
+
+{% block title %}SignalDVR Settings{% endblock %}
+
+{% block content %}
+
+<h1>⚙️ Settings</h1>
+
+<form action="/settings/save" method="post" enctype="multipart/form-data">
+
+    <div class="settings-layout">
+
+        <aside class="settings-nav">
+            <button type="button" onclick="showSection('general')">General</button>
+            <button type="button" onclick="showSection('guide')">Guide</button>
+            <button type="button" onclick="showSection('recording')">Recording</button>
+            <button type="button" onclick="showSection('tuners')">Tuners</button>
+            <button type="button" onclick="showSection('channels'); loadChannelManager()">Channels</button>
+            <button type="button" onclick="showSection('storage')">Storage</button>
+            <button type="button" onclick="showSection('timeshift')">Live TV & Buffering</button>
+            <button type="button" onclick="showSection('thumbnails')">Thumbnails &amp; Artwork</button>
+            <button type="button" onclick="showSection('database')">Database</button>
+            <button type="button" onclick="showSection('maintenance')">Maintenance</button>
+            <button type="button" onclick="showSection('system')">System Information</button>
+        </aside>
+
+        <main class="settings-main">
+
+            <section id="general" class="settings-section active">
+                <h2>General</h2>
+
+                <label>DVR Name</label>
+                <input type="text" name="dvr_name" value="{{ settings.get('dvr_name','SignalDVR') }}">
+
+                <label>Theme</label>
+                <select name="theme">
+                    <option value="dark" {% if settings.get("theme")=="dark" %}selected{% endif %}>Dark</option>
+                    <option value="light" {% if settings.get("theme")=="light" %}selected{% endif %}>Light</option>
+                </select>
+
+
+
+            </section>
+
+            <section id="guide" class="settings-section">
+                <h2>TV Guide</h2>
+
+                <label>Guide Source</label>
+                <select name="guide_source">
+                    <option value="xmltv" {% if settings.get("guide_source")=="xmltv" %}selected{% endif %}>XMLTV
+                    </option>
+                    <option value="schedules_direct" {% if settings.get("guide_source")=="schedules_direct" %}selected{%
+                        endif %}>Schedules Direct</option>
+                </select>
+
+                <label>Guide Days</label>
+                <input type="number" name="guide_days" value="{{ settings.get('guide_days','14') }}">
+
+                <hr>
+
+                <h3>XMLTV</h3>
+
+                <label>XMLTV File Path</label>
+                <input type="text" name="xmltv_path" value="{{ settings.get('xmltv_path','') }}"
+                    placeholder="/home/wire/xmltv.xml">
+
+                <hr>
+
+                <h3>Schedules Direct</h3>
+
+                <label>Username</label>
+                <input type="text" name="sd_username" value="{{ settings.get('sd_username','') }}">
+
+                <label>Password</label>
+                <input type="password" name="sd_password" value="{{ settings.get('sd_password','') }}">
+
+                <label>Country</label>
+                <input type="text" name="sd_country" value="{{ settings.get('sd_country','USA') }}">
+
+                <label>ZIP / Postal Code</label>
+                <input type="text" name="sd_postal_code" value="{{ settings.get('sd_postal_code','') }}">
+
+                <label>Lineup</label>
+                <select name="sd_lineup">
+                    <option value="">Select a lineup</option>
+
+                    {% for lineup in sd_lineups %}
+                    <option value="{{ lineup['lineup_id'] }}" {% if settings.get('sd_lineup')==lineup['lineup_id']
+                        %}selected{% endif %}>
+                        {{ lineup['name'] }} — {{ lineup['location'] }} {{ lineup['transport'] }}
+                    </option>
+                    {% endfor %}
+                </select>
+
+                <div class="settings-row">
+
+                    <button class="btn-primary" type="submit" formaction="/settings/sd/lineups" formmethod="post">
+                        🔎 Get Lineups
+                    </button>
+
+                    <button class="btn-success" type="submit" formaction="/settings/sd/download" formmethod="post">
+                        📥 Download Guide
+                    </button>
+
+                </div>
+
+                <p class="muted">
+                    Get Lineups will use your username, password, country, and ZIP code.
+                </p>
+            </section>
+
+            <section id="recording" class="settings-section">
+                <h2>Recording</h2>
+
+                <label>Default Start Padding</label>
+                <input type="number" name="default_start_padding"
+                    value="{{ settings.get('default_start_padding','2') }}">
+
+                <label>Default End Padding</label>
+                <input type="number" name="default_end_padding" value="{{ settings.get('default_end_padding','5') }}">
+
+                <label>Default Priority</label>
+                <input type="number" name="default_priority" value="{{ settings.get('default_priority','50') }}">
+
+                <label>Default Keep Last</label>
+                <input type="number" name="default_keep_last" value="{{ settings.get('default_keep_last','0') }}">
+
+                <label>Skip Duplicates</label>
+                <select name="skip_duplicates">
+                    <option value="1" {% if settings.get("skip_duplicates")=="1" %}selected{% endif %}>Yes</option>
+                    <option value="0" {% if settings.get("skip_duplicates")=="0" %}selected{% endif %}>No</option>
+                </select>
+
+                <label>Record New Only</label>
+                <select name="record_new_only">
+                    <option value="0" {% if settings.get("record_new_only")=="0" %}selected{% endif %}>No</option>
+                    <option value="1" {% if settings.get("record_new_only")=="1" %}selected{% endif %}>Yes</option>
+                </select>
+            </section>
+
+            <section id="tuners" class="settings-section">
+
+                <div class="settings-card" style="margin-bottom:20px;">
+                    <h3>Tuner Source</h3>
+
+                    <p style="opacity:.8;">
+                        Choose which physical tuner systems SignalDVR may use.
+                    </p>
+
+                    <label for="tunerModeSelect">
+                        Active tuners
+                    </label>
+
+                    <select
+                        id="tunerModeSelect"
+                        onchange="setTunerMode(this.value)"
+                    >
+                        <option value="hdhomerun">
+                            HDHomeRun only
+                        </option>
+
+                        <option value="native_dvb">
+                            PCIe / Native DVB only
+                        </option>
+
+                        <option value="both">
+                            HDHomeRun + PCIe / Native DVB
+                        </option>
+                    </select>
+
+                    <div
+                        id="tunerModeStatus"
+                        style="margin-top:10px; opacity:.8;"
+                    ></div>
+
+                    <script>
+                    (() => {
+                        const select =
+                            document.getElementById("tunerModeSelect");
+
+                        const status =
+                            document.getElementById("tunerModeStatus");
+
+                        if (!select) {
+                            return;
+                        }
+
+                        fetch("/api/tuner-sources", {
+                            cache: "no-store"
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(
+                                    "Unable to load tuner sources"
+                                );
+                            }
+
+                            return response.json();
+                        })
+                        .then(state => {
+                            const hdhr =
+                                state.hdhomerun_enabled === true;
+
+                            const dvb =
+                                state.native_dvb_enabled === true;
+
+                            let mode = "hdhomerun";
+
+                            if (hdhr && dvb) {
+                                mode = "both";
+                            } else if (dvb) {
+                                mode = "native_dvb";
+                            }
+
+                            select.value = mode;
+
+                            if (status) {
+                                if (mode === "both") {
+                                    status.textContent =
+                                        "HDHomeRun and PCIe / Native DVB are enabled.";
+                                } else if (mode === "native_dvb") {
+                                    status.textContent =
+                                        "PCIe / Native DVB only.";
+                                } else {
+                                    status.textContent =
+                                        "HDHomeRun only.";
+                                }
+                            }
+                        })
+                        .catch(error => {
+                            console.error(
+                                "Unable to initialize tuner mode:",
+                                error
+                            );
+                        });
+                    })();
+                    </script>
+                </div>
+
+
+                <h2>Tuners</h2>
+                <div id="tunerBanner"></div>
+
+                <label>Max Simultaneous Recordings</label>
+                <input type="number" name="max_recordings" value="{{ settings.get('max_recordings','4') }}">
+
+                <hr>
+
+                
+                <p class="muted">Which tuner backend(s) supply channels for live TV, timeshift, and recording. "Both"
+                    prefers whichever source has a free tuner for a given channel.</p>
+
+                <hr>
+
+                <div id="hdhrTunerFields">
+                    <h3>HDHomeRun</h3>
+
+
+                    <label>HDHomeRun Host / IP</label>
+                    <input type="text" name="hdhr_host" value="{{ settings.get('hdhr_host','192.168.2.158') }}"
+                        placeholder="192.168.2.158">
+
+                    <label>Max Simultaneous HDHomeRun Tuners</label>
+                    <input type="number" name="hdhr_max_tuners" min="1"
+                        value="{{ settings.get('hdhr_max_tuners','4') }}">
+
+                    <button type="button" class="btn-primary" onclick="scanChannels('hdhomerun')">📡 Scan HDHomeRun
+                        Channels Now</button>
+                </div>
+
+
+                <hr>
+
+                <div id="nativeDvbTunerFields">
+                    <h3>PCIe / Native DVB</h3>
+
+                    <div
+                        id="nativeDvbHardwareStatus"
+                        class="muted"
+                        style="margin-bottom:10px;"
+                    >
+                        Checking DVB hardware...
+                    </div>
+
+                    <div
+                        id="nativeDvbMapStatus"
+                        class="muted"
+                        style="margin-bottom:10px;"
+                    ></div>
+
+                    <button
+                        type="button"
+                        id="nativeDvbScanButton"
+                        class="btn-primary"
+                        onclick="startNativeDvbScan()"
+                    >
+                        Scan PCIe / Native DVB Channels
+                    </button>
+
+                    <div
+                        id="nativeDvbScanStatus"
+                        class="muted"
+                        style="margin-top:10px;"
+                    ></div>
+                </div>
+
+                <hr>
+
+                <hr>
+                <p class="muted">Total tuner capacity used for scheduling conflicts is based on the fields above and the
+                    Tuner Source selected. See the Tuners page for live status.</p>
+            </section>
+
+            <section id="channels" class="settings-section">
+                <h2>Channels</h2>
+
+                <p class="muted">
+                    Disable channels you do not want shown in SignalDVR.
+                    Disabled channels remain stored and can be enabled again at any time.
+                </p>
+
+                <div id="channelManagerBanner"></div>
+
+                <div class="settings-row" style="margin-bottom: 14px;">
+                    <button type="button" class="btn-primary" onclick="loadChannelManager()">
+                        Refresh Channels
+                    </button>
+                </div>
+
+                <div id="channelManagerList">
+                    <p class="muted">Open this section to load channels.</p>
+                </div>
+            </section>
+
+            <section id="storage" class="settings-section">
+                <h2>Storage</h2>
+                <div id="storageBanner"></div>
+
+                <label>Recording Folder</label>
+                <input type="text" name="recording_path" value="{{ settings.get('recording_path','') }}"
+                    placeholder="e.g. /mnt/nas/signaldvr/recordings">
+
+                <label>Timeshift Folder</label>
+                <input type="text" name="timeshift_path" value="{{ settings.get('timeshift_path','') }}"
+                    placeholder="e.g. /mnt/nas/signaldvr/livebuffer">
+
+                <label>Thumbnail Folder</label>
+                <input type="text" name="thumbnail_path" value="{{ settings.get('thumbnail_path','') }}"
+                    placeholder="e.g. /mnt/nas/signaldvr/thumbnails">
+
+                <p class="muted">Leave a field blank to use the default folder under SignalDVR's install directory. When
+                    you save, SignalDVR checks that each path exists (creating it if needed) and is writable. <b>Changes
+                        take effect after you restart SignalDVR</b> - and existing recordings/buffer/thumbnail files are
+                    not moved automatically, so move them yourself first if you're relocating storage.</p>
+            </section>
+
+            <section id="timeshift" class="settings-section">
+                <h2>Live TV &amp; Background DVR</h2>
+
+                <label>Timeshift Enabled</label>
+                <select name="timeshift_enabled">
+                    <option value="1" {% if settings.get("timeshift_enabled", "1" )=="1" %}selected{% endif %}>
+                        Yes
+                    </option>
+
+                    <option value="0" {% if settings.get("timeshift_enabled")=="0" %}selected{% endif %}>
+                        No
+                    </option>
+                </select>
+
+                <label>Buffer Minutes</label>
+                <input type="number" name="timeshift_minutes" value="{{ settings.get('timeshift_minutes', '90') }}">
+
+                <hr>
+
+                <h3>Live TV Buffer</h3>
+
+                <label>Live Rewind Buffer Length</label>
+                <select name="live_buffer_segments">
+                    <option value="1800" {% if settings.get("live_buffer_segments", "1800" )=="1800" %}selected{% endif
+                        %}>
+                        1 Hour
+                    </option>
+
+                    <option value="5400" {% if settings.get("live_buffer_segments")=="5400" %}selected{% endif %}>
+                        3 Hours
+                    </option>
+
+                    <option value="10800" {% if settings.get("live_buffer_segments")=="10800" %}selected{% endif %}>
+                        6 Hours
+                    </option>
+
+                    <option value="21600" {% if settings.get("live_buffer_segments")=="21600" %}selected{% endif %}>
+                        12 Hours
+                    </option>
+
+                    <option value="43200" {% if settings.get("live_buffer_segments")=="43200" %}selected{% endif %}>
+                        24 Hours
+                    </option>
+                </select>
+
+                <p class="muted">
+                    Controls how much of the active live channel remains available for
+                    rewind. This does not control completed Background DVR programs.
+                </p>
+
+                <hr>
+
+                <h3>Background DVR</h3>
+
+                <label class="checkbox-row">
+                    <input type="checkbox" name="background_dvr_enabled" value="1" {% if
+                        settings.get("background_dvr_enabled", "1" )=="1" %}checked{% endif %}>
+                    Enable Background DVR
+                </label>
+
+                <label>Keep Unsaved Programs For</label>
+                <select name="background_dvr_retention">
+                    {% set retention = settings.get("background_dvr_retention", "end_of_day") %}
+                    <option value="end_of_day" {% if retention=="end_of_day" %}selected{% endif %}>End of Day</option>
+                    <option value="1_day" {% if retention=="1_day" %}selected{% endif %}>1 Day</option>
+                    <option value="3_days" {% if retention=="3_days" %}selected{% endif %}>3 Days</option>
+                    <option value="7_days" {% if retention=="7_days" %}selected{% endif %}>7 Days</option>
+                    <option value="14_days" {% if retention=="14_days" %}selected{% endif %}>14 Days</option>
+                    <option value="30_days" {% if retention=="30_days" %}selected{% endif %}>30 Days</option>
+                    <option value="never" {% if retention=="never" %}selected{% endif %}>Never Auto Delete</option>
+                </select>
+
+                <label>Maximum Background DVR Storage (GB)</label>
+                <input type="number" name="background_dvr_storage_limit_gb" min="0" step="1"
+                    value="{{ settings.get('background_dvr_storage_limit_gb', '250') }}">
+                <p class="muted">Use 0 for no storage quota.</p>
+
+                <label>When Storage Is Full</label>
+                <select name="background_dvr_when_full">
+                    {% set full_policy = settings.get("background_dvr_when_full", "delete_oldest") %}
+                    <option value="delete_oldest" {% if full_policy=="delete_oldest" %}selected{% endif %}>Delete Oldest
+                        Unsaved Programs</option>
+                    <option value="stop_buffering" {% if full_policy=="stop_buffering" %}selected{% endif %}>Stop
+                        Buffering</option>
+                </select>
+
+                <label class="checkbox-row">
+                    <input type="checkbox" name="background_dvr_keep_saved" value="1" {% if
+                        settings.get("background_dvr_keep_saved", "1" )=="1" %}checked{% endif %}>
+                    Keep Saved Programs Forever
+                </label>
+
+                <label class="checkbox-row">
+                    <input type="checkbox" name="background_dvr_show_library" value="1" {% if
+                        settings.get("background_dvr_show_library", "1" )=="1" %}checked{% endif %}>
+                    Show Background DVR in Library
+                </label>
+
+                <p class="muted">
+                    Quota cleanup only removes the oldest completed, unsaved Background DVR programs.
+                    Active television, scheduled recordings, and saved programs are protected.
+                </p>
+            </section>
+
+            <section id="thumbnails" class="settings-section">
+                <h2>Thumbnails &amp; Artwork</h2>
+
+                <label>Generate Recording Thumbnails</label>
+                <select name="generate_thumbnails">
+                    <option value="1" {% if settings.get("generate_thumbnails","1")=="1" %}selected{% endif %}>Yes
+                    </option>
+                    <option value="0" {% if settings.get("generate_thumbnails")=="0" %}selected{% endif %}>No</option>
+                </select>
+
+                <hr>
+
+                <h3>Program Artwork</h3>
+                <p class="muted">
+                    Downloaded artwork for television programs and movies is cached locally to improve Library
+                    and Guide browsing performance.
+                </p>
+
+                <h3>Channel Logos</h3>
+                <p class="muted">
+                    Station logos are downloaded once and reused throughout SignalDVR.
+                </p>
+
+                <h3>Thumbnail Storage</h3>
+                <p class="settings-path">
+                    {{ settings.get('thumbnail_path','Default SignalDVR thumbnail folder') }}
+                </p>
+
+                <p class="muted">
+                    Thumbnail and artwork cache statistics, cleanup tools, and missing-artwork regeneration
+                    will be added in a later update.
+                </p>
+            </section>
+
+            <section id="database" class="settings-section">
+                <h2>Database Backup &amp; Restore</h2>
+                <div id="databaseBanner"></div>
+
+                <div class="database-card">
+                    <h3>Current Database</h3>
+                    <p class="path-value">{{ database_path }}</p>
+                    <table class="info-table database-status-table">
+                        <tbody>
+                            <tr>
+                                <td>Size</td>
+                                <td>{{ database_status.size }}</td>
+                            </tr>
+                            <tr>
+                                <td>Integrity</td>
+                                <td>{% if database_status.integrity == 'OK' %}<span class="status-pill status-running">●
+                                        OK</span>{% else %}<span class="status-pill status-error">{{
+                                        database_status.integrity }}</span>{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <td>Schema Version</td>
+                                <td>{{ database_status.schema_version }}</td>
+                            </tr>
+                            <tr>
+                                <td>Tables</td>
+                                <td>{{ database_status.table_count }}</td>
+                            </tr>
+                            <tr>
+                                <td>Created</td>
+                                <td>{{ database_status.created }}</td>
+                            </tr>
+                            <tr>
+                                <td>Last Modified</td>
+                                <td>{{ database_status.last_modified }}</td>
+                            </tr>
+                            <tr>
+                                <td>Last Backup</td>
+                                <td>{% if last_database_backup %}{{ last_database_backup.created }} ({{
+                                    last_database_backup.size }}){% else %}Never{% endif %}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p class="muted">Backups include committed SQLite WAL data in a consistent snapshot. Creation time
+                        may be unavailable on Linux filesystems that do not expose it.</p>
+                    <div class="settings-row">
+                        <button class="btn-primary" type="submit" formaction="/settings/database/backup"
+                            formmethod="post">Create Backup</button>
+                        <a class="settings-link-button" href="/settings/database/download">Download Current Database</a>
+                    </div>
+                </div>
+
+                <div class="database-card database-danger-card">
+                    <h3>Restore Database</h3>
+                    <p class="muted">The uploaded database is integrity-checked and the current database is backed up
+                        automatically before restore.</p>
+                    <label for="databaseFile">Database Backup File</label>
+                    <input id="databaseFile" type="file" name="database_file"
+                        accept=".db,.sqlite,.sqlite3,application/vnd.sqlite3,application/x-sqlite3">
+                    <button class="btn-danger" type="submit" formaction="/settings/database/restore" formmethod="post"
+                        onclick="return confirm('Restore this database backup? The current database will be safety-backed up first. SignalDVR should be restarted after restore.')">Upload
+                        &amp; Restore Database</button>
+                    <p class="muted">Restart the SignalDVR service after a successful restore.</p>
+                </div>
+
+                <div class="database-card">
+                    <h3>Recent Server Backups</h3>
+                    {% if database_backups %}
+                    <table class="info-table database-backup-table">
+                        <tbody>
+                            {% for backup in database_backups %}
+                            <tr>
+                                <td>{{ backup.name }}</td>
+                                <td>{{ backup.created }}</td>
+                                <td>{{ backup.size }}</td>
+                                <td><a href="/settings/database/backups/{{ backup.name }}">Download</a></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p class="muted">No server-side backups have been created yet.</p>
+                    {% endif %}
+                </div>
+            </section>
+
+            <section id="maintenance" class="settings-section">
+                <h2>Maintenance</h2>
+
+                <div id="catalogMaintenanceBanner"></div>
+
+                <div class="maintenance-card">
+                    <div class="maintenance-header">
+                        <div>
+                            <h3>Background DVR</h3>
+                            <p class="muted">
+                                Catalog integrity, program counts, retention, and storage information.
+                            </p>
+                        </div>
+                        <span id="catalogHealthPill" class="status-pill status-loading">● Checking</span>
+                    </div>
+
+                    <div class="maintenance-summary-grid">
+                        <div class="maintenance-stat">
+                            <span class="maintenance-stat-label">Active</span>
+                            <strong id="maintenanceActive">—</strong>
+                        </div>
+                        <div class="maintenance-stat">
+                            <span class="maintenance-stat-label">Buffered</span>
+                            <strong id="maintenanceBuffered">—</strong>
+                        </div>
+                        <div class="maintenance-stat">
+                            <span class="maintenance-stat-label">Saved</span>
+                            <strong id="maintenanceSaved">—</strong>
+                        </div>
+                        <div class="maintenance-stat">
+                            <span class="maintenance-stat-label">Total Catalog</span>
+                            <strong id="maintenanceTotal">—</strong>
+                        </div>
+                    </div>
+
+                    <h4 class="maintenance-subheading">Storage</h4>
+                    <table class="info-table maintenance-status-table">
+                        <tbody>
+                            <tr>
+                                <td>Background DVR Used</td>
+                                <td id="maintenanceStorageUsed">—</td>
+                            </tr>
+                            <tr>
+                                <td>Storage Limit</td>
+                                <td id="maintenanceStorageLimit">—</td>
+                            </tr>
+                            <tr>
+                                <td>Storage Used</td>
+                                <td id="maintenanceStoragePercent">—</td>
+                            </tr>
+                            <tr>
+                                <td>Retention</td>
+                                <td id="maintenanceRetention">—</td>
+                            </tr>
+                            <tr>
+                                <td>When Full</td>
+                                <td id="maintenanceWhenFull">—</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h4 class="maintenance-subheading">Catalog Integrity</h4>
+                    <table class="info-table maintenance-status-table">
+                        <tbody>
+                            <tr>
+                                <td>Media Folders</td>
+                                <td id="catalogMediaFolders">—</td>
+                            </tr>
+                            <tr>
+                                <td>Catalog Entries</td>
+                                <td id="catalogEntries">—</td>
+                            </tr>
+                            <tr>
+                                <td>Missing Entries</td>
+                                <td id="catalogMissing">—</td>
+                            </tr>
+                            <tr>
+                                <td>Stale Entries</td>
+                                <td id="catalogStale">—</td>
+                            </tr>
+                            <tr>
+                                <td>Metadata Mismatches</td>
+                                <td id="catalogMismatched">—</td>
+                            </tr>
+                            <tr>
+                                <td>Incomplete Folders</td>
+                                <td id="catalogSkipped">—</td>
+                            </tr>
+                            <tr>
+                                <td>Last Checked</td>
+                                <td id="catalogLastChecked">—</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="settings-row maintenance-actions">
+                        <button type="button" class="btn-primary" id="verifyCatalogButton"
+                            onclick="refreshMaintenanceDashboard(true)">
+                            Verify Catalog
+                        </button>
+
+                        <button type="button" class="btn-success" id="repairCatalogButton" onclick="repairCatalog()">
+                            Repair Catalog
+                        </button>
+                    </div>
+
+                    <p class="muted">
+                        Repair Catalog safely restores missing catalog entries and repairs path,
+                        first-segment, last-segment, and segment-count metadata. It does not delete
+                        video files or catalog rows.
+                    </p>
+                </div>
+
+                <div id="catalogDetailsCard" class="maintenance-card" hidden>
+                    <h3>Catalog Details</h3>
+                    <div id="catalogDetails"></div>
+                </div>
+            </section>
+
+            <section id="system" class="settings-section">
+                <h2>System Information</h2>
+
+                <div class="system-summary">
+                    <div>
+                        <div class="system-title">SignalDVR</div>
+                        <div class="muted">Lightweight household DVR server</div>
+                    </div>
+                    <span class="status-pill status-running">● Running</span>
+                </div>
+
+                <table class="info-table">
+                    <tbody>
+                        <tr>
+                            <td>Application</td>
+                            <td>SignalDVR</td>
+                        </tr>
+                        <tr>
+                            <td>Playback Engine</td>
+                            <td>Playback Engine V2</td>
+                        </tr>
+                        <tr>
+                            <td>Media Engine</td>
+                            <td>FFmpeg + Media3</td>
+                        </tr>
+                        <tr>
+                            <td>Guide Provider</td>
+                            <td>{{ settings.get('guide_source','schedules_direct') | replace('_', ' ') | title }}</td>
+                        </tr>
+                        <tr>
+                            <td>Database</td>
+                            <td>SQLite</td>
+                        </tr>
+                        <tr>
+                            <td>Server Port</td>
+                            <td>8088</td>
+                        </tr>
+                        <tr>
+                            <td>Background DVR</td>
+                            <td>
+                                {% if settings.get("background_dvr_enabled","1") == "1" %}
+                                <span class="inline-status inline-status-running">● Enabled</span>
+                                {% else %}
+                                <span class="inline-status inline-status-stopped">● Disabled</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Recording Thumbnails</td>
+                            <td>
+                                {% if settings.get("generate_thumbnails","1") == "1" %}
+                                Enabled
+                                {% else %}
+                                Disabled
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Recording Folder</td>
+                            <td class="path-value">{{ settings.get('recording_path','Default') or 'Default' }}</td>
+                        </tr>
+                        <tr>
+                            <td>Live Buffer Folder</td>
+                            <td class="path-value">{{ settings.get('timeshift_path','Default') or 'Default' }}</td>
+                        </tr>
+                        <tr>
+                            <td>Thumbnail Folder</td>
+                            <td class="path-value">{{ settings.get('thumbnail_path','Default') or 'Default' }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p class="muted system-note">
+                    CPU, memory, disk usage, server uptime, service health, and guide-update status will be added
+                    when the backend system-status endpoint is implemented.
+                </p>
+            </section>
+
+        </main>
+
+    </div>
+
+    <div class="settings-actions">
+        <button class="success" type="submit">💾 Save Settings</button>
+    </div>
+
+</form>
+
+<style>
+    .settings-layout {
+        display: grid;
+        grid-template-columns: 230px 1fr;
+        gap: 20px;
+    }
+
+    .settings-nav {
+        background: #1d1d1d;
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 12px;
+        height: fit-content;
+    }
+
+    .settings-nav button {
+        display: block;
+        width: 100%;
+        text-align: left;
+        margin-bottom: 8px;
+        background: #222;
+        color: #eee;
+        border: 1px solid #333;
+    }
+
+    .settings-nav button:hover {
+        background: #333;
+    }
+
+    .settings-main {
+        background: #1d1d1d;
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 24px;
+    }
+
+    .settings-section {
+        display: none;
+    }
+
+    .settings-section.active {
+        display: block;
+    }
+
+    label {
+        display: block;
+        margin-top: 14px;
+        margin-bottom: 5px;
+        color: #aaa;
+        font-weight: bold;
+    }
+
+    input,
+    select {
+        width: 100%;
+        max-width: 520px;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #333;
+        background: #111;
+        color: #eee;
+    }
+
+    hr {
+        border: 0;
+        border-top: 1px solid #333;
+        margin: 25px 0;
+    }
+
+    .settings-actions {
+        margin-top: 20px;
+    }
+
+    @media (max-width: 800px) {
+        .settings-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+
+
+
+    .settings-row {
+        display: flex;
+        gap: 12px;
+        margin-top: 20px;
+    }
+
+    .btn-primary {
+        background: #1f6feb;
+        color: white;
+        border: none;
+        padding: 10px 18px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: .2s;
+    }
+
+    .btn-primary:hover {
+        background: #2b7fff;
+    }
+
+    .btn-success {
+        background: #238636;
+        color: white;
+        border: none;
+        padding: 10px 18px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: .2s;
+    }
+
+    .btn-success:hover {
+        background: #2ea043;
+    }
+
+    .storage-banner {
+        margin: 0 0 16px;
+        padding: 12px 14px;
+        border-radius: 8px;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    .storage-banner-ok {
+        background: #16311f;
+        border: 1px solid #238636;
+        color: #b6e6c3;
+    }
+
+    .storage-banner-error {
+        background: #3a1414;
+        border: 1px solid #a31616;
+        color: #f2c1c1;
+    }
+
+    .third-party-note {
+        background: #1a2a3a;
+        border: 1px solid #2f5578;
+        color: #cfe0f0;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 13.5px;
+        line-height: 1.5;
+        margin: 10px 0 14px;
+    }
+
+    details.howto {
+        background: #14181f;
+        border: 1px solid #2a3748;
+        border-radius: 10px;
+        padding: 4px 16px 14px;
+        margin: 10px 0 18px;
+    }
+
+    details.howto summary {
+        cursor: pointer;
+        padding: 12px 0;
+        font-weight: bold;
+        color: #eaf1fa;
+        list-style: none;
+    }
+
+    details.howto summary::-webkit-details-marker {
+        display: none;
+    }
+
+    details.howto ol {
+        margin: 8px 0 4px;
+        padding-left: 20px;
+        line-height: 1.7;
+    }
+
+    details.howto li {
+        margin-bottom: 12px;
+    }
+
+    details.howto pre {
+        background: #0a0d12;
+        border: 1px solid #2a3748;
+        border-radius: 6px;
+        padding: 10px 12px;
+        margin: 6px 0;
+        overflow-x: auto;
+    }
+
+    details.howto code,
+    .third-party-note code {
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        font-size: 13px;
+        color: #9fd6ff;
+    }
+
+    details.howto pre code {
+        color: #d7e6f5;
+        white-space: pre;
+    }
+
+    details.howto a {
+        color: #6cb2ff;
+    }
+
+    .settings-path {
+        max-width: 700px;
+        padding: 11px 12px;
+        margin: 8px 0 16px;
+        background: #111;
+        border: 1px solid #333;
+        border-radius: 8px;
+        color: #eee;
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        overflow-wrap: anywhere;
+    }
+
+
+    .database-card {
+        max-width: 760px;
+        margin-bottom: 18px;
+        padding: 18px;
+        background: #151515;
+        border: 1px solid #333;
+        border-radius: 10px;
+    }
+
+    .database-danger-card {
+        border-color: #6a3030;
+    }
+
+    .settings-link-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 0 16px;
+        border: 1px solid #3b82f6;
+        border-radius: 6px;
+        color: #fff;
+        background: #245fae;
+        text-decoration: none;
+        font-weight: 700;
+    }
+
+    .btn-danger {
+        margin-top: 12px;
+        border: 1px solid #a83f3f;
+        color: #fff;
+        background: #7e2929;
+    }
+
+    .database-backup-table td:first-child {
+        width: auto;
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        color: #ddd;
+    }
+
+    .system-summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        max-width: 760px;
+        padding: 16px;
+        margin-bottom: 18px;
+        background: #151515;
+        border: 1px solid #333;
+        border-radius: 10px;
+    }
+
+    .system-title {
+        color: #fff;
+        font-size: 22px;
+        font-weight: 700;
+        margin-bottom: 3px;
+    }
+
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        white-space: nowrap;
+        border-radius: 999px;
+        padding: 7px 11px;
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    .status-running {
+        color: #b6e6c3;
+        background: #16311f;
+        border: 1px solid #238636;
+    }
+
+    .info-table {
+        width: 100%;
+        max-width: 760px;
+        border-collapse: collapse;
+        background: #151515;
+        border: 1px solid #333;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .info-table td {
+        padding: 12px 14px;
+        border-bottom: 1px solid #2f2f2f;
+        vertical-align: top;
+    }
+
+    .info-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .info-table td:first-child {
+        width: 235px;
+        color: #aaa;
+        font-weight: 700;
+    }
+
+    .info-table td:last-child {
+        color: #eee;
+        font-weight: 600;
+    }
+
+    .inline-status {
+        font-weight: 700;
+    }
+
+    .inline-status-running {
+        color: #58d26f;
+    }
+
+    .inline-status-stopped {
+        color: #f06a6a;
+    }
+
+    .path-value {
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        font-size: 13px;
+        overflow-wrap: anywhere;
+    }
+
+    .system-note {
+        max-width: 760px;
+        margin-top: 16px;
+    }
+
+    @media (max-width: 640px) {
+        .system-summary {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .info-table,
+        .info-table tbody,
+        .info-table tr,
+        .info-table td {
+            display: block;
+            width: 100%;
+        }
+
+        .info-table td:first-child {
+            width: auto;
+            padding-bottom: 4px;
+            border-bottom: none;
+        }
+
+        .info-table td:last-child {
+            padding-top: 0;
+        }
+
+        .info-table tr {
+            border-bottom: 1px solid #2f2f2f;
+        }
+
+        .info-table tr:last-child {
+            border-bottom: none;
+        }
+    }
+
+    .maintenance-card {
+        max-width: 820px;
+        margin-bottom: 18px;
+        padding: 18px;
+        background: #151515;
+        border: 1px solid #333;
+        border-radius: 10px;
+    }
+
+    .maintenance-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 18px;
+    }
+
+    .maintenance-header h3 {
+        margin: 0 0 6px;
+    }
+
+    .maintenance-header .muted {
+        margin: 0;
+    }
+
+    .maintenance-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .maintenance-stat {
+        padding: 14px;
+        border: 1px solid #333;
+        border-radius: 9px;
+        background: #111;
+    }
+
+    .maintenance-stat-label {
+        display: block;
+        color: #999;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        margin-bottom: 7px;
+    }
+
+    .maintenance-stat strong {
+        color: #fff;
+        font-size: 25px;
+    }
+
+    .maintenance-subheading {
+        margin: 22px 0 10px;
+        color: #eee;
+    }
+
+    .maintenance-status-table {
+        margin-bottom: 4px;
+    }
+
+    .maintenance-actions {
+        flex-wrap: wrap;
+    }
+
+    .status-loading {
+        color: #d8d8d8;
+        background: #292929;
+        border: 1px solid #555;
+    }
+
+    .status-warning {
+        color: #ffe2a8;
+        background: #3b2b0f;
+        border: 1px solid #a87818;
+    }
+
+    .status-error {
+        color: #f2c1c1;
+        background: #3a1414;
+        border: 1px solid #a31616;
+    }
+
+    .catalog-detail-group {
+        margin-top: 14px;
+    }
+
+    .catalog-detail-group:first-child {
+        margin-top: 0;
+    }
+
+    .catalog-detail-group h4 {
+        margin: 0 0 8px;
+        color: #eee;
+    }
+
+    .catalog-detail-list {
+        margin: 0;
+        padding-left: 20px;
+        color: #bbb;
+        line-height: 1.6;
+    }
+
+    .catalog-detail-list code {
+        color: #ddd;
+        overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 760px) {
+        .maintenance-summary-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .maintenance-header {
+            flex-direction: column;
+        }
+    }
+</style>
+
+<script>
+    function showSection(id) {
+        document.querySelectorAll(".settings-section").forEach(section => {
+            section.classList.remove("active");
+        });
+
+        const el = document.getElementById(id);
+        if (el) {
+            el.classList.add("active");
+        }
+    }
+
+    (function () {
+        const params = new URLSearchParams(window.location.search);
+        const error = params.get("storage_error");
+        const saved = params.get("storage_saved");
+        const banner = document.getElementById("storageBanner");
+
+        if (error) {
+            banner.innerHTML = `<div class="storage-banner storage-banner-error">⚠️ Could not use one or more storage folders:<br>${error.split(" | ").map(e => e.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]))).join("<br>")}<br><span class="muted">Nothing was changed for these fields. Fix the path (permissions, typo, unmounted drive) and save again.</span></div>`;
+            showSection("storage");
+        } else if (saved) {
+            banner.innerHTML = `<div class="storage-banner storage-banner-ok">✅ Storage folder(s) verified and saved. Restart SignalDVR for the change to take effect.</div>`;
+            showSection("storage");
+        }
+
+        if (error || saved) {
+            const url = new URL(window.location);
+            url.searchParams.delete("storage_error");
+            url.searchParams.delete("storage_saved");
+            window.history.replaceState({}, "", url);
+        }
+    })();
+
+
+    (function () {
+        const params = new URLSearchParams(window.location.search);
+        const backup = params.get("database_backup");
+        const restored = params.get("database_restored");
+        const safetyBackup = params.get("database_safety_backup");
+        const error = params.get("database_error");
+        const banner = document.getElementById("databaseBanner");
+        const escapeHtml = value => value.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+        if (error) {
+            banner.innerHTML = `<div class="storage-banner storage-banner-error">Database operation failed: ${escapeHtml(error)}</div>`;
+            showSection("database");
+        } else if (restored) {
+            const safety = safetyBackup ? `<br>Safety backup: ${escapeHtml(safetyBackup)}` : "";
+            banner.innerHTML = `<div class="storage-banner storage-banner-ok">Database restored successfully.${safety}<br>Restart the SignalDVR service now.</div>`;
+            showSection("database");
+        } else if (backup) {
+            banner.innerHTML = `<div class="storage-banner storage-banner-ok">Backup created: ${escapeHtml(backup)}</div>`;
+            showSection("database");
+        }
+        if (error || restored || backup) {
+            ["database_error", "database_restored", "database_safety_backup", "database_backup"].forEach(key => params.delete(key));
+            const clean = `${window.location.pathname}${params.toString() ? `?${params}` : ""}`;
+            window.history.replaceState({}, "", clean);
+        }
+    })();
+
+
+    function tunerBannerShow(kind, html) {
+        const banner = document.getElementById("tunerBanner");
+        banner.innerHTML = `<div class="storage-banner ${kind === "ok" ? "storage-banner-ok" : "storage-banner-error"}">${html}</div>`;
+        showSection("tuners");
+    }
+
+
+    async function scanChannels(source) {
+        tunerBannerShow("ok", `⏳ Scanning HDHomeRun channels...`);
+
+        try {
+            const r = await fetch(`/scan-channels/${source}`, { method: "POST" });
+            const j = await r.json();
+
+            if (j.ok) {
+                const detail = `${j.imported} imported`;
+                tunerBannerShow("ok", `✅ ${detail}.`);
+            } else {
+                tunerBannerShow("error", `⚠️ ${j.error || "Scan failed."}`);
+            }
+        } catch (e) {
+            tunerBannerShow("error", `⚠️ Request failed: ${e}`);
+        }
+    }
+
+    function setCatalogButtonsDisabled(disabled) {
+        const verifyButton = document.getElementById("verifyCatalogButton");
+        const repairButton = document.getElementById("repairCatalogButton");
+
+        if (verifyButton) verifyButton.disabled = disabled;
+        if (repairButton) repairButton.disabled = disabled;
+    }
+
+    function maintenanceEscapeHtml(value) {
+        return String(value ?? "").replace(
+            /[&<>"]/g,
+            character => ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+            }[character])
+        );
+    }
+
+    function maintenanceBanner(kind, message) {
+        const banner = document.getElementById("catalogMaintenanceBanner");
+        if (!banner) return;
+
+        banner.innerHTML = `
+            <div class="storage-banner ${kind === "ok" ? "storage-banner-ok" : "storage-banner-error"}">
+                ${maintenanceEscapeHtml(message)}
+            </div>
+        `;
+    }
+
+    function formatRetention(value) {
+        const labels = {
+            end_of_day: "End of Day",
+            "1_day": "1 Day",
+            "3_days": "3 Days",
+            "7_days": "7 Days",
+            "14_days": "14 Days",
+            "30_days": "30 Days",
+            never: "Never Auto Delete",
+        };
+        return labels[value] || value || "Unknown";
+    }
+
+    function formatWhenFull(value) {
+        const labels = {
+            delete_oldest: "Delete Oldest Unsaved Programs",
+            stop_buffering: "Stop Buffering",
+        };
+        return labels[value] || value || "Unknown";
+    }
+
+    function catalogIdList(title, ids) {
+        if (!Array.isArray(ids) || ids.length === 0) return "";
+
+        return `
+            <div class="catalog-detail-group">
+                <h4>${maintenanceEscapeHtml(title)}</h4>
+                <ul class="catalog-detail-list">
+                    ${ids.map(id => `<li><code>${maintenanceEscapeHtml(id)}</code></li>`).join("")}
+                </ul>
+            </div>
+        `;
+    }
+
+    function catalogSkippedList(skipped) {
+        if (!Array.isArray(skipped) || skipped.length === 0) return "";
+
+        return `
+            <div class="catalog-detail-group">
+                <h4>Skipped Incomplete Folders</h4>
+                <ul class="catalog-detail-list">
+                    ${skipped.map(item => `
+                        <li>
+                            <code>${maintenanceEscapeHtml(item.path || "")}</code><br>
+                            ${maintenanceEscapeHtml(item.reason || "Skipped")}
+                        </li>
+                    `).join("")}
+                </ul>
+            </div>
+        `;
+    }
+
+    function renderCatalogHealth(data) {
+        document.getElementById("catalogMediaFolders").textContent = data.media_folders ?? 0;
+        document.getElementById("catalogEntries").textContent = data.catalog_entries ?? 0;
+        document.getElementById("catalogMissing").textContent = data.missing_entries ?? 0;
+        document.getElementById("catalogStale").textContent = data.stale_entries ?? 0;
+        document.getElementById("catalogMismatched").textContent = data.metadata_mismatches ?? 0;
+        document.getElementById("catalogSkipped").textContent = data.skipped_folders ?? 0;
+        document.getElementById("catalogLastChecked").textContent =
+            new Date().toLocaleString();
+
+        const actionableProblems =
+            Number(data.missing_entries || 0) +
+            Number(data.stale_entries || 0) +
+            Number(data.metadata_mismatches || 0);
+
+        const pill = document.getElementById("catalogHealthPill");
+
+        if (actionableProblems === 0) {
+            pill.className = "status-pill status-running";
+            pill.textContent = "● Healthy";
+        } else {
+            pill.className = "status-pill status-warning";
+            pill.textContent = "● Repair Recommended";
+        }
+
+        const details = [
+            catalogIdList("Missing Catalog IDs", data.missing_ids),
+            catalogIdList("Stale Catalog IDs", data.stale_ids),
+            catalogIdList("Metadata Mismatch IDs", data.mismatched_ids),
+            catalogSkippedList(data.skipped),
+        ].join("");
+
+        const detailsCard = document.getElementById("catalogDetailsCard");
+        const detailsContainer = document.getElementById("catalogDetails");
+
+        if (details) {
+            detailsContainer.innerHTML = details;
+            detailsCard.hidden = false;
+        } else {
+            detailsContainer.innerHTML = "";
+            detailsCard.hidden = true;
+        }
+    }
+
+    function renderLibraryCounts(data) {
+        const counts = data.counts || {};
+        document.getElementById("maintenanceActive").textContent = counts.live ?? 0;
+        document.getElementById("maintenanceBuffered").textContent = counts.buffered ?? 0;
+        document.getElementById("maintenanceSaved").textContent = counts.saved ?? 0;
+        document.getElementById("maintenanceTotal").textContent =
+            Number(counts.live || 0) +
+            Number(counts.buffered || 0) +
+            Number(counts.saved || 0);
+    }
+
+    function renderBackgroundDvrSettings(data) {
+        document.getElementById("maintenanceStorageUsed").textContent =
+            `${Number(data.used_gb || 0).toFixed(2)} GB`;
+
+        document.getElementById("maintenanceStorageLimit").textContent =
+            Number(data.storage_limit_gb || 0) > 0
+                ? `${Number(data.storage_limit_gb).toFixed(0)} GB`
+                : "No Limit";
+
+        document.getElementById("maintenanceStoragePercent").textContent =
+            Number(data.storage_limit_gb || 0) > 0
+                ? `${Number(data.percent_used || 0).toFixed(1)}%`
+                : "Not Limited";
+
+        document.getElementById("maintenanceRetention").textContent =
+            formatRetention(data.retention);
+
+        document.getElementById("maintenanceWhenFull").textContent =
+            formatWhenFull(data.when_full);
+    }
+
+    async function fetchJson(url, options = {}) {
+        const response = await fetch(url, {
+            headers: { "Accept": "application/json", ...(options.headers || {}) },
+            ...options,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.ok === false) {
+            throw new Error(data.error || `Request failed: ${response.status}`);
+        }
+
+        return data;
+    }
+
+    async function refreshMaintenanceDashboard(showBanner = false) {
+        setCatalogButtonsDisabled(true);
+
+        const pill = document.getElementById("catalogHealthPill");
+        pill.className = "status-pill status-loading";
+        pill.textContent = "● Checking";
+
+        try {
+            const [catalog, library, background] = await Promise.all([
+                fetchJson("/api/catalog/health"),
+                fetchJson("/api/library"),
+                fetchJson("/api/background-dvr/settings"),
+            ]);
+
+            renderCatalogHealth(catalog);
+            renderLibraryCounts(library);
+            renderBackgroundDvrSettings(background);
+
+            if (showBanner) {
+                const actionableProblems =
+                    Number(catalog.missing_entries || 0) +
+                    Number(catalog.stale_entries || 0) +
+                    Number(catalog.metadata_mismatches || 0);
+
+                maintenanceBanner(
+                    actionableProblems === 0 ? "ok" : "error",
+                    actionableProblems === 0
+                        ? "Background DVR verification completed. No catalog problems were found."
+                        : "Catalog verification completed. Repair is recommended."
+                );
+            }
+
+            return catalog;
+
+        } catch (error) {
+            pill.className = "status-pill status-error";
+            pill.textContent = "● Check Failed";
+            maintenanceBanner("error", `Maintenance check failed: ${error.message}`);
+            throw error;
+
+        } finally {
+            setCatalogButtonsDisabled(false);
+        }
+    }
+
+    async function repairCatalog() {
+        const confirmed = window.confirm(
+            "Repair missing Background DVR catalog entries and safe metadata mismatches? " +
+            "This action does not delete video files or catalog rows."
+        );
+
+        if (!confirmed) return;
+
+        setCatalogButtonsDisabled(true);
+
+        const pill = document.getElementById("catalogHealthPill");
+        pill.className = "status-pill status-loading";
+        pill.textContent = "● Repairing";
+
+        try {
+            const data = await fetchJson("/api/catalog/rebuild", {
+                method: "POST",
+            });
+
+            renderCatalogHealth(data);
+
+            const inserted = Number(data.inserted || 0);
+            const updated = Number(data.updated || 0);
+            const errors = Number(data.repair_error_count || 0);
+
+            maintenanceBanner(
+                errors > 0 ? "error" : "ok",
+                errors > 0
+                    ? `Catalog repair completed with ${errors} error(s). ${inserted} entries restored and ${updated} updated.`
+                    : `Catalog repair complete. ${inserted} entries restored and ${updated} updated.`
+            );
+
+            await refreshMaintenanceDashboard(false);
+
+        } catch (error) {
+            pill.className = "status-pill status-error";
+            pill.textContent = "● Repair Failed";
+            maintenanceBanner("error", `Catalog repair failed: ${error.message}`);
+
+        } finally {
+            setCatalogButtonsDisabled(false);
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        refreshMaintenanceDashboard(false).catch(() => { });
+    });
+
+
+    function channelManagerEscapeHtml(value) {
+        return String(value ?? "").replace(
+            /[&<>"]/g,
+            character => ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;"
+            }[character])
+        );
+    }
+
+    function channelManagerBanner(kind, message) {
+        const banner = document.getElementById("channelManagerBanner");
+        if (!banner) return;
+
+        banner.innerHTML =
+            `<div class="storage-banner ${
+                kind === "ok"
+                    ? "storage-banner-ok"
+                    : "storage-banner-error"
+            }">${channelManagerEscapeHtml(message)}</div>`;
+    }
+
+    async function loadChannelManager() {
+        const list = document.getElementById("channelManagerList");
+
+        if (!list) return;
+
+        list.innerHTML = '<p class="muted">Loading channels...</p>';
+
+        try {
+            const response = await fetch("/api/channels", {
+                cache: "no-store"
+            });
+
+            const channels = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    channels.error || "Could not load channels"
+                );
+            }
+
+            if (!channels.length) {
+                list.innerHTML =
+                    '<p class="muted">No channels found. Scan your tuner first.</p>';
+                return;
+            }
+
+            list.innerHTML = channels.map(channel => {
+                const number =
+                    channelManagerEscapeHtml(
+                        channel.number || channel.channel || ""
+                    );
+
+                const name =
+                    channelManagerEscapeHtml(channel.name || "");
+
+                const enabled = Boolean(channel.enabled);
+
+                return `
+                    <div style="
+                        display:flex;
+                        align-items:center;
+                        justify-content:space-between;
+                        gap:18px;
+                        padding:12px 0;
+                        border-bottom:1px solid #2a3748;
+                    ">
+                        <div style="
+                            display:flex;
+                            flex-direction:column;
+                            gap:3px;
+                        ">
+                            <div>
+                                <strong>${number}</strong>
+                                <span style="margin-left:12px;">
+                                    ${name}
+                                </span>
+                            </div>
+
+                        </div>
+
+                        <div style="
+                            display:flex;
+                            align-items:center;
+                            gap:14px;
+                        ">
+                            <span style="
+                                min-width:70px;
+                                text-align:right;
+                            ">
+                                ${enabled ? "Enabled" : "Disabled"}
+                            </span>
+
+                            <button
+                                type="button"
+                                style="
+                                    background:${enabled ? '#dc3545' : '#28a745'};
+                                    color:#fff;
+                                    border:1px solid ${enabled ? '#dc3545' : '#28a745'};
+                                    font-weight:600;
+                                "
+                                onclick="setChannelEnabled(
+                                    '${number}',
+                                    ${enabled ? "false" : "true"}
+                                )"
+                            >
+                                ${enabled ? "Disable" : "Enable"}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+
+        } catch (error) {
+            console.error(error);
+
+            list.innerHTML =
+                '<p class="muted">Could not load channels.</p>';
+
+            channelManagerBanner(
+                "error",
+                error.message || "Could not load channels."
+            );
+        }
+    }
+
+    async function setChannelEnabled(channel, enabled) {
+        try {
+            const response = await fetch(
+                `/api/channels/${encodeURIComponent(channel)}/enabled`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        enabled: enabled
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok || !result.ok) {
+                throw new Error(
+                    result.error || "Could not update channel"
+                );
+            }
+
+            channelManagerBanner(
+                "ok",
+                `${channel} ${enabled ? "enabled" : "disabled"}.`
+            );
+
+            await loadChannelManager();
+
+        } catch (error) {
+            console.error(error);
+
+            channelManagerBanner(
+                "error",
+                error.message || "Could not update channel."
+            );
+        }
+    }
+
+
+    let nativeDvbScanPollTimer = null;
+
+
+    async function loadNativeDvbStatus() {
+        const hardware =
+            document.getElementById(
+                "nativeDvbHardwareStatus"
+            );
+
+        const mapStatus =
+            document.getElementById(
+                "nativeDvbMapStatus"
+            );
+
+        const scanStatus =
+            document.getElementById(
+                "nativeDvbScanStatus"
+            );
+
+        const button =
+            document.getElementById(
+                "nativeDvbScanButton"
+            );
+
+        try {
+            const response = await fetch(
+                "/api/native-dvb/status",
+                {
+                    cache: "no-store",
+                }
+            );
+
+            const state =
+                await response.json();
+
+            if (
+                !response.ok
+                || state.ok === false
+            ) {
+                throw new Error(
+                    state.error
+                    || "Unable to load Native DVB status"
+                );
+            }
+
+            const adapterCount =
+                Number(
+                    state.adapter_count || 0
+                );
+
+            const mappedChannels =
+                Number(
+                    state.mapped_channels || 0
+                );
+
+            if (hardware) {
+                hardware.textContent =
+                    adapterCount > 0
+                        ? `${adapterCount} Native DVB tuner${adapterCount === 1 ? "" : "s"} detected.`
+                        : "No PCIe / Native DVB hardware detected.";
+            }
+
+            if (mapStatus) {
+                mapStatus.textContent =
+                    mappedChannels > 0
+                        ? `${mappedChannels} mapped channels available.`
+                        : "No Native DVB channel map has been created yet.";
+            }
+
+            if (button) {
+                button.disabled =
+                    adapterCount === 0
+                    || state.running === true;
+
+                button.textContent =
+                    state.running === true
+                        ? "Scanning PCIe / Native DVB..."
+                        : "Scan PCIe / Native DVB Channels";
+            }
+
+            if (scanStatus) {
+                if (
+                    state.stage === "error"
+                ) {
+                    scanStatus.textContent =
+                        state.error
+                        || "Native DVB scan failed.";
+                } else if (
+                    state.running === true
+                ) {
+                    scanStatus.textContent =
+                        state.message
+                        || "Scanning channels...";
+                } else if (
+                    state.stage === "complete"
+                ) {
+                    scanStatus.textContent =
+                        `${state.channel_count || mappedChannels} channels found`
+                        + (
+                            state.frequency_count
+                                ? ` on ${state.frequency_count} active frequencies.`
+                                : "."
+                        );
+                } else {
+                    scanStatus.textContent = "";
+                }
+            }
+
+            if (
+                state.running === true
+                && !nativeDvbScanPollTimer
+            ) {
+                nativeDvbScanPollTimer =
+                    window.setInterval(
+                        loadNativeDvbStatus,
+                        3000
+                    );
+            }
+
+            if (
+                state.running !== true
+                && nativeDvbScanPollTimer
+            ) {
+                window.clearInterval(
+                    nativeDvbScanPollTimer
+                );
+
+                nativeDvbScanPollTimer = null;
+            }
+
+        } catch (error) {
+            console.error(
+                "Unable to load Native DVB status:",
+                error
+            );
+
+            if (scanStatus) {
+                scanStatus.textContent =
+                    error.message
+                    || "Unable to load Native DVB status.";
+            }
+        }
+    }
+
+
+    async function startNativeDvbScan() {
+        const button =
+            document.getElementById(
+                "nativeDvbScanButton"
+            );
+
+        const scanStatus =
+            document.getElementById(
+                "nativeDvbScanStatus"
+            );
+
+        if (button) {
+            button.disabled = true;
+            button.textContent =
+                "Starting Native DVB scan...";
+        }
+
+        if (scanStatus) {
+            scanStatus.textContent =
+                "Starting channel scan. This may take several minutes.";
+        }
+
+        try {
+            const response = await fetch(
+                "/api/native-dvb/scan",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                    },
+                    body: JSON.stringify({
+                        country: "US",
+                    }),
+                }
+            );
+
+            const result =
+                await response.json();
+
+            if (
+                !response.ok
+                || result.ok === false
+            ) {
+                throw new Error(
+                    result.error
+                    || "Unable to start Native DVB scan"
+                );
+            }
+
+            await loadNativeDvbStatus();
+
+            if (!nativeDvbScanPollTimer) {
+                nativeDvbScanPollTimer =
+                    window.setInterval(
+                        loadNativeDvbStatus,
+                        3000
+                    );
+            }
+
+        } catch (error) {
+            console.error(
+                "Unable to start Native DVB scan:",
+                error
+            );
+
+            if (scanStatus) {
+                scanStatus.textContent =
+                    error.message
+                    || "Unable to start Native DVB scan.";
+            }
+
+            if (button) {
+                button.disabled = false;
+                button.textContent =
+                    "Scan PCIe / Native DVB Channels";
+            }
+        }
+    }
+
+
+    function tunerModeFromState(state) {
+        const hdhr =
+            state?.hdhomerun_enabled === true;
+
+        const dvb =
+            state?.native_dvb_enabled === true;
+
+        if (hdhr && dvb) {
+            return "both";
+        }
+
+        if (dvb && !hdhr) {
+            return "native_dvb";
+        }
+
+        return "hdhomerun";
+    }
+
+    function updateTunerModeUi(state) {
+        const select =
+            document.getElementById(
+                "tunerModeSelect"
+            );
+
+        const status =
+            document.getElementById(
+                "tunerModeStatus"
+            );
+
+        if (!select) {
+            return;
+        }
+
+        const mode =
+            tunerModeFromState(state);
+
+        if (select.value !== mode) {
+            select.value = mode;
+        }
+
+        if (status) {
+            if (mode === "both") {
+                status.textContent =
+                    "HDHomeRun and PCIe / Native DVB are enabled.";
+            } else if (
+                mode === "native_dvb"
+            ) {
+                status.textContent =
+                    "PCIe / Native DVB only.";
+            } else {
+                status.textContent =
+                    "HDHomeRun only.";
+            }
+        }
+    }
+
+
+    async function setTunerSourceEnabled(
+        source,
+        enabled
+    ) {
+        const response = await fetch(
+            `/api/tuner-sources/${encodeURIComponent(source)}/enabled`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type":
+                        "application/json",
+                    "Accept":
+                        "application/json",
+                },
+                body: JSON.stringify({
+                    enabled: Boolean(enabled),
+                }),
+            }
+        );
+
+        const data = await response.json();
+
+        if (
+            !response.ok
+            || data.ok === false
+        ) {
+            throw new Error(
+                data.error
+                || "Unable to update tuner source"
+            );
+        }
+
+        return data;
+    }
+
+
+    async function setTunerMode(mode) {
+        const select =
+            document.getElementById(
+                "tunerModeSelect"
+            );
+
+        if (select) {
+            select.disabled = true;
+        }
+
+        try {
+            if (mode === "hdhomerun") {
+
+                await setTunerSourceEnabled(
+                    "hdhomerun",
+                    true
+                );
+
+                await setTunerSourceEnabled(
+                    "native_dvb",
+                    false
+                );
+
+            } else if (
+                mode === "native_dvb"
+            ) {
+
+                await setTunerSourceEnabled(
+                    "native_dvb",
+                    true
+                );
+
+                await setTunerSourceEnabled(
+                    "hdhomerun",
+                    false
+                );
+
+            } else if (
+                mode === "both"
+            ) {
+
+                await setTunerSourceEnabled(
+                    "hdhomerun",
+                    true
+                );
+
+                await setTunerSourceEnabled(
+                    "native_dvb",
+                    true
+                );
+
+            } else {
+                throw new Error(
+                    "Unknown tuner mode"
+                );
+            }
+
+            const stateResponse =
+                await fetch(
+                    "/api/tuner-sources",
+                    {
+                        cache: "no-store",
+                    }
+                );
+
+            const state =
+                await stateResponse.json();
+
+            updateTunerModeUi(state);
+
+        } catch (error) {
+            window.alert(
+                error.message
+                || "Unable to change tuner mode"
+            );
+
+        } finally {
+            if (select) {
+                select.disabled = false;
+            }
+        }
+    }
+
+
+    async function loadTunerMode() {
+        try {
+            const response =
+                await fetch(
+                    "/api/tuner-sources",
+                    {
+                        cache: "no-store",
+                    }
+                );
+
+            const state =
+                await response.json();
+
+            if (
+                !response.ok
+                || state.ok === false
+            ) {
+                throw new Error(
+                    state.error
+                    || "Unable to load tuner mode"
+                );
+            }
+
+            updateTunerModeUi(state);
+
+        } catch (error) {
+            console.error(
+                "Unable to load tuner mode:",
+                error
+            );
+        }
+    }
+
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        function() {
+            loadTunerMode();
+            loadNativeDvbStatus();
+        }
+    );
+
+</script>
+
+{% endblock %}

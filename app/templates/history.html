@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}SignalDVR Recording History{% endblock %}
+
+{% block head %}
+<style>
+    .history-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+
+    .history-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .history-actions form {
+        margin: 0;
+    }
+
+    .history-button {
+        appearance: none;
+        border: 1px solid #444;
+        background: #252525;
+        color: #f4f4f4;
+        padding: 10px 16px;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .history-button:hover,
+    .history-button:focus-visible {
+        border-color: #4da3ff;
+        background: #303030;
+        outline: none;
+    }
+
+    .history-button.danger {
+        border-color: #7a2a2a;
+        background: #3a1d1d;
+    }
+
+    .history-button.danger:hover,
+    .history-button.danger:focus-visible {
+        border-color: #ff5555;
+        background: #512323;
+    }
+
+    .history-grid {
+        display: grid;
+        gap: 18px;
+    }
+
+    .history-card {
+        background: #1d1d1d;
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 20px;
+        transition: .2s;
+    }
+
+    .history-card:hover {
+        transform: translateY(-2px);
+        border-color: #4da3ff;
+    }
+
+    .recording {
+        border-left: 6px solid #ff5555;
+    }
+
+    .recorded {
+        border-left: 6px solid #55ff88;
+    }
+
+    .scheduled {
+        border-left: 6px solid #4da3ff;
+    }
+
+    .expired {
+        border-left: 6px solid #ffaa33;
+    }
+
+    .failed {
+        border-left: 6px solid #d93025;
+    }
+
+    .title {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 8px;
+    }
+
+    .subtitle {
+        color: #bbb;
+        margin-bottom: 14px;
+        font-style: italic;
+    }
+
+    .meta {
+        color: #ddd;
+        line-height: 1.8;
+    }
+
+    .label {
+        color: #888;
+        display: inline-block;
+        width: 90px;
+        font-weight: bold;
+    }
+
+    .empty {
+        text-align: center;
+        padding: 60px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="history-header">
+    <h1>📜 Recording History</h1>
+
+    {% if history %}
+    <div class="history-actions">
+        <form method="post" action="/history/clear-completed"
+            onsubmit="return confirm('Clear completed recording history? Failed and expired entries will be kept.');">
+            <button class="history-button" type="submit">
+                Clear Completed
+            </button>
+        </form>
+
+        <form method="post" action="/history/clear-all"
+            onsubmit="return confirm('Clear all recording history? This cannot be undone.');">
+            <button class="history-button danger" type="submit">
+                Clear All History
+            </button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<div class="history-grid">
+
+    {% for h in history %}
+
+    {% set status = (h["status"] or "")|trim %}
+
+    <div class="history-card
+        {% if status.startswith('Failed') %}
+            failed
+        {% elif status == 'Recording' %}
+            recording
+        {% elif status in ('Recorded', 'Completed') %}
+            recorded
+        {% elif status == 'Scheduled' %}
+            scheduled
+        {% elif status == 'Expired' %}
+            expired
+        {% endif %}">
+
+        <div class="title">
+            {{ h["title"] }}
+        </div>
+
+        {% if h["subtitle"] %}
+        <div class="subtitle">
+            {{ h["subtitle"] }}
+        </div>
+        {% endif %}
+
+        <div class="meta">
+            <div>
+                <span class="label">Status</span>
+                {{ h["status"]|status_badge }}
+            </div>
+
+            <div>
+                <span class="label">Channel</span>
+                {{ h["channel"] }}
+            </div>
+
+            <div>
+                <span class="label">Time</span>
+                {{ h["start"]|tvtime }} — {{ h["stop"]|tvtime }}
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+
+    <div class="card empty">
+        <h2>No Recording History</h2>
+        <p>Completed, failed, and expired recordings will appear here.</p>
+    </div>
+
+    {% endfor %}
+
+</div>
+
+{% endblock %}

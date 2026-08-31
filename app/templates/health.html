@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}SignalDVR Health{% endblock %}
+
+{% block head %}
+<meta http-equiv="refresh" content="30">
+
+<style>
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 18px;
+    }
+
+    .health-card {
+        background: #1d1d1d;
+        border: 1px solid #333;
+        border-left: 6px solid #55ff88;
+        border-radius: 12px;
+        padding: 18px;
+    }
+
+    .warn {
+        border-left-color: #ffb300;
+    }
+
+    .bad {
+        border-left-color: #d93025;
+    }
+
+    .big {
+        font-size: 34px;
+        font-weight: bold;
+        margin: 10px 0;
+    }
+
+    .muted {
+        color: #aaa;
+    }
+
+    .bar {
+        background: #333;
+        border-radius: 12px;
+        overflow: hidden;
+        height: 14px;
+        margin: 12px 0;
+    }
+
+    .fill {
+        background: #55ff88;
+        height: 14px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<h1>🩺 System Health</h1>
+
+<div class="grid">
+
+    <div class="health-card">
+
+        <h2>Service</h2>
+
+        <div class="big">🟢 Online</div>
+
+        <div class="muted">
+            Auto refresh every 30 seconds
+        </div>
+
+    </div>
+
+    <div class="health-card">
+
+        <h2>Guide Database</h2>
+
+        <div class="big">
+            {{ program_count }}
+        </div>
+
+        <div class="muted">
+            Programs indexed
+        </div>
+
+    </div>
+
+    <div class="health-card">
+
+        {% set used_pct=((disk.used/disk.total)*100)|round(1) %}
+
+        <h2>Recording Storage</h2>
+
+        <div class="big">
+            {{ used_pct }}%
+        </div>
+
+        <div class="bar">
+            <div class="fill" style="width:{{ used_pct }}%;">
+            </div>
+        </div>
+
+        <div>
+
+            <b>Free:</b>
+
+            {{ "%.1f"|format(disk.free/1024/1024/1024) }} GB
+
+            <br><br>
+
+            <b>Total:</b>
+
+            {{ "%.1f"|format(disk.total/1024/1024/1024) }} GB
+
+        </div>
+
+    </div>
+
+    <div class="health-card {% if not next_recording %}warn{% endif %}">
+
+        <h2>Next Recording</h2>
+
+        {% if next_recording %}
+
+        <div class="big">
+            {{ next_recording["title"] }}
+        </div>
+
+        <div>
+
+            Channel {{ next_recording["channel"] }}
+
+            <br><br>
+
+            {{ next_recording["start"]|tvtime }}
+
+            -
+
+            {{ next_recording["stop"]|tvtime }}
+
+        </div>
+
+        {% else %}
+
+        <div class="big">
+            None
+        </div>
+
+        <div class="muted">
+
+            No upcoming scheduled recordings.
+
+        </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+{% endblock %}
