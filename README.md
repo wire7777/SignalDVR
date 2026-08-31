@@ -56,7 +56,7 @@ SignalDVR supports two OTA tuner sources.
 
 HDHomeRun network tuners are discovered and accessed over the local network.
 
-SignalDVR can use one or more available HDHomeRun tuner slots for live television and recordings.
+SignalDVR can use available HDHomeRun tuner slots for live television and recordings.
 
 ### Native Linux DVB
 
@@ -109,17 +109,16 @@ Tuner sources can be enabled or disabled independently from the SignalDVR Settin
 
 Use **Docker Engine from Docker's official repository** with the Compose plugin.
 
-The Snap Docker package is not supported because its confinement can block bind mounts and external recording storage.
+The Snap Docker package is not recommended because its confinement can interfere with bind mounts and external recording storage.
 
 Native DVB tuner passthrough requires a Linux Docker host with the tuner hardware available under `/dev/dvb`.
 
 ## Docker installation
 
-Clone the branch you want to test. Until Docker testing is merged into `main`, use the beta branch:
+Clone the SignalDVR repository:
 
 ```bash
-git clone --branch beta/playback-engine-v2 \
-  https://github.com/wire7777/SignalDVR.git
+git clone https://github.com/wire7777/SignalDVR.git
 cd SignalDVR
 ```
 
@@ -164,7 +163,7 @@ docker compose ps
 
 ## Native DVB tuners with Docker
 
-The normal Docker configuration does not require `/dev/dvb`. This allows SignalDVR to run normally on systems that only use HDHomeRun network tuners.
+The standard Docker configuration does not require `/dev/dvb`. This allows SignalDVR to run normally on systems using only HDHomeRun network tuners.
 
 Native DVB hardware requires access to the Linux host's DVB devices.
 
@@ -203,7 +202,7 @@ A four-tuner PCIe card, for example, may expose:
 /dev/dvb/adapter3
 ```
 
-SignalDVR can then allocate those adapters independently for live TV and recording sessions.
+SignalDVR can allocate those adapters independently for live TV and recording sessions.
 
 PCIe DVB passthrough is intended for Linux Docker hosts. Docker Desktop on Windows can be used with HDHomeRun network tuners but is not a practical target for direct PCIe DVB tuner access.
 
@@ -251,27 +250,25 @@ Docker automatically includes the application dependencies required by SignalDVR
 
 You do not need to install FFmpeg on the Docker host.
 
-The Docker image uses 8 Waitress web threads by default. This is a safe general-purpose setting and does not control FFmpeg process count.
+The Docker image uses 8 Waitress web threads by default. This setting controls web request handling and does not control the number of FFmpeg processes.
 
-Override it in `.env` with:
+For very small systems, it can be overridden in `.env`:
 
 ```dotenv
 SIGNALDVR_WEB_THREADS=4
 ```
 
-for very small systems, or approximately:
+Larger installations with many clients can use a higher value such as:
 
 ```dotenv
 SIGNALDVR_WEB_THREADS=12
 ```
 
-to:
+or:
 
 ```dotenv
 SIGNALDVR_WEB_THREADS=16
 ```
-
-for larger installations with many clients.
 
 See [DOCKER.md](DOCKER.md) for additional Docker notes.
 
@@ -300,9 +297,7 @@ If you are only using native DVB hardware, the HDHomeRun utilities are not requi
 Clone SignalDVR:
 
 ```bash
-git clone --branch beta/playback-engine-v2 \
-  https://github.com/wire7777/SignalDVR.git
-
+git clone https://github.com/wire7777/SignalDVR.git
 cd SignalDVR
 ```
 
@@ -378,7 +373,7 @@ which dvbv5-scan
 which w_scan_cpp
 ```
 
-SignalDVR uses `dvbv5-zap` for native tuner operation and `w_scan_cpp`/DVB scanning tools for channel discovery.
+SignalDVR uses `dvbv5-zap` for native tuner operation and DVB scanning tools for channel discovery.
 
 Use the SignalDVR **Settings** page to:
 
@@ -530,7 +525,7 @@ The Android application communicates with the SignalDVR backend over the local n
 
 Configure the SignalDVR server address and port in the Android application's Settings page.
 
-The Android application is developed independently from the Python server code and may have its own beta development branch.
+Android TV development is maintained separately from the server `main` branch.
 
 ## Storage model
 
@@ -673,11 +668,39 @@ When troubleshooting playback, determine whether the issue originates from:
 
 SignalDVR intentionally keeps these layers separate so playback problems can be isolated without unnecessarily changing unrelated components.
 
-## Development rules
+## Development
 
 SignalDVR's playback engine, delayed-live behavior, Media3 compatibility, guide navigation, tuner allocation, native DVB handling, and Background DVR lifecycle are actively used and should be changed carefully.
 
 Prefer focused changes over wholesale file replacements.
+
+### Server branch
+
+The current SignalDVR server is maintained on:
+
+```text
+main
+```
+
+Server installations should normally clone:
+
+```bash
+git clone https://github.com/wire7777/SignalDVR.git
+```
+
+### Android TV development
+
+Android TV development is maintained separately from the server `main` branch.
+
+The current Android development branch is:
+
+```text
+beta/playback-engine-v2
+```
+
+This branch is intended for Android application development and should not be used as the normal Linux/Docker server installation branch.
+
+### Backend checks
 
 Before committing backend changes:
 
@@ -707,6 +730,8 @@ Check Git whitespace/errors:
 ```bash
 git diff --check
 ```
+
+### Docker checks
 
 Before committing Docker changes:
 
