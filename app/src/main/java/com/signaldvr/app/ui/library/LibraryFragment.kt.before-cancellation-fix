@@ -1,4 +1,4 @@
-package com.signaldvr.app.ui.library
+﻿package com.signaldvr.app.ui.library
 
 import android.animation.ObjectAnimator
 import android.app.AlertDialog
@@ -245,13 +245,13 @@ class LibraryFragment : Fragment() {
 
                 summaryText.text = buildString {
                     append("Recording ${recordingNow.size}")
-                    append("  ·  Today ${today.size}")
-                    append("  ·  Yesterday ${yesterday.size}")
+                    append("  Â·  Today ${today.size}")
+                    append("  Â·  Yesterday ${yesterday.size}")
                     if (earlier.isNotEmpty()) {
-                        append("  ·  Earlier ${earlier.size}")
+                        append("  Â·  Earlier ${earlier.size}")
                     }
-                    append("  ·  Saved ${savedPrograms.size}")
-                    append("  ·  Recorded ${recorded.size}")
+                    append("  Â·  Saved ${savedPrograms.size}")
+                    append("  Â·  Recorded ${recorded.size}")
                 }
 
                 val sections = buildList {
@@ -355,14 +355,11 @@ class LibraryFragment : Fragment() {
                     }
                 }
 
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                // Normal lifecycle/refresh cancellation is not a server failure.
-                throw e
             } catch (e: Exception) {
                 loading.visibility = View.GONE
                 errorText.visibility = View.VISIBLE
                 errorText.text =
-                    "Could not load DVR Library:\n${e.message}\n\nCheck Settings → Server URL"
+                    "Could not load DVR Library:\n${e.message}\n\nCheck Settings â†’ Server URL"
             } finally {
                 loadJob = null
 
@@ -470,7 +467,7 @@ class LibraryFragment : Fragment() {
                             Toast.makeText(
                                 requireContext(),
                                 if (percent > 0) {
-                                    "$step — $percent%"
+                                    "$step â€” $percent%"
                                 } else {
                                     step
                                 },
@@ -1527,7 +1524,7 @@ class LibraryProgramAdapter(
                     if (hasFocus) Color.WHITE
                     else Color.rgb(189, 189, 189)
                 )
-                hint.text = if (hasFocus) "▶ OK Watch   •   Hold OK Options" else "OK Watch"
+                hint.text = if (hasFocus) "â–¶ OK Watch   â€¢   Hold OK Options" else "OK Watch"
 
                 artwork.animate()
                     .alpha(if (hasFocus) 1.0f else 0.88f)
@@ -1564,21 +1561,21 @@ class LibraryProgramAdapter(
             badge.text = when {
                 program.type.equals("recording", ignoreCase = true) &&
                         processingStatus == "ready" ->
-                    "● READY"
+                    "â— READY"
 
                 program.type.equals("recording", ignoreCase = true) &&
                         processingStatus in setOf("pending", "processing") -> {
                     val percent = program.processingPercent.coerceIn(0, 100)
-                    if (percent > 0) "● PROCESSING $percent%" else "● PROCESSING"
+                    if (percent > 0) "â— PROCESSING $percent%" else "â— PROCESSING"
                 }
 
                 program.type.equals("recording", ignoreCase = true) &&
                         processingStatus == "failed" ->
-                    "● FAILED"
+                    "â— FAILED"
 
                 program.status.equals("recording", ignoreCase = true) ||
                         program.status.equals("active", ignoreCase = true) ->
-                    if (isActiveRecording) "● RECORDING NOW" else "● RECORDING"
+                    if (isActiveRecording) "â— RECORDING NOW" else "â— RECORDING"
 
                 program.isNew -> "NEW"
                 program.isRepeat -> "REPEAT"
@@ -1708,7 +1705,7 @@ class LibraryProgramAdapter(
                 metadata += "${program.segmentCount} segments"
             }
 
-            meta.text = metadata.joinToString("  •  ")
+            meta.text = metadata.joinToString("  â€¢  ")
 
             description.text =
                 when {
@@ -1744,9 +1741,9 @@ class LibraryProgramAdapter(
                             .coerceAtLeast(0)
                     resumeText.text = buildString {
                         append(activeProgress.elapsedMinutes)
-                        append(" min elapsed  •  ")
+                        append(" min elapsed  â€¢  ")
                         append(remaining)
-                        append(" min remaining  •  ")
+                        append(" min remaining  â€¢  ")
                         append(activeProgress.percent)
                         append('%')
                     }
@@ -1770,7 +1767,7 @@ class LibraryProgramAdapter(
                         append("Resume at ")
                         append(formatDuration(position))
                         if (percent > 0) {
-                            append("  ·  ")
+                            append("  Â·  ")
                             append(percent)
                             append('%')
                         }
@@ -1791,7 +1788,7 @@ class LibraryProgramAdapter(
 
                 program.type.equals("recording", ignoreCase = true) &&
                         processingStatus in setOf("pending", "processing") ->
-                    "Preparing playback…\nHold OK: Options"
+                    "Preparing playbackâ€¦\nHold OK: Options"
 
                 program.type.equals("recording", ignoreCase = true) &&
                         processingStatus == "failed" ->
@@ -2034,7 +2031,7 @@ class LibraryProgramAdapter(
             return when {
                 startLabel.isNotBlank() &&
                         stopLabel.isNotBlank() ->
-                    "$startLabel → $stopLabel"
+                    "$startLabel â†’ $stopLabel"
 
                 startLabel.isNotBlank() ->
                     startLabel
